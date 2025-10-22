@@ -8,7 +8,7 @@ const plans = [
     name: "Free",
     price: "₹0",
     period: "forever",
-    description: "Perfect for trying out StudyGenius",
+    description: "Perfect for trying out LastMinutePreparation",
     features: [
       "3 uploads per day",
       "Basic AI summaries",

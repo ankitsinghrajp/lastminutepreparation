@@ -24,8 +24,8 @@ const features = [
   },
   {
     icon: Calendar,
-    title: "Revision Planner",
-    description: "Get personalized 7-day study plans with progress tracking and daily reminders.",
+    title: "Previous Year Question Papers",
+    description: "Get previous 10 years Question Papers to score 99% in your boards.",
   },
   {
     icon: Zap,

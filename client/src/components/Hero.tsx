@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import heroIllustration from "@/assets/hero-illustration.png";
 
@@ -17,7 +17,7 @@ export const Hero = () => {
           <div className="text-center lg:text-left space-y-8">
             <div className="inline-flex items-center space-x-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
               <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-primary">AI-Powered Study Assistant</span>
+              <span className="text-sm font-medium text-primary">AI-Powered CBSE Study Assistant</span>
             </div>
             
             <h1 className="text-5xl lg:text-7xl font-bold leading-tight">
@@ -28,9 +28,15 @@ export const Hero = () => {
             </h1>
             
             <p className="text-xl text-muted-foreground max-w-2xl">
-              Transform your notes into AI-powered summaries, get personalized revision plans, 
-              and ace your exams with intelligent question predictions.
+              Upload your CBSE notes, PDFs, or topics — get AI summaries, important questions, and personalized revision plans instantly.
             </p>
+
+             <div className="flex items-center justify-start gap-2 py-2">
+                <Zap className="w-5 h-5 text-accent animate-glow-pulse" />
+                <p className="text-md md:text-md font-semibold text-accent">
+                  Trained on 20 Years of CBSE Question Papers & Exam Patterns
+                </p>
+              </div>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Button size="lg" className="gradient-primary border-0 text-lg h-14 px-8 glow-primary" asChild>
@@ -44,17 +50,7 @@ export const Hero = () => {
                 </Link>
               </Button>
             </div>
-            
-            <div className="flex items-center gap-8 justify-center lg:justify-start text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-green-500" />
-                <span>No credit card required</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-green-500" />
-                <span>Free forever plan</span>
-              </div>
-            </div>
+     
           </div>
           
           <div className="relative">

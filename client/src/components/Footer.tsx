@@ -12,7 +12,7 @@ export const Footer = () => {
                 <Sparkles className="h-5 w-5 text-white" />
               </div>
               <span className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                StudyGenius
+                LastMinutePreparation
               </span>
             </Link>
             <p className="text-sm text-muted-foreground">
@@ -41,15 +41,15 @@ export const Footer = () => {
           <div>
             <h3 className="font-semibold mb-4">Legal</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">Terms of Service</a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">Cookie Policy</a></li>
+              <li><a href="privacy-policy" className="hover:text-foreground transition-colors">Privacy Policy</a></li>
+              <li><a href="terms-of-service" className="hover:text-foreground transition-colors">Terms of Service</a></li>
+              <li><a href="cookie-policy" className="hover:text-foreground transition-colors">Cookie Policy</a></li>
             </ul>
           </div>
         </div>
         
         <div className="mt-12 pt-8 border-t border-border/50 text-center text-sm text-muted-foreground">
-          <p>© 2025 StudyGenius. All rights reserved.</p>
+          <p>© 2025 LastMinutePreparation. All rights reserved.</p>
         </div>
       </div>
     </footer>

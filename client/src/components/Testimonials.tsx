@@ -5,7 +5,7 @@ const testimonials = [
   {
     name: "Priya Sharma",
     role: "12th Grade Student",
-    content: "StudyGenius helped me score 95% in my boards! The AI summaries and question predictions were spot-on. I saved hours of study time.",
+    content: "LastMinutePreparation helped me score 95% in my boards! The AI summaries and question predictions were spot-on. I saved hours of study time.",
     rating: 5,
   },
   {
@@ -17,13 +17,13 @@ const testimonials = [
   {
     name: "Dr. Anita Desai",
     role: "Professor",
-    content: "I recommend StudyGenius to all my students. The revision planner ensures they stay on track, and the AI-generated questions are excellent for exam prep.",
+    content: "I recommend LastMinutePreparation to all my students. The revision planner ensures they stay on track, and the AI-generated questions are excellent for exam prep.",
     rating: 5,
   },
   {
     name: "Amit Kumar",
     role: "Medical Student",
-    content: "Preparing for NEET was overwhelming until I found StudyGenius. The unlimited uploads and advanced summaries in premium are worth every rupee.",
+    content: "Preparing for NEET was overwhelming until I found LastMinutePreparation. The unlimited uploads and advanced summaries in premium are worth every rupee.",
     rating: 5,
   },
 ];
@@ -40,7 +40,7 @@ export const Testimonials = () => {
             </span>
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            See what students and educators are saying about StudyGenius.
+            See what students and educators are saying about LastMinutePreparation.
           </p>
         </div>
         

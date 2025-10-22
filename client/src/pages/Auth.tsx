@@ -33,7 +33,7 @@ export default function Auth() {
                 <Sparkles className="h-6 w-6 text-white" />
               </div>
               <span className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                StudyGenius
+                LastMinutePreparation
               </span>
             </Link>
             <h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
