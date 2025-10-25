@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
 import { BookOpen, Loader2, Brain, FileText, Lightbulb, AlertCircle, Copy, BookmarkPlus } from "lucide-react";
 import { toast } from "sonner";
+import { Footer } from "@/components/Footer";
 
 const classes = ["9th", "10th", "11th", "12th"];
 const subjects = {
@@ -389,6 +390,7 @@ Good luck with your preparation! 🌟`;
           </div>
         </div>
       </div>
+      <Footer/>
     </div>
   );
 }

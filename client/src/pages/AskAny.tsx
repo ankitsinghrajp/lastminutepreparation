@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
 import { MessageCircle, Upload, Loader2, Bot, Image as ImageIcon, X, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { Footer } from "@/components/Footer";
 
 export default function AskAnyQuestion() {
   const [question, setQuestion] = useState("");
@@ -274,6 +275,7 @@ export default function AskAnyQuestion() {
           </div>
         </div>
       </div>
+      <Footer/>
     </div>
   );
 }

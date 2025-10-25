@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
 import { HelpCircle, Upload, Loader2, Copy, Download, Shuffle, BookmarkPlus, Trash2, FileCheck, Zap, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { Footer } from "@/components/Footer";
 
 const classes = ["9th", "10th", "11th", "12th"];
 const subjects = {
@@ -600,6 +601,7 @@ export default function ImportantQuestions() {
           </Card>
         )}
       </div>
+      <Footer/>
     </div>
   );
 }

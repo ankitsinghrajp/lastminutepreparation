@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
 import { Sparkles, Upload, Loader2, FileText, Copy, Download, Lightbulb, HelpCircle, Trash2, FileCheck, BookmarkPlus } from "lucide-react";
 import { toast } from "sonner";
+import { Footer } from "@/components/Footer";
 
 const detailLevels = ["Short", "Medium", "Detailed"];
 
@@ -526,6 +527,7 @@ Key takeaways include mastery of fundamental principles, proficiency in problem-
           </Card>
         )}
       </div>
+      <Footer/>
     </div>
   );
 }

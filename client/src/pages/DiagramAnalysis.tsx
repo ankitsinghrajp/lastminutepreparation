@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
 import { Scan, Upload, Loader2, Lightbulb, CheckCircle2, X, FileImage, Zap } from "lucide-react";
 import { toast } from "sonner";
+import { Footer } from "@/components/Footer";
 
 export default function DiagramAnalysis() {
   const [file, setFile] = useState<File | null>(null);
@@ -80,7 +81,7 @@ export default function DiagramAnalysis() {
     <div className="min-h-screen bg-background">
       <Navbar />
       
-      <div className="container mx-auto px-4 py-20 max-w-4xl">
+      <div className="container mx-auto px-4 py-20 max-w-7xl">
         {/* Header Section */}
         <div className="text-center mb-8 space-y-3">
           <div className="flex items-center justify-center gap-3 mb-3">
@@ -275,6 +276,7 @@ export default function DiagramAnalysis() {
           </div>
         </Card>
       </div>
+      <Footer/>
     </div>
   );
 }

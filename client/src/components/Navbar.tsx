@@ -8,22 +8,10 @@ export const Navbar = () => {
         <div className="flex h-16 items-center justify-between">
           <Link to="/" className="flex items-center space-x-2">
      
-            <span className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            <span className="text-md md:text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               LastMinutePreparation
             </span>
           </Link>
-          
-          <div className="hidden md:flex items-center space-x-8">
-            <Link to="/features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              Features
-            </Link>
-            <a href="#pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              Pricing
-            </a>
-            <a href="#testimonials" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              Testimonials
-            </a>
-          </div>
           
           <div className="flex items-center space-x-3">
       

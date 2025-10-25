@@ -1,13 +1,14 @@
 import { Card } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
 import { Shield, Lock, Eye, Database, UserCheck, FileText, Mail, AlertCircle } from "lucide-react";
+import { Footer } from "@/components/Footer";
 
 export default function PrivacyPolicyPage() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       
-      <div className="container mx-auto px-4 py-20 sm:py-24 max-w-4xl">
+      <div className="container mx-auto px-4 py-20 sm:py-24 max-w-7xl">
         <div className="text-center mb-8 sm:mb-12 space-y-3 sm:space-y-4">
           <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
             <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
@@ -374,6 +375,7 @@ export default function PrivacyPolicyPage() {
           </div>
         </div>
       </div>
+      <Footer/>
     </div>
   );
 }

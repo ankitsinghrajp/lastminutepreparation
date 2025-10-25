@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
 import { FileText, Upload, Send, Loader2, Bot, User, Download, BookmarkPlus, Trash2, FileCheck } from "lucide-react";
 import { toast } from "sonner";
+import { Footer } from "@/components/Footer";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -394,6 +395,7 @@ export default function ChatWithPDF() {
           </div>
         )}
       </div>
+      <Footer/>
     </div>
   );
 }

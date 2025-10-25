@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
 import { BookOpen, Search, Loader2, Copy, Download, BookmarkPlus, Filter, Star, Calendar } from "lucide-react";
 import { toast } from "sonner";
+import { Footer } from "@/components/Footer";
 
 const classes = ["9th", "10th", "11th", "12th"];
 const subjects = {
@@ -502,6 +503,7 @@ export default function PreviousYearQuestions() {
           </div>
         </div>
       </div>
+      <Footer/>
     </div>
   );
 }
