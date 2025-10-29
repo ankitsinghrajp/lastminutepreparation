@@ -22,7 +22,7 @@ const plans = [
   },
   {
     name: "Premium",
-    price: "₹299",
+    price: "₹199",
     period: "per month",
     description: "Unlimited power for serious students",
     features: [
