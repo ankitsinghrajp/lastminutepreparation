@@ -3,7 +3,9 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 
 const corsOptions = {
-    origin:process.env.FRONTEND_URL,
+    origin:["http://localhost:5173",
+        process.env.FRONTEND_URL
+    ],
     credentials:true
 }
 
@@ -17,7 +19,10 @@ app.use(cookieParser());
 
 // Import routes 
 import userRoutes from "./src/routes/user.route.js";
+import authRoutes from "./src/routes/auth.route.js";
 
+
+// Configure routes
 app.use("/api/v1/user",userRoutes);
-
+app.use("/api/auth",authRoutes);
 export {app};
