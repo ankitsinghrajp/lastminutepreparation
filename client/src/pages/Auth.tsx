@@ -100,7 +100,7 @@ export default function Auth() {
                     <Input
                       id="signup-name"
                       type="text"
-                      placeholder="John Doe"
+                      placeholder="your name"
                       required
                       className="bg-background/50"
                     />
