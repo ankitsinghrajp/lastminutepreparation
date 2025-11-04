@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
-import { BookOpen, Search, Loader2, Copy, Download, BookmarkPlus, Filter, Star, Calendar } from "lucide-react";
+import { BookOpen, Search, Loader2, Copy, BookmarkPlus, Filter, Star, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { Footer } from "@/components/Footer";
 
@@ -42,13 +41,10 @@ export default function PreviousYearQuestions() {
   const [selectedClass, setSelectedClass] = useState("12th");
   const [selectedSubject, setSelectedSubject] = useState("Physics");
   const [selectedChapter, setSelectedChapter] = useState("Electrostatics");
-  const [searchTopic, setSearchTopic] = useState("");
   const [selectedYear, setSelectedYear] = useState("All Years");
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedQuestion, setExpandedQuestion] = useState<number | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
-
   const handleFetchQuestions = async () => {
     setLoading(true);
     
@@ -264,17 +260,6 @@ export default function PreviousYearQuestions() {
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row gap-3 mb-4">
-            <div className="flex-1">
-              <Input
-                placeholder="🔍 Search by topic or keyword (optional)..."
-                value={searchTopic}
-                onChange={(e) => setSearchTopic(e.target.value)}
-                className="bg-background/50"
-              />
-            </div>
-          </div>
-
           <div className="flex flex-wrap gap-3">
             <Button
               onClick={handleFetchQuestions}
@@ -304,15 +289,6 @@ export default function PreviousYearQuestions() {
               Copy All
             </Button>
 
-            <Button
-              onClick={handleDownloadPDF}
-              disabled={questions.length === 0}
-              variant="outline"
-              className="flex-none"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download PDF
-            </Button>
           </div>
         </Card>
 

@@ -20,9 +20,11 @@ app.use(cookieParser());
 // Import routes 
 import userRoutes from "./src/routes/user.route.js";
 import authRoutes from "./src/routes/auth.route.js";
+import pyqRoutes from "./src/routes/pyq.route.js";
 
 
 // Configure routes
 app.use("/api/v1/user",userRoutes);
 app.use("/api/auth",authRoutes);
+app.use("/api/v1/pyq",pyqRoutes);
 export {app};

@@ -40,9 +40,9 @@ export const Hero = () => {
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Button size="lg" className="gradient-primary border-0 text-lg h-14 px-8 glow-primary" asChild>
-                <Link to="/features">
+                <a href="#tools">
                   Explore Features <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
+                </a>
               </Button>
               <Button size="lg" variant="outline" className="text-lg h-14 px-8 border-primary/30 hover:bg-primary/10" asChild>
                 <Link to="/auth">

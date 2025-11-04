@@ -4,28 +4,31 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { GoogleOAuthProvider } from "@react-oauth/google"; // ✅ import this
-
+import { lazy, Suspense } from "react";
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
-import FeaturesHub from "./pages/FeaturesHub";
-import AIChat from "./pages/AIChat";
-import ImportantQuestions from "./pages/ImportantQuestions";
-import NotFound from "./pages/NotFound";
-import ChatWithPDF from "./pages/ChatWithPDF";
-import ChapterWiseStudy from "./pages/ChapterWiseStudy";
-import AISummarizer from "./pages/AISummarizerPage";
-import AskAnyQuestion from "./pages/AskAny";
-import DiagramAnalysis from "./pages/DiagramAnalysis";
-import QuizGenerator from "./pages/QuizGeneratorPage";
-import PreviousYearQuestions from "./pages/PreviousYearQuestions";
-import PrivacyPolicyPage from "./pages/PrivacyPolicy";
-import TermsOfServicePage from "./pages/TermsOfService";
-import AboutPage from "./pages/About";
-import ContactPage from "./pages/Contact";
-import ScrollToTop from "./components/ScrollToTop";
+import LayoutLoader from "./components/layoutLoader";
+
+const Auth = lazy(()=>import( "./pages/Auth"));
+const AIChat = lazy(()=>import("./pages/AIChat"));
+const ImportantQuestions = lazy(()=>import("./pages/ImportantQuestions"));
+const NotFound = lazy(()=>import("./pages/NotFound"));
+const ChatWithPDF = lazy(()=>import("./pages/ChatWithPDF"));
+const ChapterWiseStudy = lazy(()=>import("./pages/ChapterWiseStudy"));
+const AISummarizer = lazy(()=>import("./pages/AISummarizerPage"));
+const AskAnyQuestion = lazy(()=>import("./pages/AskAny"));
+const DiagramAnalysis = lazy(()=>import("./pages/DiagramAnalysis"));
+const QuizGenerator = lazy(()=>import("./pages/QuizGeneratorPage"));
+const PreviousYearQuestions = lazy(()=>import("./pages/PreviousYearQuestions"));
+const PrivacyPolicyPage = lazy(()=>import("./pages/PrivacyPolicy"));
+const TermsOfServicePage = lazy(()=>import("./pages/TermsOfService"));
+const AboutPage = lazy(()=>import("./pages/About"));
+const ContactPage = lazy(()=>import("./pages/Contact"));
+const ScrollToTop = lazy(()=>import("./components/ScrollToTop"));
+const ProtectedRoute = lazy(()=>import("./components/auth/protectedRoute"));
 
 const queryClient = new QueryClient();
+
+const user = true;
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -35,12 +38,12 @@ const App = () => (
       {/* ✅ Wrap everything inside GoogleOAuthProvider */}
       <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
         <BrowserRouter>
+         <Suspense fallback={<LayoutLoader />}>
           <ScrollToTop />
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/features" element={<FeaturesHub />} />
+
+            {/* Protected Routes */}
+            <Route element={<ProtectedRoute user={user}/>}>
             <Route path="/ai-chat" element={<AIChat />} />
             <Route path="/chat-with-pdf" element={<ChatWithPDF />} />
             <Route path="/chapter-wise-study" element={<ChapterWiseStudy />} />
@@ -50,12 +53,21 @@ const App = () => (
             <Route path="/diagram-analysis" element={<DiagramAnalysis />} />
             <Route path="/quiz-generator" element={<QuizGenerator />} />
             <Route path="/pyqs" element={<PreviousYearQuestions />} />
+            </Route>
+
+            <Route element={<ProtectedRoute user={!user} redirect="/"/>}>
+                <Route path="/auth" element={<Auth />} />
+            </Route>
+
+
+            <Route path="/" element={<Index />} />
             <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
             <Route path="/terms-of-service" element={<TermsOfServicePage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </BrowserRouter>
       </GoogleOAuthProvider>
     </TooltipProvider>
