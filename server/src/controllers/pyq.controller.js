@@ -77,7 +77,7 @@ const bulkUploadPYQ = asyncHandler(async (req, res) => {
   const validQuestions = questions.map((q, index) => {
     const { standard, subject, chapter, year, question, type, options, answer, marks, priority } = q;
 
-    if ([standard, subject, chapter, year, question, type, answer].some(field => field === undefined || String(field).trim() === "")) {
+    if ([standard, subject, chapter, year, question, type].some(field => field === undefined || String(field).trim() === "")) {
       throw new ApiError(400, `Missing required fields in question at index ${index}`);
     }
 

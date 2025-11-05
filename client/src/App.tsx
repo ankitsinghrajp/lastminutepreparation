@@ -7,6 +7,7 @@ import { GoogleOAuthProvider } from "@react-oauth/google"; // ✅ import this
 import { lazy, Suspense } from "react";
 import Index from "./pages/Index";
 import LayoutLoader from "./components/layoutLoader";
+import { useSelector } from "react-redux";
 
 const Auth = lazy(()=>import( "./pages/Auth"));
 const AIChat = lazy(()=>import("./pages/AIChat"));
@@ -28,10 +29,11 @@ const ProtectedRoute = lazy(()=>import("./components/auth/protectedRoute"));
 
 const queryClient = new QueryClient();
 
-const user = true;
+const App = () => {
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
+  const {user} = useSelector((state)=>state.auth)
+  
+  return <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -72,6 +74,6 @@ const App = () => (
       </GoogleOAuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
-);
+};
 
 export default App;

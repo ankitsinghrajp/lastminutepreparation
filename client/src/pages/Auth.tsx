@@ -7,10 +7,15 @@ import { Card } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useDispatch } from "react-redux";
+import { userExists } from "@/redux/reducers/auth";
+import { useLoginMutation } from "@/redux/api/api";
 
 export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
+  // const {} = useLoginMutation();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +35,8 @@ export default function Auth() {
 
     const data = await res.json();
     if(data) navigate('/');
+    console.log(data);
+    dispatch(userExists(data));
   };
 
   return (
@@ -163,9 +170,9 @@ export default function Auth() {
 
           <p className="text-center text-sm text-muted-foreground mt-6">
             By continuing, you agree to our{" "}
-            <a href="#" className="text-primary hover:underline">Terms of Service</a>
+            <Link to="/terms-of-service" className="text-primary hover:underline">Terms of Service</Link>
             {" "}and{" "}
-            <a href="#" className="text-primary hover:underline">Privacy Policy</a>
+            <Link to="/privacy-policy" className="text-primary hover:underline">Privacy Policy</Link>
           </p>
         </div>
       </div>
