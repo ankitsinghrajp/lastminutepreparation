@@ -8,7 +8,7 @@ const api = createApi({
     }),
     tagTypes:[],
     endpoints: (builder) => ({
-        login: builder.mutation({
+        register: builder.mutation({
             query: (data)=>({
                 url:"user/register",
                 method:"post",
@@ -16,11 +16,45 @@ const api = createApi({
                 body:data
             }),
         }),
+        login: builder.mutation({
+           query: (data)=>({
+            url:"user/login",
+            method:"post",
+            credentials:"include",
+            body:data
+           }) 
+        }),
+        logout: builder.mutation({
+           query: ()=>({
+            url:"user/logout",
+            method:"post",
+            credentials:"include"
+           })
+        }),
+        refreshToken: builder.mutation({
+            query:()=>({
+              url:"user/refresh-token",
+              method:"post",
+              credentials:"include"  
+            })
+        }),
+        summarizer: builder.mutation({
+            query: (data)=>({
+                url:"ai/summarizer",
+                method:"post",
+                credentials:"include",
+                body:data
+            })
+        })
     })
 })
 
 export default api;
 
 export const {
-   useLoginMutation
+   useRegisterMutation,
+   useLoginMutation,
+   useLogoutMutation,
+   useSummarizerMutation,
+   useRefreshTokenMutation
 } = api;

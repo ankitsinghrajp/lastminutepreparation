@@ -50,11 +50,6 @@ export const Footer = () => {
                 </a>
               </li>
               <li>
-                <Link to="/dashboard" className="text-muted-foreground hover:text-primary transition-colors">
-                  Dashboard
-                </Link>
-              </li>
-              <li>
                 <Link to="/about" className="text-muted-foreground hover:text-primary transition-colors">
                   About
                 </Link>
@@ -64,6 +59,7 @@ export const Footer = () => {
                   Contact
                 </Link>
               </li>
+            
             </ul>
           </div>
 

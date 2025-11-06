@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
 import { Target, Brain, Lightbulb, Rocket, Users, BookOpen, Zap, Heart, Award, TrendingUp } from "lucide-react";
+import { Footer } from "@/components/Footer";
 
 export default function AboutPage() {
   const features = [
@@ -159,6 +160,7 @@ export default function AboutPage() {
         {/* Bottom Spacer */}
         <div className="h-8 md:h-12"></div>
       </div>
+      <Footer/>
     </div>
   );
 }

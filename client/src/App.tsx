@@ -7,7 +7,11 @@ import { GoogleOAuthProvider } from "@react-oauth/google"; // ✅ import this
 import { lazy, Suspense } from "react";
 import Index from "./pages/Index";
 import LayoutLoader from "./components/layoutLoader";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { useEffect } from "react";
+import { useAsyncMutation } from "./hooks/hook";
+import { useRefreshTokenMutation } from "./redux/api/api";
+import { userNotExists } from "./redux/reducers/auth";
 
 const Auth = lazy(()=>import( "./pages/Auth"));
 const AIChat = lazy(()=>import("./pages/AIChat"));
@@ -32,7 +36,19 @@ const queryClient = new QueryClient();
 const App = () => {
 
   const {user} = useSelector((state)=>state.auth)
-  
+
+  const dispatch = useDispatch();
+  const [mutate] = useRefreshTokenMutation();
+  useEffect(()=>{
+      const checkAuth = async ()=>{
+        const res = await mutate("");
+        if(!res?.data) {
+          dispatch(userNotExists());
+        }
+      }
+      checkAuth();
+
+  },[dispatch])
   return <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />

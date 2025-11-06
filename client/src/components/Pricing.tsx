@@ -21,10 +21,10 @@ const plans = [
     popular: false,
   },
   {
-    name: "Premium",
+    name: "Basic",
     price: "₹199",
     period: "per month",
-    description: "Unlimited power for serious students",
+    description: "Great for regular students",
     features: [
       "Unlimited uploads",
       "Advanced AI summaries",
@@ -35,8 +35,26 @@ const plans = [
       "Priority support",
       "Early access to new features",
     ],
-    cta: "Upgrade to Premium",
+    cta: "Upgrade to Basic",
     popular: true,
+  },
+  {
+    name: "Premium",
+    price: "₹299",
+    period: "per month",
+    description: "Unlimited power for serious students",
+    features: [
+      "Everything in Basic",
+      "Unlimited image uploads",
+      "Unlimited PDF uploads",
+      "100MB file size limit",
+      "Advanced diagram analysis",
+      "Custom revision schedules",
+      "24/7 premium support",
+      "Beta features access",
+    ],
+    cta: "Upgrade to Premium",
+    popular: false,
   },
 ];
 
@@ -56,7 +74,7 @@ export const Pricing = () => {
           </p>
         </div>
         
-        <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-8 max-w-7xl mx-auto">
           {plans.map((plan, index) => (
             <Card 
               key={index}

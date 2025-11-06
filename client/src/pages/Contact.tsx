@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
 import { Mail, MapPin, Instagram, Send, MessageSquare, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { Footer } from "@/components/Footer";
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -260,6 +261,7 @@ export default function ContactPage() {
           </div>
         </div>
       </div>
+      <Footer/>
     </div>
   );
 }

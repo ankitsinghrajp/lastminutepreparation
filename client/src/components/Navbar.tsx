@@ -1,14 +1,18 @@
 import { Button } from "@/components/ui/button";
+import { useAsyncMutation } from "@/hooks/hook";
+import { useLogoutMutation } from "@/redux/api/api";
 import { userNotExists } from "@/redux/reducers/auth";
 import { LogOut } from "lucide-react";
-import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 
 export const Navbar = () => {
   const {user} = useSelector((state)=>state.auth);
+  const [logout, isLogoutLoading] = useAsyncMutation(useLogoutMutation);
   const dispatch = useDispatch();
+
   const handleLogout = async ()=>{
+        await logout();
         dispatch(userNotExists());
   }
   return (
@@ -23,7 +27,7 @@ export const Navbar = () => {
           </Link>
           
           <div className="flex items-center space-x-3">
-            { user?<Button variant={'destructive'} onClick={handleLogout}>
+            { user?<Button variant={'destructive'} disabled={isLogoutLoading} onClick={handleLogout}>
               <LogOut className="h-4 w-4"/>
             </Button>:
                 <Button className="gradient-primary border-0" asChild>

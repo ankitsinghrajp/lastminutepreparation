@@ -1,4 +1,4 @@
-import { useState } from "react";
+
 import { GoogleLogin } from '@react-oauth/google';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,19 +9,39 @@ import { Link, useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDispatch } from "react-redux";
 import { userExists } from "@/redux/reducers/auth";
-import { useLoginMutation } from "@/redux/api/api";
+import { useRegisterMutation } from "@/redux/api/api";
+import { useAsyncMutation } from "@/hooks/hook";
+import { useForm, SubmitHandler } from 'react-hook-form';
+import LoginForm from '@/components/specifics/LoginForm';
 
 export default function Auth() {
-  const [isLoading, setIsLoading] = useState(false);
-  // const {} = useLoginMutation();
+
+  const [isRegister, isRegisterLoading] = useAsyncMutation(useRegisterMutation);
+ 
+  type RegisterInputs = {
+      name:string,
+      email:string,
+      password:string
+  }
+
+   const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<RegisterInputs>()
+
+
+
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  const handleRegisterSubmit: SubmitHandler<RegisterInputs> = async (data) => {
     
-    setTimeout(() => setIsLoading(false), 1000);
+     const res = await isRegister("Setting up your account securely...",{name:data.name, email:data.email, password:data.password});
+      if(res?.data){
+        console.log("This is the data: ",res?.data);
+        dispatch(userExists(res?.data));
+      }
   };
 
   const handleGoogleSuccess = async (credentialResponse) => {
@@ -30,13 +50,13 @@ export default function Auth() {
     const res = await fetch("http://localhost:3000/api/auth/google", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials :"include",
       body: JSON.stringify({ token }),
     });
 
     const data = await res.json();
     if(data) navigate('/');
-    console.log(data);
-    dispatch(userExists(data));
+    dispatch(userExists(data.user));
   };
 
   return (
@@ -70,16 +90,32 @@ export default function Auth() {
               </TabsList>
 
               <TabsContent value="login">
-                <form onSubmit={handleSubmit} className="space-y-4">
+              <LoginForm/>
+              </TabsContent>
+
+              <TabsContent value="signup">
+                <form onSubmit={handleSubmit(handleRegisterSubmit)} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input
+                      id="name"
+                      type="text"
+                      placeholder="your name"
+                      {...register("name",{required:{value:true, message:"Full Name is required!"}})}
+                      className="bg-background/50"
+                    />
+                    {errors?.name && <span className='py-4 px-1 text-xs text-red-500'>*{errors?.name?.message}</span>}
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <Input
                       id="email"
                       type="email"
                       placeholder="your@email.com"
-                      required
+                      {...register("email",{required:{value:true,message:"Email is required!"}})}
                       className="bg-background/50"
                     />
+                    {errors?.email && <span className='py-4 px-1 text-xs text-red-500'>*{errors?.email?.message}</span>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="password">Password</Label>
@@ -87,58 +123,17 @@ export default function Auth() {
                       id="password"
                       type="password"
                       placeholder="••••••••"
-                      required
+                      {...register("password",{required:{value:true, message:"Password is required!"}})}
                       className="bg-background/50"
                     />
+                    {errors?.password && <span className='py-4 px-1 text-xs text-red-500'>*{errors?.password?.message}</span>}
                   </div>
                   <Button
                     type="submit"
                     className="w-full gradient-primary border-0 glow-primary"
-                    disabled={isLoading}
+                    disabled={isRegisterLoading}
                   >
-                    {isLoading ? "Signing in..." : "Sign In"}
-                  </Button>
-                </form>
-              </TabsContent>
-
-              <TabsContent value="signup">
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-name">Full Name</Label>
-                    <Input
-                      id="signup-name"
-                      type="text"
-                      placeholder="your name"
-                      required
-                      className="bg-background/50"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
-                    <Input
-                      id="signup-email"
-                      type="email"
-                      placeholder="your@email.com"
-                      required
-                      className="bg-background/50"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Password</Label>
-                    <Input
-                      id="signup-password"
-                      type="password"
-                      placeholder="••••••••"
-                      required
-                      className="bg-background/50"
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full gradient-primary border-0 glow-primary"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? "Creating account..." : "Create Account"}
+                    {isRegisterLoading ? "Creating account..." : "Create Account"}
                   </Button>
                 </form>
               </TabsContent>

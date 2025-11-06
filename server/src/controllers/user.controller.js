@@ -3,10 +3,10 @@ import { ApiError } from "../utils/APIError.js";
 import {User} from "../models/user.model.js";
 import {ApiResponse} from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import { cookieOptions } from "../../constants.js";
 
-const generateAccessAndRefreshToken = async(userId)=>{
-    try {
-
+export const generateAccessAndRefreshToken = async(userId)=>{
+    
         const user = await User.findById(userId);
         if(!user) throw new ApiError(404,"Unauthorized User!");
 
@@ -17,10 +17,6 @@ const generateAccessAndRefreshToken = async(userId)=>{
         await user.save({validateBeforeSave:false});
 
         return {accessToken, refreshToken};
-        
-    } catch (error) {
-        throw new ApiError(500,"Something went wrong while generating access and refresh token!");
-    }
 }
 
 const registerUser = asyncHandler(async (req,res)=>{
@@ -48,20 +44,29 @@ const registerUser = asyncHandler(async (req,res)=>{
         throw new ApiError(500,"Server is busy while registering user. Try Again!");
     }
 
-    return res.status(201).json(
+    const {accessToken, refreshToken} = await generateAccessAndRefreshToken(createdUser._id);
+
+    return res
+    .status(201)
+    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", refreshToken, cookieOptions)
+    .json(
         new ApiResponse(200,createdUser,"User Registration Successfull!")
     )
 })
 
 const loginUser = asyncHandler(async (req, res)=>{
      const {email, password} = req.body;
-
+   
      if([email,password].some((field)=>field.trim() === "")){
         throw new ApiError(400,"All fields are required!");
      }
     
      const user = await User.findOne({email});
+     
      if(!user) throw new ApiError(404, "User does not exist!");
+
+     if(!user.password) throw new ApiError(400,"This account is created with google, Try Continue With Google");
      
      const isPasswordValid = await user.isPasswordCorrect(password);
 
@@ -70,11 +75,6 @@ const loginUser = asyncHandler(async (req, res)=>{
      const {accessToken, refreshToken} = await generateAccessAndRefreshToken(user._id);
 
      const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
-
-     const cookieOptions = {
-        httpOnly:true,
-        secure:true
-     };
 
      return res
      .status(200)
@@ -85,11 +85,10 @@ const loginUser = asyncHandler(async (req, res)=>{
      )
 })
 
-
 const logoutUser = asyncHandler(async(req, res)=>{
     try {
     
-    await User.findByIdAndUpdate(
+       await User.findByIdAndUpdate(
          req.user._id,
          {
             $set:{refreshToken:undefined}
@@ -98,11 +97,6 @@ const logoutUser = asyncHandler(async(req, res)=>{
             new:true
          }
     );
-
-    const cookieOptions = {
-        httpOnly:true,
-        secure:true
-    };
 
     return res
     .status(200)
@@ -126,16 +120,10 @@ const refreshAccessToken = asyncHandler(async (req, res)=>{
     if(!user) throw new ApiError(401,"Unauthorized Request!");
 
     if(user?.refreshToken !== incomingRefreshToken){
-        throw new ApiError(200,"Invalid Refresh Token");
+        throw new ApiError(401,"Invalid Refresh Token");
     }
 
     const {accessToken, refreshToken} = await generateAccessAndRefreshToken(user?._id);
-
-    const cookieOptions = {
-        httpOnly: true,
-        secure: true
-    };
-
   return res
   .status(200)
   .cookie("accessToken",accessToken,cookieOptions)
