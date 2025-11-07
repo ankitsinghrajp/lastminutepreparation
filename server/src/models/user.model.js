@@ -24,6 +24,12 @@ const userSchema = new mongoose.Schema({
         type:Boolean,
         default:false
     },
+    emailVerificationTokenHash:{
+        type:String
+    },
+    emailVerificationExpire:{
+        type:Date,
+    },
     planType:{
         type:String,
         enum:["FREE","PRO"],
