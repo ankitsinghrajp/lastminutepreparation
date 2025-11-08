@@ -56,7 +56,6 @@ export default function AISummarizer() {
     setImportantQuestions([]);
 
    const result = await summarizer("Summarizing...",{topic,leve:detailLevel});
-    console.log("Result from backend: ",result);
    if(result?.data?.data?.data){
     setSummary(result?.data?.data?.data?.summary);
     setKeyPoints(result?.data?.data?.data?.keyPoints);

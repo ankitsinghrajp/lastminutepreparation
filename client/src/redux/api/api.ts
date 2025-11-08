@@ -38,6 +38,18 @@ const api = createApi({
               credentials:"include"  
             })
         }),
+        verifyEmail: builder.query({
+            query: ({id,token})=>({
+                url: `user/verify-email?token=${token}&id=${id}`,
+                credentials:"include"
+            })
+        }),
+        resendEmail: builder.query({
+            query: ()=>({
+                url:"user/resend-email",
+                credentials:"include" 
+            })
+        }),
         summarizer: builder.mutation({
             query: (data)=>({
                 url:"ai/summarizer",
@@ -45,7 +57,7 @@ const api = createApi({
                 credentials:"include",
                 body:data
             })
-        })
+        }),
     })
 })
 
@@ -56,5 +68,8 @@ export const {
    useLoginMutation,
    useLogoutMutation,
    useSummarizerMutation,
-   useRefreshTokenMutation
+   useRefreshTokenMutation,
+   useVerifyEmailQuery,
+   useLazyResendEmailQuery,
+
 } = api;

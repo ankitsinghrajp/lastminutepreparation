@@ -38,9 +38,9 @@ export default function Auth() {
   const handleRegisterSubmit: SubmitHandler<RegisterInputs> = async (data) => {
     
      const res = await isRegister("Setting up your account securely...",{name:data.name, email:data.email, password:data.password});
+      console.log("This is from register user: ",res?.data?.data);
       if(res?.data){
-        console.log("This is the data: ",res?.data);
-        dispatch(userExists(res?.data));
+        dispatch(userExists(res?.data?.data));
       }
   };
 
@@ -139,7 +139,7 @@ export default function Auth() {
               </TabsContent>
             </Tabs>
 
-            <div className="mt-6">
+           <div className="mt-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-border"></div>
@@ -149,8 +149,12 @@ export default function Auth() {
                 </div>
               </div>
 
-              <div className="mt-4">
-                <div className="[&>div]:w-full [&_button]:w-full [&_button]:gradient-primary [&_button]:border-0 [&_button]:glow-primary [&_button]:h-10 [&_button]:text-white [&_button]:font-medium [&_button]:flex [&_button]:items-center [&_button]:justify-center [&_button]:gap-2">
+              <div className="mt-4 relative">
+              
+                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap shadow-lg">
+                  Recommended ⭐
+                </div>
+                <div className="[&>div]:w-full [&_button]:w-full [&_button]:gradient-primary [&_button]:border-0 [&_button]:glow-primary [&_button]:h-11 [&_button]:text-white [&_button]:font-medium [&_button]:flex [&_button]:items-center [&_button]:justify-center [&_button]:gap-2 [&_button]:shadow-lg">
                   <GoogleLogin
                     onSuccess={handleGoogleSuccess}
                     onError={() => console.log("Login Failed")}

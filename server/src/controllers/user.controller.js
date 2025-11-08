@@ -68,7 +68,7 @@ const registerUser = asyncHandler(async (req,res)=>{
                 emailVerificationExpire: undefined,
             }
         })
-        console.log("Error comes from file: ",error);
+       
         throw new ApiError(500,"Failed to send verification email!");
      }
     
@@ -178,13 +178,39 @@ const verifyEmailController = asyncHandler(async (req,res)=>{
     user.emailVerificationExpire = undefined;
 
     await user.save();
-
+   
+    const createdUser = await User.findById(user._id).select("-password -refreshToken");
     return res
     .status(200)
     .json(
-        new ApiResponse(200,{},"Email Verified Successfully!")
+        new ApiResponse(200,{user:createdUser},"Email Verified Successfully!")
     )
 })
 
+const resendEmail = asyncHandler(async (req,res)=>{
+    const user = await User.findById(req?.user?._id);
+    if(!user) throw new ApiError(400,"Login first to resend email!");
 
-export {registerUser, loginUser, logoutUser, refreshAccessToken, verifyEmailController};
+    const token = await createEmailVerification(user?._id);
+
+       try {
+        await sendVerificationEmail(user.email, token, user._id.toString());
+         return res
+         .status(201)
+         .json(
+         new ApiResponse(200,{},"Email sent successfully! Check email to verify.")
+         )
+
+     } catch (error) {
+        await User.findByIdAndUpdate(user._id,{
+            $set:{
+                emailVerificationTokenHash:undefined,
+                emailVerificationExpire: undefined,
+            }
+        })
+        throw new ApiError(500,"Failed to send verification email!");
+     }
+
+})
+
+export {registerUser, loginUser, logoutUser, refreshAccessToken, verifyEmailController, resendEmail};

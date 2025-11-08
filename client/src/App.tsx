@@ -12,6 +12,7 @@ import { useEffect } from "react";
 import { useAsyncMutation } from "./hooks/hook";
 import { useRefreshTokenMutation } from "./redux/api/api";
 import { userNotExists } from "./redux/reducers/auth";
+import VerifyEmail from "./pages/VerifyEmail";
 
 const Auth = lazy(()=>import( "./pages/Auth"));
 const AIChat = lazy(()=>import("./pages/AIChat"));
@@ -42,6 +43,7 @@ const App = () => {
   useEffect(()=>{
       const checkAuth = async ()=>{
         const res = await mutate("");
+        console.log("This is the user from main file: ",res);
         if(!res?.data) {
           dispatch(userNotExists());
         }
@@ -79,6 +81,7 @@ const App = () => {
 
 
             <Route path="/" element={<Index />} />
+            <Route path="/verify-email" element={<VerifyEmail/>}/>
             <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
             <Route path="/terms-of-service" element={<TermsOfServicePage />} />
             <Route path="/about" element={<AboutPage />} />
