@@ -9,7 +9,6 @@ import Index from "./pages/Index";
 import LayoutLoader from "./components/layoutLoader";
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect } from "react";
-import { useAsyncMutation } from "./hooks/hook";
 import { useRefreshTokenMutation } from "./redux/api/api";
 import { userNotExists } from "./redux/reducers/auth";
 import VerifyEmail from "./pages/VerifyEmail";
@@ -43,7 +42,6 @@ const App = () => {
   useEffect(()=>{
       const checkAuth = async ()=>{
         const res = await mutate("");
-        console.log("This is the user from main file: ",res);
         if(!res?.data) {
           dispatch(userNotExists());
         }

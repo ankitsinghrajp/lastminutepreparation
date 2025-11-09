@@ -58,6 +58,26 @@ const api = createApi({
                 body:data
             })
         }),
+        // Last minute preparation apis
+        getClassName: builder.query({
+            query:()=>({
+               url:"info/classes",
+               credentials:"include"
+            })
+        }),
+
+        getSubjects: builder.query({
+            query:({selectedClass})=>({
+                url:`info/subjects/${selectedClass}`,
+                credentials:"include"
+            })
+        }),
+        getChapters: builder.query({
+            query:({selectedClass,selectedSubject})=>({
+                url:`info/chapters/${selectedClass}/${selectedSubject}`,
+                credentials:"include"
+            })
+        })
     })
 })
 
@@ -71,5 +91,7 @@ export const {
    useRefreshTokenMutation,
    useVerifyEmailQuery,
    useLazyResendEmailQuery,
-
+   useGetClassNameQuery,
+   useGetSubjectsQuery,
+   useLazyGetChaptersQuery,
 } = api;

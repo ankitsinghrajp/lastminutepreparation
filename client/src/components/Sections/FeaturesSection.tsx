@@ -28,7 +28,7 @@ const features = [
   },
    {
     icon: Brain,
-    title: "AI Summarizer Topic Or PDF",
+    title: "AI Topic Summarizer",
     description: "Get concise, intelligent summaries of your study materials in seconds.",
     path: "/ai-summary",
     color: "from-blue-500 to-cyan-500",

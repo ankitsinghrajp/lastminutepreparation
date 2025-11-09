@@ -32,7 +32,7 @@ const userSchema = new mongoose.Schema({
     },
     planType:{
         type:String,
-        enum:["FREE","PRO"],
+        enum:["FREE","BASIC", "PRO"],
         default:"FREE"
     },
     refreshToken:{
