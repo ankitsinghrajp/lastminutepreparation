@@ -70,13 +70,17 @@ const api = createApi({
             query:({selectedClass})=>({
                 url:`info/subjects/${selectedClass}`,
                 credentials:"include"
-            })
+            }),
+            keepUnusedDataFor:0,
+            refetchOnMountOrArgChange:true
         }),
         getChapters: builder.query({
             query:({selectedClass,selectedSubject})=>({
                 url:`info/chapters/${selectedClass}/${selectedSubject}`,
                 credentials:"include"
-            })
+            }),
+            keepUnusedDataFor:0,
+            refetchOnMountOrArgChange:true
         })
     })
 })
@@ -92,6 +96,6 @@ export const {
    useVerifyEmailQuery,
    useLazyResendEmailQuery,
    useGetClassNameQuery,
-   useGetSubjectsQuery,
+   useLazyGetSubjectsQuery,
    useLazyGetChaptersQuery,
 } = api;

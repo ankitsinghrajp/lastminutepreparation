@@ -4,7 +4,7 @@ import { verifyJWT } from "../middlewares/auth.middleware.js";
 const router = express.Router();
 
 router.get("/classes",verifyJWT,getClasses);
-router.get("/subjects/:className", getSubjects);
-router.get("/chapters/:className/:subjectName",getChapters);
+router.get("/subjects/:className",verifyJWT, getSubjects);
+router.get("/chapters/:className/:subjectName",verifyJWT,getChapters);
 
 export default router;

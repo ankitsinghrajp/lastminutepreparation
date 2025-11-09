@@ -2,40 +2,100 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
-import { Clock, Loader2, Copy, BookmarkPlus, FileText, Brain } from "lucide-react";
+import { Clock, Loader2, FileText, Brain } from "lucide-react";
 import { toast } from "sonner";
 import { Footer } from "@/components/Footer";
+import { useLazyGetChaptersQuery, useLazyGetSubjectsQuery } from "@/redux/api/api";
+import { useErrors } from "@/hooks/hook";
 
 const classes = ["9th", "10th", "11th", "12th"];
-const subjects = {
-  "9th": ["Math", "Science", "English", "Hindi", "Social Science"],
-  "10th": ["Math", "Science", "English", "Hindi", "Social Science"],
-  "11th": ["Physics", "Chemistry", "Biology", "Math", "English"],
-  "12th": ["Physics", "Chemistry", "Biology", "Math", "English"],
-};
-
-const chapters = {
-  "Physics": ["Electrostatics", "Current Electricity", "Magnetism", "Optics", "Modern Physics"],
-  "Chemistry": ["Solid State", "Solutions", "Electrochemistry", "Chemical Kinetics", "Surface Chemistry"],
-  "Biology": ["Reproduction", "Genetics", "Evolution", "Human Health", "Ecology"],
-  "Math": ["Relations & Functions", "Calculus", "Vectors", "Probability", "Linear Programming"],
-  "Science": ["Chemical Reactions", "Life Processes", "Light", "Electricity", "Magnetic Effects"],
-  "English": ["All Chapters"],
-  "Hindi": ["All Chapters"],
-  "Social Science": ["All Chapters"],
-};
 
 export default function LastNightBeforeExam() {
+  const [subjects, setSubjects] = useState([]);
+  const [chapters, setChapters] = useState([]);
+
   const [selectedClass, setSelectedClass] = useState("12th");
-  const [selectedSubject, setSelectedSubject] = useState("Physics");
-  const [selectedChapter, setSelectedChapter] = useState("All Chapters");
+  const [selectedSubject, setSelectedSubject] = useState("");
+  const [selectedChapter, setSelectedChapter] = useState("");
   const [revision, setRevision] = useState("");
   const [loading, setLoading] = useState(false);
   const [timerMinutes, setTimerMinutes] = useState(30);
   const [timerActive, setTimerActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(timerMinutes * 60);
   const timerRef = useRef(null);
+  
+  const [fetchSubject, {isLoading: isSubjectLoading, isError: isSubjectError, error: subjectError, data: subjectData}] = useLazyGetSubjectsQuery();
+  const [fetchChapter, {isLoading: isChapterLoading, isError: isChapterError, error: chapterError, data: ChapterData}] = useLazyGetChaptersQuery();
 
+  // Handle errors
+  useErrors([
+    { isError: isSubjectError, error: subjectError },
+    { isError: isChapterError, error: chapterError }
+  ]);
+
+  // Fetch subjects when class changes
+  useEffect(() => {
+    const fetchSubjectFun = async () => {
+      if (selectedClass) {
+        setSubjects([]);
+        setChapters([]);
+        setSelectedSubject("");
+        setSelectedChapter("");
+        try {
+          await fetchSubject({selectedClass});
+        } catch (error) {
+          console.error("Error fetching subjects:", error);
+        }
+      }
+    };
+    fetchSubjectFun();
+  }, [selectedClass, fetchSubject]);
+  
+  // Update subjects when subject data is loaded
+  useEffect(() => {
+    if (subjectData?.data?.subjects) {
+      const subjects = subjectData.data.subjects;
+      setSubjects(subjects);
+      if (subjects.length > 0 && !isSubjectLoading) {
+        setSelectedSubject(subjects[0].subject);
+      }
+    } else if (!isSubjectLoading && subjectData) {
+      setSubjects([]);
+      setSelectedSubject("");
+    }
+  }, [subjectData, isSubjectLoading]);
+
+  // Fetch chapters when subject changes
+  useEffect(() => {
+    const fetchChaptersFun = async () => {
+      if (selectedSubject && selectedClass) {
+        setChapters([]);
+        setSelectedChapter("");
+        try {
+          await fetchChapter({selectedClass, selectedSubject});
+        } catch (error) {
+          console.error("Error fetching chapters:", error);
+        }
+      }
+    };
+    fetchChaptersFun();
+  }, [selectedSubject, selectedClass, fetchChapter]);
+
+  // Update chapters when chapter data is loaded
+  useEffect(() => {
+    if (ChapterData?.data?.chapters) {
+      const chapters = ChapterData.data.chapters;
+      setChapters(chapters);
+      if (chapters.length > 0 && !isChapterLoading) {
+        setSelectedChapter(chapters[0].chapter);
+      }
+    } else if (!isChapterLoading && ChapterData) {
+      setChapters([]);
+      setSelectedChapter("");
+    }
+  }, [ChapterData, isChapterLoading]);
+
+  // Timer logic
   useEffect(() => {
     if (timerActive && timeLeft > 0) {
       timerRef.current = setInterval(() => {
@@ -54,85 +114,17 @@ export default function LastNightBeforeExam() {
     return () => clearInterval(timerRef.current);
   }, [timerActive, timeLeft]);
 
-  const handleGenerate = async () => {
-    setLoading(true);
-    
-    // Simulate AI generation
-    setTimeout(() => {
-      const keyPoints = `📚 KEY POINTS - ${selectedSubject} (${selectedChapter})
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🎯 CRITICAL CONCEPTS:
-
-• Core Definition: Fundamental principles and laws specific to this topic
-• Key Formulas: All important equations you must memorize
-• Important Terms: Definitions that frequently appear in exams
-• Common Relationships: How different concepts connect
-• Real-world Applications: Practical examples for better understanding
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-⚡ QUICK REVISION TRICKS:
-
-• Mnemonic devices for easy memorization
-• Common mistakes students make - AVOID THESE!
-• Time-saving calculation shortcuts
-• Diagram labeling essentials
-• Unit conversion quick reference
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🔥 HIGH-YIELD IMPORTANT QUESTIONS:
-
-1. [5 marks] Derive the main formula/principle - appears in 80% of exams
-2. [3 marks] Explain the concept with a real-world example
-3. [2 marks] Differentiate between related concepts
-4. [3 marks] Numerical problem - standard difficulty level
-5. [5 marks] Application-based question combining multiple concepts
-6. [2 marks] Short definitions - frequently asked terms
-7. [4 marks] Graphical interpretation question
-8. [3 marks] Reasoning-based conceptual question
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💡 EXAM TIPS:
-
-• Always write units in numerical answers
-• Draw diagrams neatly with proper labeling
-• Underline important terms in answers
-• Show all calculation steps for partial marks
-• Manage time: 1 mark = 1 minute approximately
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-✅ LAST-MINUTE CHECKLIST:
-
-☐ Review all formulas one final time
-☐ Practice 2-3 numerical problems
-☐ Revise diagrams and labeling
-☐ Go through previous year questions
-☐ Sleep well - don't stay up too late!
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Good luck! You've got this! 🎓✨`;
-
-      setRevision(keyPoints);
-      setLoading(false);
-      toast.success("Revision notes generated successfully!");
-    }, 2000);
-  };
-
-  const handleCopyNotes = () => {
-    if (revision) {
-      navigator.clipboard.writeText(revision);
-      toast.success("Notes copied to clipboard!");
+  const handleGenerate = () => {
+    if (!selectedClass || !selectedSubject || !selectedChapter) {
+      toast.error("Please select class, subject, and chapter");
+      return;
     }
-  };
-
-  const handleMarkImportant = () => {
-    toast.success("Marked as important! (Feature coming soon)");
+    setLoading(true);
+    setTimeout(() => {
+      setRevision("Sample revision content will appear here...");
+      setLoading(false);
+      toast.success("Revision generated successfully!");
+    }, 2000);
   };
 
   const toggleTimer = () => {
@@ -154,35 +146,37 @@ Good luck! You've got this! 🎓✨`;
     <div className="min-h-screen bg-background">
       <Navbar />
       
-      <div className="container mx-auto px-4 py-24 max-w-6xl">
-        <div className="text-center mb-12 space-y-4">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
-              <Clock className="h-8 w-8 text-white" />
+      <div className="container mx-auto px-3 sm:px-4 py-20 sm:py-24 max-w-7xl">
+        {/* Header */}
+        <div className="text-center mb-8 sm:mb-12 space-y-3 sm:space-y-4">
+          <div className="flex items-center justify-center gap-3 mb-3 sm:mb-4">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
+              <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
             </div>
           </div>
-          <h1 className="text-5xl font-bold">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold px-4">
             Last Night{" "}
             <span className="bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
               Before Exam
             </span>
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto px-4">
             Quick revision mode with key points and high-yield questions
           </p>
         </div>
 
-        <Card className="p-8 bg-card/50 border-border/50 backdrop-blur-sm mb-6">
-          <div className="grid md:grid-cols-3 gap-4 mb-6">
+        {/* Input Section */}
+        <Card className="p-4 sm:p-6 lg:p-8 bg-card/50 border-border/50 backdrop-blur-sm mb-4 sm:mb-6">
+          <div className="space-y-4">
+            {/* Class Selection */}
             <div>
-              <label className="text-sm font-medium mb-2 block">Select Class</label>
+              <label className="text-xs font-medium text-muted-foreground mb-2 block">
+                Select Class
+              </label>
               <select
                 value={selectedClass}
-                onChange={(e) => {
-                  setSelectedClass(e.target.value);
-                  setSelectedSubject(subjects[e.target.value][0]);
-                }}
-                className="w-full px-4 py-2 rounded-lg bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                onChange={(e) => setSelectedClass(e.target.value)}
+                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg bg-background/50 border border-border focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm sm:text-base"
               >
                 {classes.map((cls) => (
                   <option key={cls} value={cls}>{cls}</option>
@@ -190,104 +184,152 @@ Good luck! You've got this! 🎓✨`;
               </select>
             </div>
 
+            {/* Subject Selection */}
             <div>
-              <label className="text-sm font-medium mb-2 block">Select Subject</label>
+              <label className="text-xs font-medium text-muted-foreground mb-2 block">
+                Select Subject
+              </label>
               <select
                 value={selectedSubject}
-                onChange={(e) => {
-                  setSelectedSubject(e.target.value);
-                  setSelectedChapter("All Chapters");
-                }}
-                className="w-full px-4 py-2 rounded-lg bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                onChange={(e) => setSelectedSubject(e.target.value)}
+                disabled={isSubjectLoading || subjects.length === 0}
+                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg bg-background/50 border border-border focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
               >
-                {subjects[selectedClass].map((subj) => (
-                  <option key={subj} value={subj}>{subj}</option>
-                ))}
+                {isSubjectLoading ? (
+                  <option>Loading...</option>
+                ) : subjects.length > 0 ? (
+                  subjects.map((subject) => (
+                    <option key={subject.subject} value={subject.subject}>
+                      {subject.subject}
+                    </option>
+                  ))
+                ) : (
+                  <option>No subjects available</option>
+                )}
               </select>
             </div>
 
+            {/* Chapter Selection */}
             <div>
-              <label className="text-sm font-medium mb-2 block">Select Chapter</label>
+              <label className="text-xs font-medium text-muted-foreground mb-2 block">
+                Select Chapter
+              </label>
               <select
                 value={selectedChapter}
                 onChange={(e) => setSelectedChapter(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                disabled={isChapterLoading || chapters.length === 0}
+                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg bg-background/50 border border-border focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
               >
-                <option value="All Chapters">All Chapters</option>
-                {chapters[selectedSubject]?.map((ch) => (
-                  <option key={ch} value={ch}>{ch}</option>
-                ))}
+                {isChapterLoading ? (
+                  <option>Loading...</option>
+                ) : chapters.length > 0 ? (
+                  chapters.map((chapter) => (
+                    <option key={chapter.chapter} value={chapter.chapter}>
+                      {chapter.chapter}
+                    </option>
+                  ))
+                ) : (
+                  <option>No chapters available</option>
+                )}
               </select>
             </div>
-          </div>
 
-          <div className="flex flex-wrap gap-3">
+            {/* Generate Button */}
             <Button
               onClick={handleGenerate}
-              disabled={loading}
-              className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white border-0 flex-1 min-w-[200px]"
+              disabled={loading || !selectedClass || !selectedSubject || !selectedChapter}
+              className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white border-0 h-11 sm:h-12 text-sm sm:text-base font-medium"
             >
               {loading ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 mr-2 animate-spin" />
                   Generating...
                 </>
               ) : (
                 <>
-                  <Brain className="h-4 w-4 mr-2" />
+                  <Brain className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                   Generate Revision
                 </>
               )}
             </Button>
-
-            <Button
-              onClick={handleCopyNotes}
-              disabled={!revision}
-              variant="outline"
-              className="flex-none"
-            >
-              <Copy className="h-4 w-4 mr-2" />
-              Copy Notes
-            </Button>
-
-            <Button
-              onClick={handleMarkImportant}
-              disabled={!revision}
-              variant="outline"
-              className="flex-none"
-            >
-              <BookmarkPlus className="h-4 w-4 mr-2" />
-              Mark Important
-            </Button>
           </div>
         </Card>
 
-        <div className="grid md:grid-cols-4 gap-6">
-          <div className="md:col-span-3">
-            <Card className="p-6 bg-card/50 border-border/50 backdrop-blur-sm">
+        {/* Focus Timer - Mobile */}
+        <Card className="p-4 sm:p-6 bg-card/50 border-border/50 backdrop-blur-sm mb-4 sm:mb-6 lg:hidden">
+          <div className="flex items-center gap-2 mb-4">
+            <Clock className="h-5 w-5 text-orange-500" />
+            <h2 className="text-lg font-semibold">Focus Timer</h2>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-xl p-6 text-center">
+              <div className="text-4xl sm:text-5xl font-bold text-white mb-2">
+                {formatTime(timeLeft)}
+              </div>
+              <div className="text-white/80 text-sm">
+                {timerActive ? "Focus Mode Active" : "Ready to Focus"}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-2 block">
+                Set Duration (minutes)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="120"
+                value={timerMinutes}
+                onChange={(e) => setTimerMinutes(parseInt(e.target.value) || 30)}
+                disabled={timerActive}
+                className="w-full px-3 sm:px-4 py-2.5 rounded-lg bg-background/50 border border-border focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+              />
+            </div>
+
+            <Button
+              onClick={toggleTimer}
+              className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white border-0 h-11"
+            >
+              {timerActive ? "Stop Timer" : "Start Timer"}
+            </Button>
+
+            <div className="text-xs text-muted-foreground text-center pt-2">
+              <p>Stay focused and avoid distractions!</p>
+              <p className="mt-1">Timer simulates exam conditions</p>
+            </div>
+          </div>
+        </Card>
+
+        {/* Content Layout */}
+        <div className="grid lg:grid-cols-4 gap-4 sm:gap-6">
+          {/* Revision Panel */}
+          <div className="lg:col-span-3">
+            <Card className="p-4 sm:p-6 bg-card/50 border-border/50 backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-4">
-                <FileText className="h-5 w-5 text-primary" />
-                <h2 className="text-xl font-semibold">Revision Panel</h2>
+                <FileText className="h-5 w-5 text-orange-500" />
+                <h2 className="text-lg sm:text-xl font-semibold">Revision Panel</h2>
               </div>
               
-              <div className="bg-background/80 rounded-lg p-6 min-h-[500px] font-mono text-sm">
+              <div className="bg-background/80 rounded-lg p-4 sm:p-6 min-h-[400px] sm:min-h-[500px]">
                 {revision ? (
-                  <pre className="whitespace-pre-wrap leading-relaxed">{revision}</pre>
+                  <pre className="whitespace-pre-wrap leading-relaxed text-sm sm:text-base font-sans">{revision}</pre>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-                    <Brain className="h-16 w-16 mb-4 opacity-50" />
-                    <p className="text-lg">Your key points and important questions will appear here.</p>
-                    <p className="text-sm mt-2">Select your class, subject, and chapter, then click "Generate Revision"</p>
+                  <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground px-4">
+                    <Brain className="h-12 w-12 sm:h-16 sm:w-16 mb-3 sm:mb-4 opacity-50" />
+                    <p className="text-base sm:text-lg font-medium mb-2">Your key points and important questions will appear here</p>
+                    <p className="text-xs sm:text-sm">Select your class, subject, and chapter, then click "Generate Revision"</p>
                   </div>
                 )}
               </div>
             </Card>
           </div>
 
-          <div className="md:col-span-1">
+          {/* Focus Timer - Desktop */}
+          <div className="hidden lg:block lg:col-span-1">
             <Card className="p-6 bg-card/50 border-border/50 backdrop-blur-sm sticky top-24">
               <div className="flex items-center gap-2 mb-4">
-                <Clock className="h-5 w-5 text-primary" />
+                <Clock className="h-5 w-5 text-orange-500" />
                 <h2 className="text-xl font-semibold">Focus Timer</h2>
               </div>
 
@@ -310,7 +352,7 @@ Good luck! You've got this! 🎓✨`;
                     value={timerMinutes}
                     onChange={(e) => setTimerMinutes(parseInt(e.target.value) || 30)}
                     disabled={timerActive}
-                    className="w-full px-4 py-2 rounded-lg bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full px-4 py-2 rounded-lg bg-background border border-border focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
 

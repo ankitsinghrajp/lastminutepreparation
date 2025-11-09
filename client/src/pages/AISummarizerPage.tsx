@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
-import { Sparkles, Loader2, FileText, Copy, Trash2, Lightbulb, HelpCircle, Target, BookOpen, Brain, Zap, CheckCircle2, AlertCircle } from "lucide-react";
+import { Sparkles, Loader2, Copy, Trash2, Lightbulb, HelpCircle, Target, BookOpen, Brain, Zap, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Footer } from "@/components/Footer";
 import { useAsyncMutation } from "@/hooks/hook";
