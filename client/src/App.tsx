@@ -63,7 +63,7 @@ const App = () => {
             {/* Protected Routes */}
             <Route element={<ProtectedRoute user={user}/>}>
             <Route path="/ai-chat" element={<AIChat />} />
-            <Route path="/chat-with-pdf" element={<ChatWithPDF />} />
+            {/* <Route path="/chat-with-pdf" element={<ChatWithPDF />} /> */}
             <Route path="/chapter-wise-study" element={<ChapterWiseStudy />} />
             <Route path="/ai-summary" element={<AISummarizer />} />
             <Route path="/question-generator" element={<ImportantQuestions />} />

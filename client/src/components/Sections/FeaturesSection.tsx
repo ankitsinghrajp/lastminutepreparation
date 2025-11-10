@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 
 const features = [
-      {
+  {
     icon: Clock,
     title: "Last Night Before Exam",
     description: "Quick revision mode with key points and important questions.",
@@ -12,28 +12,19 @@ const features = [
     color: "from-orange-500 to-red-500",
   },
   {
-    icon: FileText,
-    title: "Chat with PDF",
-    description: "Upload your PDF notes and have an interactive conversation about the content.",
-    path: "/chat-with-pdf",
-    color: "from-purple-500 to-pink-500",
-  },
- 
-  {
     icon: BookOpen,
     title: "Chapter Wise Study",
     description: "Select your class, select subject and chapter.",
     path: "/chapter-wise-study",
     color: "from-blue-500 to-cyan-500",
   },
-   {
+  {
     icon: Brain,
     title: "AI Topic Summarizer",
     description: "Get concise, intelligent summaries of your study materials in seconds.",
     path: "/ai-summary",
     color: "from-blue-500 to-cyan-500",
   },
-
   {
     icon: FileQuestion,
     title: "Important Question Generator",
@@ -91,7 +82,12 @@ export default function FeaturesSection() {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
           {features.map((feature, index) => (
-            <Link key={index} to={feature.path} state={{ feature: feature.title }}>
+            <Link 
+              key={index} 
+              to={feature.path} 
+              state={{ feature: feature.title }}
+              className={index >= 6 ? "md:col-span-2 lg:col-span-3" : ""}
+            >
               <Card className="p-6 bg-card/50 border-border/50 backdrop-blur-sm hover:bg-card/80 transition-all duration-300 hover:shadow-[0_0_30px_rgba(168,85,247,0.2)] hover:border-primary/50 group cursor-pointer h-full">
                 <div className="space-y-4">
                   <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${feature.color} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
