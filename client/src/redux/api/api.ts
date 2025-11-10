@@ -81,6 +81,14 @@ const api = createApi({
             }),
             keepUnusedDataFor:0,
             refetchOnMountOrArgChange:true
+        }),
+        getRevision: builder.mutation({
+          query:({className,subject, chapter, index})=>({
+            url:"ai/last-night-before-exam",
+            method:"post",
+            credentials:"include",
+            body:{className,subject,chapter,index}
+          })  
         })
     })
 })
@@ -98,4 +106,6 @@ export const {
    useGetClassNameQuery,
    useLazyGetSubjectsQuery,
    useLazyGetChaptersQuery,
+   useGetRevisionMutation,
 } = api;
+

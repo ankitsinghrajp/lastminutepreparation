@@ -1,5 +1,5 @@
 import express from "express";
-import { summarizer } from "../controllers/ai.controller.js";
+import { lastNightBeforeExam, summarizer } from "../controllers/ai.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { verifyEmailMiddleware } from "../middlewares/mailVerify.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
@@ -14,5 +14,7 @@ router.post("/summarizer",upload.fields([
         maxCount:1
     }
 ]),summarizer);
+
+router.post("/last-night-before-exam",lastNightBeforeExam);
 
 export default router;
