@@ -13,7 +13,7 @@ const features = [
   },
   {
     icon: BookOpen,
-    title: "Chapter Wise Study",
+    title: "Chapter Wise Study Guide",
     description: "Select your class, select subject and chapter.",
     path: "/chapter-wise-study",
     color: "from-blue-500 to-cyan-500",

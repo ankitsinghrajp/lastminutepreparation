@@ -1,5 +1,5 @@
 import express from "express";
-import { lastNightBeforeExam, summarizer } from "../controllers/ai.controller.js";
+import { chapterWiseStudy, lastNightBeforeExam, summarizer } from "../controllers/ai.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { verifyEmailMiddleware } from "../middlewares/mailVerify.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
@@ -16,5 +16,6 @@ router.post("/summarizer",upload.fields([
 ]),summarizer);
 
 router.post("/last-night-before-exam",lastNightBeforeExam);
+router.post("/chapter-wise-study",chapterWiseStudy);
 
 export default router;

@@ -72,11 +72,7 @@ export const Footer = () => {
                   Last Night Prep
                 </Link>
               </li>
-              <li>
-                <Link to="/chat-with-pdf" className="text-muted-foreground hover:text-primary transition-colors">
-                  Chat With PDF
-                </Link>
-              </li>
+          
               <li>
                 <Link to="/chapter-wise-study" className="text-muted-foreground hover:text-primary transition-colors">
                   Chapter Study

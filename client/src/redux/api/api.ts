@@ -89,6 +89,14 @@ const api = createApi({
             credentials:"include",
             body:{className,subject,chapter,index}
           })  
+        }),
+        chapterWiseStudy: builder.mutation({
+          query:({className,subject, chapter, index})=>({
+            url:"ai/chapter-wise-study",
+            method:"post",
+            credentials:"include",
+            body:{className,subject,chapter,index}
+          })  
         })
     })
 })
@@ -107,5 +115,6 @@ export const {
    useLazyGetSubjectsQuery,
    useLazyGetChaptersQuery,
    useGetRevisionMutation,
+   useChapterWiseStudyMutation,
 } = api;
 
