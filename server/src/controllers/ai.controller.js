@@ -791,6 +791,71 @@ OUTPUT FORMAT:
     );
 });
 
+const askAnyQuestion = asyncHandler(async (req, res) => {
+    const { question } = req.body;
+
+    if (!question || question.trim() === "") {
+        throw new ApiError(400, "Please provide a question or topic");
+    }
+
+    const prompt = `
+You are a CBSE Exam Expert. Answer the following question in SIMPLE, CLEAR English
+so that a student can write it EXACTLY in exams.
+
+**Question/Topic:** "${question}"
+
+CRITICAL RULES:
+1. Provide a COMPLETE, DETAILED answer that covers all aspects of the question.
+2. Use simple words, short sentences, clear meaning.
+3. Detect the likely marks for this question (1, 2, 3, 5, 6) based on typical CBSE trends.
+4. The answer length must be COMPREHENSIVE and DETAILED based on marks:
+   - 1–2 marks → 2–3 lines with clear explanation
+   - 3 marks → 4–6 lines or 4–5 detailed bullet points with explanations
+   - 5–6 marks → 8–12 lines or 6–8 detailed points with proper explanation, examples, and reasoning
+5. Include proper definitions, explanations, examples, and reasoning where needed.
+6. For definitions: give the definition + brief explanation + example if possible.
+7. For descriptive answers: cover all key points thoroughly with proper elaboration.
+8. For numerical/derivations: show complete steps with explanations.
+9. Make sure the answer is exam-ready and helps student score FULL marks.
+10. If the question requires a formula, include it exactly in the "formula" field.
+11. Return ONLY valid JSON like this:
+
+{
+  "answer": "<detailed exam-ready answer with complete explanation>",
+  "marks": "<1|2|3|5|6>",
+  "formula": "<formula if applicable, else null>"
+}
+
+Make it detailed, thorough, scoring maximum marks, and exam-ready. DO NOT be too brief.
+`;
+
+    // Call OpenAI
+    const apiData = await askOpenAI(prompt);
+
+    let parsed;
+    try {
+        const cleaned = apiData.replace(/```json/g, "").replace(/```/g, "").trim();
+        parsed = JSON.parse(cleaned);
+
+        if (!parsed.answer || !parsed.marks || parsed.formula === undefined) {
+            throw new Error("Missing required fields 'answer', 'marks', or 'formula'");
+        }
+
+        // Ensure formula is null if not applicable
+        if (!parsed.formula) parsed.formula = null;
+
+    } catch (err) {
+        throw new ApiError(500, "Failed to parse AI response: " + err.message);
+    }
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            { data: parsed },
+            "Answer generated successfully."
+        )
+    );
+});
 
 
-export { summarizer, lastNightBeforeExam, chapterWiseStudy, importantQuestionGenerator, quizMcqFillupTrueFalse};
+export { summarizer, lastNightBeforeExam, chapterWiseStudy, importantQuestionGenerator, quizMcqFillupTrueFalse,askAnyQuestion};

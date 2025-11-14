@@ -1,5 +1,5 @@
 import express from "express";
-import { chapterWiseStudy, importantQuestionGenerator, lastNightBeforeExam, quizMcqFillupTrueFalse, summarizer } from "../controllers/ai.controller.js";
+import { askAnyQuestion, chapterWiseStudy, importantQuestionGenerator, lastNightBeforeExam, quizMcqFillupTrueFalse, summarizer } from "../controllers/ai.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { verifyEmailMiddleware } from "../middlewares/mailVerify.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
@@ -19,6 +19,6 @@ router.post("/last-night-before-exam",lastNightBeforeExam);
 router.post("/chapter-wise-study",chapterWiseStudy);
 router.post("/important-question-generator",importantQuestionGenerator);
 router.post("/quiz-fillups",quizMcqFillupTrueFalse);
-
+router.post("/ask-any",askAnyQuestion);
 
 export default router;

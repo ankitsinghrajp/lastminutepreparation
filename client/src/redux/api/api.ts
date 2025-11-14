@@ -116,6 +116,15 @@ const api = createApi({
             })
         }),
 
+        askAny: builder.mutation({
+            query:({question})=>({
+                url:"ai/ask-any",
+                method:"post",
+                credentials:"include",
+                body:{question}
+            })
+        })
+
     })
 })
 
@@ -136,5 +145,6 @@ export const {
    useChapterWiseStudyMutation,
    useImportantQuestionGeneratorMutation,
    useQuizGeneratorMutation,
+   useAskAnyMutation
 } = api;
 
