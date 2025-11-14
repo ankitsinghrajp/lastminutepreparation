@@ -589,4 +589,203 @@ const chapterWiseStudy = asyncHandler(async (req, res) => {
     );
 });
 
-export { summarizer, lastNightBeforeExam, chapterWiseStudy };
+const importantQuestionGenerator = asyncHandler(async (req, res) => {
+    const { className, subject, chapter, index } = req.body;
+
+    if ([className, subject, chapter].some((f) => !f || f.trim() === "")) {
+        throw new ApiError(400, "className, subject, chapter are required!");
+    }
+
+    const topics = Array.isArray(index) && index.length > 0 ? JSON.stringify(index) : "All key topics";
+
+    const prompt = `
+You are a CBSE Exam Expert. Generate ONLY HIGH-VALUE QUESTIONS that come frequently in CBSE Boards.
+
+Return **VALID JSON only** (no markdown, no backticks).
+
+INPUT:
+Class: ${className}
+Subject: ${subject}
+Chapter: ${chapter}
+Topics: ${topics}
+
+OUTPUT JSON STRUCTURE:
+{
+  "chapter": "<chapter name>",
+  "whyImportant": "<2 lines explaining why this chapter is important for exam>",
+  
+  "pastYearPatterns": [
+    {
+      "questionType": "1-mark | 2-mark | 3-mark | 5-mark",
+      "frequency": "High | Medium | Low",
+      "trend": "How often asked in last 5 years",
+      "notes": "short insight"
+    }
+  ],
+
+  "importantQuestions": [
+    {
+      "question": "<Most expected question>",
+      "marks": "<1/2/3/5>",
+      "whyThisIsImportant": "<1–2 lines>",
+      "keywords": ["keyword1", "keyword2"],
+      "modelAnswer": "<Simple English answer written exactly like exam>"
+    }
+  ],
+
+  "mustPracticeNumericals": [
+    {
+      "question": "<numerical question if subject needs>",
+      "marks": "<2/3/5>",
+      "formulaUsed": ["formula1", "formula2"],
+      "solutionSteps": "Step 1: ... Step 2: ... Step 3: ...",
+      "commonMistake": "<common student mistake>"
+    }
+  ],
+
+  "veryShortQuestions": [
+    {
+      "question": "<1 mark conceptual question>",
+      "answer": "<crisp answer>",
+      "keywords": ["term1"]
+    }
+  ],
+
+  "longAnswerQuestions": [
+    {
+      "question": "<expected 5-mark or derivation question>",
+      "structure": "Intro → Point 1 → Point 2 → Diagram → Conclusion",
+      "modelAnswer": "<full answer student can copy>",
+      "diagramTip": "<if diagram needed>"
+    }
+  ],
+
+  "examStrategy": {
+    "howToAttempt": ["tip1", "tip2"],
+    "mustRevise": ["topic1", "topic2"],
+    "avoidMistakes": ["mistake1", "mistake2"]
+  }
+}
+
+Requirements:
+- Minimum 20 important questions.
+- All answers in simple CBSE-friendly language.
+- No complex words.
+- All JSON must be strictly valid.
+`;
+
+    // CALL OPENAI
+    const apiData = await askOpenAI(prompt);
+
+    let finalQuestions;
+    try {
+        const clean = apiData.replace(/```json/g, "").replace(/```/g, "").trim();
+        finalQuestions = JSON.parse(clean);
+
+        const required = [
+            "chapter",
+            "whyImportant",
+            "pastYearPatterns",
+            "importantQuestions",
+            "veryShortQuestions",
+            "longAnswerQuestions",
+            "examStrategy"
+        ];
+
+        const missing = required.filter(f => !finalQuestions[f]);
+        if (missing.length > 0) {
+            throw new Error("Missing required fields: " + missing.join(", "));
+        }
+
+    } catch (err) {
+        throw new ApiError(500, "Failed to parse AI response: " + err.message);
+    }
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            { data: finalQuestions },
+            "Important Question Set Generated Successfully! 🔥"
+        )
+    );
+});
+
+export const quizFillupsAndTrueFalse = asyncHandler(async (req, res) => {
+    try {
+        const { className, subject, chapterName, chapterIndex } = req.body;
+
+        if (!className || !subject || !chapterName) {
+            throw new ApiError(400, "className, subject, and chapterName are required");
+        }
+
+        const prompt = `
+You are an expert CBSE teacher and board paper setter.
+
+Your task is to generate the MOST important Fill in the Blanks and True/False questions
+for the given chapter. These should be high-value, frequently asked, exam-focused questions.
+
+INPUT:
+- Class: ${className}
+- Subject: ${subject}
+- Chapter Name: ${chapterName}
+- Chapter Index (optional): ${chapterIndex ?? "not provided"}
+
+STRICT RULES YOU MUST FOLLOW:
+1. Generate 15 to 20 questions total (never less than 15 and never more than 20).
+2. Only TWO types:
+   - "fillup"
+   - "true_false"
+3. All questions MUST be:
+   - Very important
+   - Frequently asked in CBSE exams
+   - Concept checking
+4. Include the correct answer for every question.
+5. Maintain variety: at least 8 fillups and at least 5 true/false.
+6. DO NOT generate repeated or trivial questions.
+7. Output must be in pure JSON only.
+
+OUTPUT FORMAT STRICTLY:
+
+{
+  "class": "${className}",
+  "subject": "${subject}",
+  "chapterName": "${chapterName}",
+  "questions": [
+    {
+      "id": 1,
+      "type": "fillup | true_false",
+      "question": "<question text>",
+      "answer": "<correct answer>"
+    }
+  ]
+}
+`;
+
+        const aiResponse = await openai.responses.create({
+            model: "gpt-4.1",
+            reasoning: { effort: "medium" },
+            input: prompt
+        });
+
+        const raw = aiResponse.output[0].content[0].text;
+
+        let parsed;
+        try {
+            parsed = JSON.parse(raw);
+        } catch (err) {
+            throw new ApiError(500, "Failed to parse AI response: " + err.message);
+        }
+
+        return res.status(200).json(
+            new ApiResponse(200, parsed, "Quiz Fillups & True/False generated successfully")
+        );
+
+    } catch (error) {
+        return res.status(500).json(
+            new ApiError(500, error.message || "Failed to generate quiz questions")
+        );
+    }
+});
+
+
+export { summarizer, lastNightBeforeExam, chapterWiseStudy, importantQuestionGenerator};

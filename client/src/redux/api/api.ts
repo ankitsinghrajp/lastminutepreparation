@@ -97,6 +97,14 @@ const api = createApi({
             credentials:"include",
             body:{className,subject,chapter,index}
           })  
+        }),
+        importantQuestionGenerator: builder.mutation({
+            query:({className,subject, chapter, index})=>({
+                url:"ai/important-question-generator",
+                method:"post",
+                credentials:"include",
+                body:{className, subject, chapter, index}
+            })
         })
     })
 })
@@ -116,5 +124,6 @@ export const {
    useLazyGetChaptersQuery,
    useGetRevisionMutation,
    useChapterWiseStudyMutation,
+   useImportantQuestionGeneratorMutation,
 } = api;
 
