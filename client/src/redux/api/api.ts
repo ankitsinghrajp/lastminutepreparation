@@ -1,5 +1,6 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import {server} from "../../constants"
+import QuizGenerator from "@/pages/QuizGeneratorPage";
 
 const api = createApi({
     reducerPath:"api",
@@ -105,7 +106,16 @@ const api = createApi({
                 credentials:"include",
                 body:{className, subject, chapter, index}
             })
-        })
+        }),
+        QuizGenerator: builder.mutation({
+            query:({className,subject, chapter, index})=>({
+                url:"ai/quiz-fillups",
+                method:"post",
+                credentials:"include",
+                body:{className, subject, chapter, index}
+            })
+        }),
+
     })
 })
 
@@ -125,5 +135,6 @@ export const {
    useGetRevisionMutation,
    useChapterWiseStudyMutation,
    useImportantQuestionGeneratorMutation,
+   useQuizGeneratorMutation,
 } = api;
 

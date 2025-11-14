@@ -149,7 +149,7 @@ Note: Topics may or may not present
 JSON STRUCTURE:
 {
   "ChapterOverview": {
-    "chapterName": "string",
+    "chapter": "string",
     "keyTheme": "one-line summary",
     "examWeightage": "marks range",
     "timeToRevise": "minutes"
@@ -710,82 +710,87 @@ Requirements:
     );
 });
 
-export const quizFillupsAndTrueFalse = asyncHandler(async (req, res) => {
-    try {
-        const { className, subject, chapterName, chapterIndex } = req.body;
+const quizMcqFillupTrueFalse = asyncHandler(async (req, res) => {
+    const { className, subject, chapter, index } = req.body;
 
-        if (!className || !subject || !chapterName) {
-            throw new ApiError(400, "className, subject, and chapterName are required");
-        }
+    if (!className || !subject || !chapter) {
+        throw new ApiError(400, "className, subject and chapter are required");
+    }
 
-        const prompt = `
-You are an expert CBSE teacher and board paper setter.
+    const topics = Array.isArray(index) && index.length > 0 ? JSON.stringify(index) : "All key topics";
 
-Your task is to generate the MOST important Fill in the Blanks and True/False questions
-for the given chapter. These should be high-value, frequently asked, exam-focused questions.
+    const prompt = `
+You are a CBSE Exam Expert. Generate ONLY HIGH-VALUE questions from the chapter.
+Include MCQs, Fillups, and True/False with answers.
 
 INPUT:
 - Class: ${className}
 - Subject: ${subject}
-- Chapter Name: ${chapterName}
-- Chapter Index (optional): ${chapterIndex ?? "not provided"}
+- Chapter Name: ${chapter}
+- Topics: ${topics}
 
-STRICT RULES YOU MUST FOLLOW:
-1. Generate 15 to 20 questions total (never less than 15 and never more than 20).
-2. Only TWO types:
-   - "fillup"
-   - "true_false"
-3. All questions MUST be:
-   - Very important
-   - Frequently asked in CBSE exams
-   - Concept checking
-4. Include the correct answer for every question.
-5. Maintain variety: at least 8 fillups and at least 5 true/false.
-6. DO NOT generate repeated or trivial questions.
-7. Output must be in pure JSON only.
+REQUIREMENTS:
+1. Generate 15 to 20 VERY IMPORTANT questions in total.
+2. Include all 3 types:
+   - "mcq" (minimum 7)
+   - "fillup" (minimum 5)
+   - "true_false" (minimum 4)
+3. MCQs: Provide 4 options and correct answer exactly matching one option.
+4. Fillups: Use blank as "______".
+5. True/False: Answer must be "True" or "False".
+6. Do NOT repeat questions.
+7. Return STRICT JSON ONLY. No markdown, no explanations.
 
-OUTPUT FORMAT STRICTLY:
-
+OUTPUT FORMAT:
 {
   "class": "${className}",
   "subject": "${subject}",
-  "chapterName": "${chapterName}",
+  "chapter": "${chapter}",
   "questions": [
     {
       "id": 1,
-      "type": "fillup | true_false",
+      "type": "mcq | fillup | true_false",
       "question": "<question text>",
+      "options": ["A", "B", "C", "D"],
       "answer": "<correct answer>"
     }
   ]
 }
 `;
 
-        const aiResponse = await openai.responses.create({
-            model: "gpt-4.1",
-            reasoning: { effort: "medium" },
-            input: prompt
-        });
+    // Call OpenAI using your helper
+    const apiData = await askOpenAI(prompt);
 
-        const raw = aiResponse.output[0].content[0].text;
+    let finalQuestions;
+    try {
+        const cleaned = apiData.replace(/```json/g, "").replace(/```/g, "").trim();
+        finalQuestions = JSON.parse(cleaned);
 
-        let parsed;
-        try {
-            parsed = JSON.parse(raw);
-        } catch (err) {
-            throw new ApiError(500, "Failed to parse AI response: " + err.message);
+        // Validate required fields
+        const requiredFields = ["class", "subject", "chapter", "questions"];
+        const missingFields = requiredFields.filter((f) => !finalQuestions[f]);
+        if (missingFields.length > 0) {
+            throw new Error("Missing required fields: " + missingFields.join(", "));
         }
 
-        return res.status(200).json(
-            new ApiResponse(200, parsed, "Quiz Fillups & True/False generated successfully")
-        );
+        if (!Array.isArray(finalQuestions.questions) || finalQuestions.questions.length === 0) {
+            throw new Error("Questions array is empty or invalid");
+        }
 
-    } catch (error) {
-        return res.status(500).json(
-            new ApiError(500, error.message || "Failed to generate quiz questions")
-        );
+    } catch (err) {
+        console.error("❌ AI Response Parsing Error:", err);
+        throw new ApiError(500, "Failed to parse AI response: " + err.message);
     }
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            { data: finalQuestions },
+            "MCQs + Fillups + True/False generated successfully 🔥"
+        )
+    );
 });
 
 
-export { summarizer, lastNightBeforeExam, chapterWiseStudy, importantQuestionGenerator};
+
+export { summarizer, lastNightBeforeExam, chapterWiseStudy, importantQuestionGenerator, quizMcqFillupTrueFalse};

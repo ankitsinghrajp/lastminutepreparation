@@ -33,6 +33,13 @@ const features = [
     color: "from-violet-500 to-purple-500",
   },
   {
+    icon: Brain,
+    title: "Quiz, Fill Ups and True False",
+    description: "Get Important Quizes, Fill in the blanks and True False on your subject.",
+    path: "/quiz-generator",
+    color: "from-orange-500 to-amber-500",
+  },
+    {
     icon: MessageSquare,
     title: "Ask Any Question",
     description: "Get best explanation of question and answer so that you can never forget it.",
@@ -45,13 +52,6 @@ const features = [
     description: "Stuck on any topic, Click Image and Upload AI will explain you everything.",
     path: "/diagram-analysis",
     color: "from-indigo-500 to-blue-500",
-  },
-  {
-    icon: Brain,
-    title: "Quiz, Fill Ups and True False",
-    description: "Get Important Quizes, Fill in the blanks and True False on your subject.",
-    path: "/quiz-generator",
-    color: "from-orange-500 to-amber-500",
   },
   {
     icon: FileText,

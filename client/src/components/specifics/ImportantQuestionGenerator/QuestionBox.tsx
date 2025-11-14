@@ -45,12 +45,12 @@ const QuestionBox = ({ response }) => {
 
   if (!response || response.length === 0) {
     return (
-      <Card className="p-8 sm:p-12 bg-card/30 border-border/30 text-center">
-        <BookOpen className="h-12 w-12 sm:h-14 sm:w-14 mx-auto mb-3 text-emerald-500/50" />
-        <h3 className="text-base sm:text-lg font-medium mb-1.5 text-muted-foreground">
+      <Card className="p-8 bg-card/30 border-border/30 text-center">
+        <BookOpen className="h-12 w-12 mx-auto mb-3 text-emerald-500/50" />
+        <h3 className="text-base font-medium mb-1.5 text-muted-foreground">
           No Questions Yet
         </h3>
-        <p className="text-sm text-muted-foreground/70">
+        <p className="text-xs text-muted-foreground/70">
           Generate questions to see them here
         </p>
       </Card>
@@ -58,18 +58,18 @@ const QuestionBox = ({ response }) => {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Chapter Info Header */}
       {response.chapter && (
-        <Card className="p-4 sm:p-6 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border-emerald-500/20">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center flex-shrink-0">
-              <BookOpen className="h-5 w-5 text-white" />
+        <Card className="p-4 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border-emerald-500/20">
+          <div className="flex items-start gap-2.5">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center flex-shrink-0">
+              <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
             </div>
-            <div className="flex-1">
-              <h2 className="text-lg sm:text-xl font-semibold mb-2">{response.chapter}</h2>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base sm:text-lg font-semibold mb-2">{response.chapter}</h2>
               {response.whyImportant && (
-                <p className="text-sm text-muted-foreground leading-relaxed">
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                   {response.whyImportant}
                 </p>
               )}
@@ -80,24 +80,24 @@ const QuestionBox = ({ response }) => {
 
       {/* Past Year Patterns */}
       {response.pastYearPatterns && response.pastYearPatterns.length > 0 && (
-        <Card className="p-4 sm:p-6 bg-card/50 border-border/50">
-          <div className="flex items-center gap-2 mb-4">
-            <Target className="h-5 w-5 text-blue-500" />
-            <h3 className="font-semibold">Past Year Patterns</h3>
+        <Card className="p-4 bg-card/50 border-border/50">
+          <div className="flex items-center gap-2 mb-3 sm:mb-4">
+            <Target className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
+            <h3 className="text-sm sm:text-base font-semibold">Past Year Patterns</h3>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2.5 sm:space-y-3">
             {response.pastYearPatterns.map((pattern, idx) => (
               <div key={idx} className="p-3 bg-background/50 rounded-lg border border-border/30">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">{pattern.questionType}</span>
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                <div className="flex items-center justify-between mb-2 gap-2">
+                  <span className="text-xs sm:text-sm font-medium truncate">{pattern.questionType}</span>
+                  <span className={`px-2 py-1 rounded text-xs font-medium flex-shrink-0 ${
                     pattern.frequency === 'High' 
                       ? 'bg-red-500/10 text-red-600 dark:text-red-400' 
                       : pattern.frequency === 'Medium'
                       ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
                       : 'bg-green-500/10 text-green-600 dark:text-green-400'
                   }`}>
-                    {pattern.frequency} Frequency
+                    {pattern.frequency}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mb-1">{pattern.trend}</p>
@@ -114,28 +114,28 @@ const QuestionBox = ({ response }) => {
 
       {/* Important Questions */}
       {response.importantQuestions && response.importantQuestions.length > 0 && (
-        <Card className="p-4 sm:p-6 bg-card/50 border-border/50">
+        <Card className="p-4 bg-card/50 border-border/50">
           <button
             onClick={() => toggleSection('important')}
-            className="flex items-center justify-between w-full mb-4"
+            className="flex items-center justify-between w-full mb-3 sm:mb-4"
           >
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-              <h3 className="font-semibold">Important Questions ({response.importantQuestions.length})</h3>
+              <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-500" />
+              <h3 className="text-sm sm:text-base font-semibold">Important Questions ({response.importantQuestions.length})</h3>
             </div>
             {expandedSections.important ? (
-              <ChevronUp className="h-5 w-5 text-muted-foreground" />
+              <ChevronUp className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
             ) : (
-              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+              <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
             )}
           </button>
 
           {expandedSections.important && (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {response.importantQuestions.map((q, idx) => (
-                <div key={idx} className="p-4 bg-background/50 rounded-lg border border-border/30">
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex items-start gap-2 flex-1">
+                <div key={idx} className="p-3 sm:p-4 bg-background/50 rounded-lg border border-border/30">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-start gap-2 flex-1 min-w-0">
                       <span className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center flex-shrink-0 mt-0.5">
                         <span className="text-white text-xs font-bold">{idx + 1}</span>
                       </span>
@@ -143,7 +143,7 @@ const QuestionBox = ({ response }) => {
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className="px-2 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded text-xs font-medium">
-                        {q.marks} marks
+                        {q.marks}m
                       </span>
                       <Button
                         onClick={() => handleCopyQuestion(q.question)}
@@ -198,7 +198,7 @@ const QuestionBox = ({ response }) => {
                   </Button>
 
                   {showAnswers[`important-${idx}`] && q.modelAnswer && (
-                    <div className="mt-3 p-3 bg-emerald-500/5 rounded border border-emerald-500/20">
+                    <div className="mt-3 p-2.5 sm:p-3 bg-emerald-500/5 rounded border border-emerald-500/20">
                       <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-2">
                         Model Answer:
                       </p>
@@ -214,32 +214,32 @@ const QuestionBox = ({ response }) => {
 
       {/* Must Practice Numericals */}
       {response.mustPracticeNumericals && response.mustPracticeNumericals.length > 0 && (
-        <Card className="p-4 sm:p-6 bg-gradient-to-br from-orange-500/5 to-red-500/5 border-orange-500/20">
+        <Card className="p-4 bg-gradient-to-br from-orange-500/5 to-red-500/5 border-orange-500/20">
           <button
             onClick={() => toggleSection('numericals')}
-            className="flex items-center justify-between w-full mb-4"
+            className="flex items-center justify-between w-full mb-3 sm:mb-4"
           >
             <div className="flex items-center gap-2">
-              <Zap className="h-5 w-5 text-orange-500" />
-              <h3 className="font-semibold">Must Practice Numericals ({response.mustPracticeNumericals.length})</h3>
+              <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500" />
+              <h3 className="text-sm sm:text-base font-semibold">Must Practice Numericals ({response.mustPracticeNumericals.length})</h3>
             </div>
             {expandedSections.numericals ? (
-              <ChevronUp className="h-5 w-5 text-muted-foreground" />
+              <ChevronUp className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
             ) : (
-              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+              <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
             )}
           </button>
 
           {expandedSections.numericals && (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {response.mustPracticeNumericals.map((num, idx) => (
-                <div key={idx} className="p-4 bg-background/50 rounded-lg border border-border/30">
-                  <div className="flex items-start justify-between gap-3 mb-3">
+                <div key={idx} className="p-3 sm:p-4 bg-background/50 rounded-lg border border-border/30">
+                  <div className="flex items-start justify-between gap-2 mb-3">
                     <p className="text-sm font-medium flex-1">
                       <span className="text-orange-500">Problem {idx + 1}:</span> {num.question}
                     </p>
                     <span className="px-2 py-1 bg-orange-500/10 text-orange-600 dark:text-orange-400 rounded text-xs font-medium flex-shrink-0">
-                      {num.marks} marks
+                      {num.marks}m
                     </span>
                   </div>
 
@@ -249,7 +249,7 @@ const QuestionBox = ({ response }) => {
                         Formula Used:
                       </p>
                       {num.formulaUsed.map((formula, fidx) => (
-                        <p key={fidx} className="text-xs font-mono text-foreground/80">{formula}</p>
+                        <p key={fidx} className="text-xs font-mono text-foreground/80 break-all">{formula}</p>
                       ))}
                     </div>
                   )}
@@ -283,7 +283,7 @@ const QuestionBox = ({ response }) => {
                   </Button>
 
                   {showAnswers[`numerical-${idx}`] && num.solutionSteps && (
-                    <div className="mt-3 p-3 bg-orange-500/5 rounded border border-orange-500/20">
+                    <div className="mt-3 p-2.5 sm:p-3 bg-orange-500/5 rounded border border-orange-500/20">
                       <p className="text-xs text-orange-600 dark:text-orange-400 font-medium mb-2">
                         Solution Steps:
                       </p>
@@ -299,19 +299,19 @@ const QuestionBox = ({ response }) => {
 
       {/* Very Short Questions */}
       {response.veryShortQuestions && response.veryShortQuestions.length > 0 && (
-        <Card className="p-4 sm:p-6 bg-gradient-to-br from-purple-500/5 to-pink-500/5 border-purple-500/20">
+        <Card className="p-4 bg-gradient-to-br from-purple-500/5 to-pink-500/5 border-purple-500/20">
           <button
             onClick={() => toggleSection('veryShort')}
-            className="flex items-center justify-between w-full mb-4"
+            className="flex items-center justify-between w-full mb-3 sm:mb-4"
           >
             <div className="flex items-center gap-2">
-              <HelpCircle className="h-5 w-5 text-purple-500" />
-              <h3 className="font-semibold">Very Short Questions ({response.veryShortQuestions.length})</h3>
+              <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500" />
+              <h3 className="text-sm sm:text-base font-semibold">Very Short Questions ({response.veryShortQuestions.length})</h3>
             </div>
             {expandedSections.veryShort ? (
-              <ChevronUp className="h-5 w-5 text-muted-foreground" />
+              <ChevronUp className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
             ) : (
-              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+              <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
             )}
           </button>
 
@@ -319,21 +319,31 @@ const QuestionBox = ({ response }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {response.veryShortQuestions.map((vsq, idx) => (
                 <div key={idx} className="p-3 bg-background/50 rounded-lg border border-border/30">
-                  <p className="text-sm font-medium mb-2 text-purple-600 dark:text-purple-400">
+                  <p className="text-sm font-medium mb-3 text-purple-600 dark:text-purple-400">
                     Q: {vsq.question}
                   </p>
                   
                   <Button
                     onClick={() => toggleAnswer(`veryshort-${idx}`)}
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="w-full h-7 text-xs mb-2"
+                    className="w-full h-8 text-xs"
                   >
-                    {showAnswers[`veryshort-${idx}`] ? 'Hide' : 'Show'} Answer
+                    {showAnswers[`veryshort-${idx}`] ? (
+                      <>
+                        <ChevronUp className="h-3 w-3 mr-1" />
+                        Hide Answer
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-3 w-3 mr-1" />
+                        Show Answer
+                      </>
+                    )}
                   </Button>
 
                   {showAnswers[`veryshort-${idx}`] && (
-                    <div className="p-2 bg-purple-500/5 rounded">
+                    <div className="mt-3 p-2 bg-purple-500/5 rounded border border-purple-500/20">
                       <p className="text-xs text-foreground/80">{vsq.answer}</p>
                     </div>
                   )}
@@ -359,26 +369,26 @@ const QuestionBox = ({ response }) => {
 
       {/* Long Answer Questions */}
       {response.longAnswerQuestions && response.longAnswerQuestions.length > 0 && (
-        <Card className="p-4 sm:p-6 bg-card/50 border-border/50">
+        <Card className="p-4 bg-card/50 border-border/50">
           <button
             onClick={() => toggleSection('long')}
-            className="flex items-center justify-between w-full mb-4"
+            className="flex items-center justify-between w-full mb-3 sm:mb-4"
           >
             <div className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-emerald-500" />
-              <h3 className="font-semibold">Long Answer Questions ({response.longAnswerQuestions.length})</h3>
+              <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-500" />
+              <h3 className="text-sm sm:text-base font-semibold">Long Answer Questions ({response.longAnswerQuestions.length})</h3>
             </div>
             {expandedSections.long ? (
-              <ChevronUp className="h-5 w-5 text-muted-foreground" />
+              <ChevronUp className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
             ) : (
-              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+              <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
             )}
           </button>
 
           {expandedSections.long && (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {response.longAnswerQuestions.map((laq, idx) => (
-                <div key={idx} className="p-4 bg-background/50 rounded-lg border border-border/30">
+                <div key={idx} className="p-3 sm:p-4 bg-background/50 rounded-lg border border-border/30">
                   <p className="text-sm font-medium mb-3">{laq.question}</p>
 
                   {laq.structure && (
@@ -419,7 +429,7 @@ const QuestionBox = ({ response }) => {
                   </Button>
 
                   {showAnswers[`long-${idx}`] && laq.modelAnswer && (
-                    <div className="mt-3 p-3 bg-emerald-500/5 rounded border border-emerald-500/20">
+                    <div className="mt-3 p-2.5 sm:p-3 bg-emerald-500/5 rounded border border-emerald-500/20">
                       <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-2">
                         Model Answer:
                       </p>
@@ -435,21 +445,21 @@ const QuestionBox = ({ response }) => {
 
       {/* Exam Strategy */}
       {response.examStrategy && (
-        <Card className="p-4 sm:p-6 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 border-blue-500/20">
-          <div className="flex items-center gap-2 mb-4">
-            <Brain className="h-5 w-5 text-blue-500" />
-            <h3 className="font-semibold">Exam Strategy</h3>
+        <Card className="p-4 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 border-blue-500/20">
+          <div className="flex items-center gap-2 mb-3 sm:mb-4">
+            <Brain className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
+            <h3 className="text-sm sm:text-base font-semibold">Exam Strategy</h3>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2.5 sm:space-y-3">
             {response.examStrategy.howToAttempt && response.examStrategy.howToAttempt.length > 0 && (
               <div className="p-3 bg-background/50 rounded-lg">
                 <p className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-2">
                   How to Attempt:
                 </p>
-                <ul className="space-y-1">
+                <ul className="space-y-1.5">
                   {response.examStrategy.howToAttempt.map((tip, idx) => (
-                    <li key={idx} className="text-sm flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                    <li key={idx} className="text-xs sm:text-sm flex items-start gap-2">
+                      <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-500 flex-shrink-0 mt-0.5" />
                       <span>{tip}</span>
                     </li>
                   ))}
@@ -462,7 +472,7 @@ const QuestionBox = ({ response }) => {
                 <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 mb-2">
                   Must Revise:
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {response.examStrategy.mustRevise.map((item, idx) => (
                     <span 
                       key={idx}
@@ -480,10 +490,10 @@ const QuestionBox = ({ response }) => {
                 <p className="text-xs font-medium text-red-600 dark:text-red-400 mb-2">
                   Avoid These Mistakes:
                 </p>
-                <ul className="space-y-1">
+                <ul className="space-y-1.5">
                   {response.examStrategy.avoidMistakes.map((mistake, idx) => (
-                    <li key={idx} className="text-sm flex items-start gap-2">
-                      <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+                    <li key={idx} className="text-xs sm:text-sm flex items-start gap-2">
+                      <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-red-500 flex-shrink-0 mt-0.5" />
                       <span>{mistake}</span>
                     </li>
                   ))}
