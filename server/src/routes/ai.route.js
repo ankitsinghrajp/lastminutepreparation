@@ -1,5 +1,5 @@
 import express from "express";
-import { askAnyQuestion, chapterWiseStudy, importantQuestionGenerator, lastNightBeforeExam, quizMcqFillupTrueFalse, summarizer } from "../controllers/ai.controller.js";
+import { askAnyQuestion, chapterWiseStudy, diagramImageAnalysis, importantQuestionGenerator, lastNightBeforeExam, quizMcqFillupTrueFalse, summarizer } from "../controllers/ai.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { verifyEmailMiddleware } from "../middlewares/mailVerify.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
@@ -20,5 +20,11 @@ router.post("/chapter-wise-study",chapterWiseStudy);
 router.post("/important-question-generator",importantQuestionGenerator);
 router.post("/quiz-fillups",quizMcqFillupTrueFalse);
 router.post("/ask-any",askAnyQuestion);
+router.post("/image-analysis",upload.fields([
+    {
+        name:"image",
+        maxCount:1
+    }
+]),diagramImageAnalysis);
 
 export default router;

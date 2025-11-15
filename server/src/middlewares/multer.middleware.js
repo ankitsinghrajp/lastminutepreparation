@@ -1,22 +1,20 @@
 import multer from "multer";
-import path from "path";
 
-let fileCounter = 1; // simple counter for unique naming
+// ----------------------------
+// Memory Storage Multer Setup
+// ----------------------------
+const storage = multer.memoryStorage(); // store files in RAM, not on disk
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "./public/temp");
+export const upload = multer({
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // max 5 MB per file
   },
-  filename: function (req, file, cb) {
-    // get file extension (like .jpg, .png)
-    const ext = path.extname(file.originalname);
-
-    // generate unique name
-    const uniqueName = `lastminutepreparation${fileCounter}${ext}`;
-    fileCounter++;
-
-    cb(null, uniqueName);
+  fileFilter: (req, file, cb) => {
+    // Only allow image files
+    if (!file.mimetype.startsWith("image/")) {
+      return cb(new Error("Only image files are allowed!"), false);
+    }
+    cb(null, true);
   },
 });
-
-export const upload = multer({ storage });
