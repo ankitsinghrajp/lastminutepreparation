@@ -9,15 +9,15 @@ import Index from "./pages/Index";
 import LayoutLoader from "./components/layoutLoader";
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect } from "react";
-import { useRefreshTokenMutation } from "./redux/api/api";
+import { useCheckExpiryMutation, useRefreshTokenMutation } from "./redux/api/api";
 import { userNotExists } from "./redux/reducers/auth";
 import VerifyEmail from "./pages/VerifyEmail";
+import PaymentSuccess from "./pages/PaymentSuccess";
 
 const Auth = lazy(()=>import( "./pages/Auth"));
 const AIChat = lazy(()=>import("./pages/AIChat"));
 const ImportantQuestions = lazy(()=>import("./pages/ImportantQuestions"));
 const NotFound = lazy(()=>import("./pages/NotFound"));
-const ChatWithPDF = lazy(()=>import("./pages/ChatWithPDF"));
 const ChapterWiseStudy = lazy(()=>import("./pages/ChapterWiseStudy"));
 const AISummarizer = lazy(()=>import("./pages/AISummarizerPage"));
 const AskAnyQuestion = lazy(()=>import("./pages/AskAny"));
@@ -39,6 +39,8 @@ const App = () => {
 
   const dispatch = useDispatch();
   const [mutate] = useRefreshTokenMutation();
+  const [planExpiryMutate] = useCheckExpiryMutation();
+
   useEffect(()=>{
       const checkAuth = async ()=>{
         const res = await mutate("");
@@ -49,6 +51,14 @@ const App = () => {
       checkAuth();
 
   },[dispatch])
+
+
+  useEffect(()=>{
+    const checkExpiry = async ()=>{
+        await planExpiryMutate("");
+    }
+    checkExpiry();
+  },[]);
   return <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -71,6 +81,7 @@ const App = () => {
             <Route path="/diagram-analysis" element={<DiagramAnalysis />} />
             <Route path="/quiz-generator" element={<QuizGenerator />} />
             <Route path="/pyqs" element={<PreviousYearQuestions />} />
+            <Route path="/payment-success" element={<PaymentSuccess/>}/>
             </Route>
 
             <Route element={<ProtectedRoute user={!user} redirect="/"/>}>

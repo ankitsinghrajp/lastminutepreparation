@@ -1,11 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Check } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { useSelector } from "react-redux";
 
 const plans = [
   {
-    name: "Free",
+    name: "FREE",
     price: "₹0",
     period: "forever",
     description: "Perfect for trying out LastMinutePreparation",
@@ -21,7 +23,7 @@ const plans = [
     popular: false,
   },
   {
-    name: "Basic",
+    name: "BASIC",
     price: "₹199",
     period: "per month",
     description: "Great for regular students",
@@ -39,7 +41,7 @@ const plans = [
     popular: true,
   },
   {
-    name: "Premium",
+    name: "PRO",
     price: "₹299",
     period: "per month",
     description: "Unlimited power for serious students",
@@ -59,6 +61,45 @@ const plans = [
 ];
 
 export const Pricing = () => {
+  const {user} = useSelector((state)=>state.auth);
+  
+  const navigate = useNavigate();
+
+  const checkoutHandler = async (amount,planType)=>{
+
+    const {data:{data:{key}}} = await axios.get("http://localhost:3000/api/v1/payment/get-key");
+    if(!user) navigate("/auth");
+    const numeric = Number(amount.replace("₹", "").trim());
+    
+     const {data:{data:{order}}} = await axios.post("http://localhost:3000/api/v1/payment/checkout",{
+      amount:numeric,
+      planType,
+      userId:user._id
+     })
+    
+     const options = {
+      key, 
+      amount: order.amount, 
+      currency: order.currency,
+      name: "LastMinutePreparation Premium",
+      description: "AI-powered study assistant with unlimited uploads, advanced summaries, diagram analysis, and priority support.",
+      image: "https://res.cloudinary.com/dove6tipv/image/upload/v1763279909/logo_wjvuqb.png",
+      order_id: order.id, 
+      callback_url: "http://localhost:3000/api/v1/payment/verify",
+      prefill: {
+        name: user.name,
+        email: user.email,
+       },
+      theme: {
+        color: "#6626d0"
+      }
+  };
+    
+   const razor = new window.Razorpay(options);
+   razor.open();
+
+  }
+
   return (
     <section id="pricing" className="py-24 relative">
       <div className="container mx-auto px-4">
@@ -109,9 +150,9 @@ export const Pricing = () => {
                       : "border-primary/30"
                   }`}
                   variant={plan.popular ? "default" : "outline"}
-                  asChild
+                  onClick={()=>checkoutHandler(plan.price, plan.name)}
                 >
-                  <Link to="/auth">{plan.cta}</Link>
+                  {plan.cta}
                 </Button>
                 
                 <div className="space-y-3 pt-6 border-t border-border">

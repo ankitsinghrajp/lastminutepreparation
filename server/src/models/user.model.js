@@ -35,6 +35,9 @@ const userSchema = new mongoose.Schema({
         enum:["FREE","BASIC", "PRO"],
         default:"FREE"
     },
+    planExpiry: {
+        type: Date,
+    },
     refreshToken:{
         type:String
     }

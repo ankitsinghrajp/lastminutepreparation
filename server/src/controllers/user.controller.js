@@ -213,4 +213,20 @@ const resendEmail = asyncHandler(async (req,res)=>{
 
 })
 
-export {registerUser, loginUser, logoutUser, refreshAccessToken, verifyEmailController, resendEmail};
+const checkPlanExpiry = asyncHandler (async (req,res) => {
+    const user = await User.findById(req.user._id);
+    if (!user) return;
+    if (user.planExpiry && new Date()  > new Date(user.planExpiry)) {
+        // Subscription expired → downgrade to FREE
+        user.planType = "FREE";
+        user.planExpiry = null; // reset expiry
+        await user.save();
+    }
+
+    return res.status(200).json({
+        success:true,
+    })
+});
+
+
+export {registerUser, loginUser, logoutUser, refreshAccessToken, verifyEmailController, resendEmail, checkPlanExpiry};

@@ -51,6 +51,13 @@ const api = createApi({
                 credentials:"include" 
             })
         }),
+        checkExpiry: builder.mutation({
+            query:()=>({
+                url:"user/check-plan-expiry",
+                method:"post",
+                credentials:"include"
+            })
+        }),
         summarizer: builder.mutation({
             query: (data)=>({
                 url:"ai/summarizer",
@@ -145,6 +152,7 @@ export const {
    useChapterWiseStudyMutation,
    useImportantQuestionGeneratorMutation,
    useQuizGeneratorMutation,
-   useAskAnyMutation
+   useAskAnyMutation,
+   useCheckExpiryMutation,
 } = api;
 
