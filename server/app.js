@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-
+import helmet from "helmet";
 const corsOptions = {
     origin:["http://localhost:5173",
         process.env.FRONTEND_URL
@@ -13,6 +13,7 @@ const app = express();
 
 app.use(cors(corsOptions));
 app.use(express.json({limit:"50mb"}));
+app.use(helmet());
 app.use(express.urlencoded({extended:true}));
 app.use(express.static("public"))
 app.use(cookieParser());

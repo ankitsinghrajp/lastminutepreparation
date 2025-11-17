@@ -1,11 +1,14 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import {server} from "../../constants"
-import QuizGenerator from "@/pages/QuizGeneratorPage";
 
 const api = createApi({
     reducerPath:"api",
     baseQuery: fetchBaseQuery({
         baseUrl: `${server}/api/v1/`,
+        prepareHeaders: (headers) => {
+        headers.set("Content-Type", "application/json");
+        return headers;
+    }
     }),
     tagTypes:[],
     endpoints: (builder) => ({

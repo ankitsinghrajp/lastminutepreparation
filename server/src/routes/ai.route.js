@@ -3,11 +3,12 @@ import { askAnyQuestion, chapterWiseStudy, diagramImageAnalysis, importantQuesti
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { verifyEmailMiddleware } from "../middlewares/mailVerify.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
+import { rateLimitByPlan } from "../rateLimiter.js";
 
 const router = express.Router();
 router.use(verifyJWT);
 router.use(verifyEmailMiddleware);
-
+router.use(rateLimitByPlan);
 router.post("/summarizer",upload.fields([
     {
         name:"pdf",
