@@ -167,7 +167,7 @@ export default function ChapterWiseStudy() {
     
     const res = await chapterWiseStudyTrigger("Wait for 30 seconds! We're generating...",{className:selectedClass, subject:selectedSubject, chapter:selectedChapter, index:selectedIndex});
     if(res?.data?.data?.data) {
-      console.log("This is the response from the ai for chapter wise study: ",res?.data?.data?.data);
+      
       setHasContent(true);
       setAIContent(res?.data?.data?.data);
       setCurrentSectionIndex(0); // Reset to first section

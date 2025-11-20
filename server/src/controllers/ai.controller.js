@@ -5,6 +5,7 @@ import { askOpenAI } from "../utils/OpenAI.js";
 import vision from "@google-cloud/vision";
 import { openai } from "../utils/OpenAI.js";
 import { configDotenv } from "dotenv";
+import { detectCategory, parseSubject } from "../utils/helper.js";
 configDotenv();
 
 const summarizer = asyncHandler(async (req, res) => {
@@ -146,214 +147,15 @@ const lastNightBeforeExam = asyncHandler(async (req, res) => {
         throw new ApiError(400, "All fields are required!");
     }
 
-    const prompt = `Generate a CBSE Class 12 exam revision sheet as valid JSON only (no markdown/explanations).
+    const {mainSubject, bookName} = parseSubject(subject);
+    
+    const category = detectCategory(mainSubject);
 
-INPUT: Class: ${className}, Subject: ${subject}, Chapter: ${chapter}, Topics: ${index}
-Note: Topics may or may not present
-JSON STRUCTURE:
-{
-  "ChapterOverview": {
-    "chapter": "string",
-    "keyTheme": "one-line summary",
-    "examWeightage": "marks range",
-    "timeToRevise": "minutes"
-  },
-  "QuickConcepts": [
-    {
-      "topic": "string",
-      "priority": "High/Medium/Low",
-      "points": ["3-5 concise points"],
-      "examTip": "strategy"
-    }
-  ],
-  "FormulasAndEquations": [
-    {
-      "concept": "string",
-      "formula": "plain text (e.g., E=mc^2)",
-      "unit": "SI unit",
-      "application": "when to use",
-      "commonError": "what students miss"
-    }
-  ],
-  "KeyDiagramsDerivations": [
-    {
-      "name": "string",
-      "type": "diagram/derivation",
-      "marks": "typical marks",
-      "criticalPoints": ["2-3 points"]
-    }
-  ],
-  "CommonConfusions": [
-    {
-      "misconception": "wrong belief",
-      "correct": "right understanding",
-      "trick": "memory aid"
-    }
-  ],
-  "MustKnowDefinitions": [
-    {
-      "term": "string",
-      "definition": "exam-ready (<30 words)",
-      "example": "brief example"
-    }
-  ],
-  "PracticeQuestionsByMarks": [
-    {
-      "markType": "1-mark",
-      "questionType": "MCQ",
-      "questions": [
-        {
-          "question": "question text",
-          "options": ["A) option1", "B) option2", "C) option3", "D) option4"],
-          "correctAnswer": "B",
-          "explanation": "why this is correct"
-        }
-      ]
-    },
-    {
-      "markType": "2-mark",
-      "questionType": "Short Answer",
-      "questions": [
-        {
-          "question": "question text",
-          "answer": "model answer (2-3 sentences)",
-          "keywords": ["must-include terms"]
-        }
-      ]
-    },
-    {
-      "markType": "3-mark",
-      "questionType": "Short Answer",
-      "questions": [
-        {
-          "question": "question text",
-          "answer": "model answer (3-4 sentences or 3 points)",
-          "keywords": ["must-include terms"]
-        }
-      ]
-    },
-    {
-      "markType": "4-mark",
-      "questionType": "Case-Based",
-      "questions": [
-        {
-          "case": "scenario/passage (2-3 lines)",
-          "subQuestions": [
-            {
-              "question": "sub-question",
-              "answer": "answer",
-              "marks": "marks for this sub-question"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "markType": "5-mark",
-      "questionType": "Long Answer",
-      "questions": [
-        {
-          "question": "question text",
-          "answer": "detailed answer with 5-6 points or derivation steps",
-          "diagram": "mention if diagram needed",
-          "keywords": ["must-include terms"]
-        }
-      ]
-    },
-    {
-      "markType": "6-mark",
-      "questionType": "Long Answer/Derivation",
-      "questions": [
-        {
-          "question": "question text",
-          "answer": "comprehensive answer with derivation/explanation",
-          "diagram": "mention if diagram needed",
-          "keywords": ["must-include terms"]
-        }
-      ]
-    }
-  ],
-  "ComparisonTables": [
-    {
-      "title": "comparing what",
-      "columns": ["Parameter", "Item A", "Item B"],
-      "rows": [["param", "val A", "val B"]]
-    }
-  ],
-  "MindMap": {
-    "central": "chapter name",
-    "branches": [
-      {
-        "topic": "Major Topic",
-        "subtopics": [
-          {"name": "Subtopic", "points": ["key points"]}
-        ]
-      }
-    ]
-  },
-  "RevisionChecklist": ["5-7 timed tasks with minutes"],
-  "ExamStrategy": {
-    "mcqTips": ["elimination techniques", "keyword spotting"],
-    "shortAnswerTips": ["point-based writing", "keyword usage"],
-    "caseBasedTips": ["data interpretation", "linking to theory"],
-    "longAnswerTips": ["structure", "diagram placement", "time management"],
-    "lastHour": ["focus areas"],
-    "avoid": ["time wasters"],
-    "examHall": ["during-exam tips"]
-  }
-}
-
-REQUIREMENTS:
-- PracticeQuestionsByMarks: Include 3-5 questions for each mark type (1, 2, 3, 4, 5, and 6 if applicable to subject)
-- 1-mark: Always MCQ format with 4 options
-- 2-3 mark: Short answer format with model answers
-- 4-mark: Case-based with passage and 2-3 sub-questions
-- 5-6 mark: Long answer/derivation with step-by-step solutions
-- All answers should be exam-ready (can be written directly in exam)
-- Include marking scheme hints (e.g., "1 mark for definition + 1 mark for example")
-- Focus on frequently asked question patterns
-- MCQs: include explanation for correct answer
-- Keywords array: terms that earn marks
-- 6-10 concepts, 6-12 formulas, 3-6 diagrams, 4-8 confusions, 5-10 definitions
-- Skip ComparisonTables if not relevant
-- Skip 6-mark questions if not applicable to the subject
-- Student-friendly language, exam-focused only
-
-Return ONLY valid JSON (no trailing commas, proper quotes).`;
-
-    // Call OpenAI API
-    const apiData = await askOpenAI(prompt);
-
-    let revisionGuide;
-    try {
-        const cleaned = apiData.replace(/```json/g, "").replace(/```/g, "").trim();
-        revisionGuide = JSON.parse(cleaned);
-
-        // Validate structure
-        const requiredFields = [
-            'ChapterOverview', 'QuickConcepts', 'FormulasAndEquations',
-            'KeyDiagramsDerivations', 'CommonConfusions', 'MustKnowDefinitions',
-            'PracticeQuestionsByMarks', 'MindMap', 'RevisionChecklist', 'ExamStrategy'
-        ];
-        
-        const missingFields = requiredFields.filter(field => !revisionGuide[field]);
-        if (missingFields.length > 0) {
-            throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
-        }
-
-        // Validate PracticeQuestionsByMarks has questions
-        if (!Array.isArray(revisionGuide.PracticeQuestionsByMarks) || 
-            revisionGuide.PracticeQuestionsByMarks.length === 0) {
-            throw new Error("PracticeQuestionsByMarks must contain questions");
-        }
-    } catch (error) {
-        throw new ApiError(500, "Failed to parse AI response: " + error.message);
-    }
 
     return res.status(200).json(
         new ApiResponse(
             200,
-            { data: revisionGuide },
+            // { data: revisionGuide },
             "Last-Minute Revision Guide with Practice Questions Ready! 🎯"
         )
     );

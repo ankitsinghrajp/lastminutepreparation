@@ -93,14 +93,76 @@ const api = createApi({
             keepUnusedDataFor:0,
             refetchOnMountOrArgChange:true
         }),
-        getRevision: builder.mutation({
+
+        // Last Night Before Exam APIs
+        getLastNightSummary: builder.mutation({
           query:({className,subject, chapter, index})=>({
-            url:"ai/last-night-before-exam",
+            url:"ai/last-night-before-exam/summary",
             method:"post",
             credentials:"include",
             body:{className,subject,chapter,index}
           })  
         }),
+
+        getLastNightImportantTopics: builder.mutation({
+          query:({className,subject, chapter, index})=>({
+            url:"ai/last-night-before-exam/important-topics",
+            method:"post",
+            credentials:"include",
+            body:{className,subject,chapter,index}
+          })  
+        }),
+
+        getLastNightQuickShots: builder.mutation({
+          query:({className,subject, chapter, index})=>({
+            url:"ai/last-night-before-exam/quick-shots",
+            method:"post",
+            credentials:"include",
+            body:{className,subject,chapter,index}
+          })  
+        }),
+
+        getLastNightPredictedQuestions: builder.mutation({
+          query:({className,subject, chapter, index})=>({
+            url:"ai/last-night-before-exam/predicted-questions",
+            method:"post",
+            credentials:"include",
+            body:{className,subject,chapter,index}
+          })  
+        }),
+
+        getLastNightMcqs: builder.mutation({
+          query:({className,subject, chapter, index})=>({
+            url:"ai/last-night-before-exam/mcqs",
+            method:"post",
+            credentials:"include",
+            body:{className,subject,chapter,index}
+          })  
+        }),
+
+        getLastNightMemoryBooster: builder.mutation({
+          query:({className,subject, chapter, index})=>({
+            url:"ai/last-night-before-exam/memory-booster",
+            method:"post",
+            credentials:"include",
+            body:{className,subject,chapter,index}
+          })  
+        }),
+
+        getLastNightAiCoach: builder.mutation({
+          query:({className,subject, chapter, index})=>({
+            url:"ai/last-night-before-exam/ai-coach",
+            method:"post",
+            credentials:"include",
+            body:{className,subject,chapter,index}
+          })  
+        }),
+
+
+
+
+
+
         chapterWiseStudy: builder.mutation({
           query:({className,subject, chapter, index})=>({
             url:"ai/chapter-wise-study",
@@ -151,11 +213,19 @@ export const {
    useGetClassNameQuery,
    useLazyGetSubjectsQuery,
    useLazyGetChaptersQuery,
-   useGetRevisionMutation,
    useChapterWiseStudyMutation,
    useImportantQuestionGeneratorMutation,
    useQuizGeneratorMutation,
    useAskAnyMutation,
    useCheckExpiryMutation,
+
+   // Last Night Before Exam Apis
+   useGetLastNightSummaryMutation,
+   useGetLastNightAiCoachMutation,
+   useGetLastNightPredictedQuestionsMutation,
+   useGetLastNightImportantTopicsMutation,
+   useGetLastNightMcqsMutation,
+   useGetLastNightMemoryBoosterMutation,
+   useGetLastNightQuickShotsMutation
 } = api;
 
