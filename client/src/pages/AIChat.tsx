@@ -246,7 +246,7 @@ export default function LastNightBeforeExam() {
       const aiCoachRes = await getAiCoach("Generating study plan...", params);
       console.log("This is the ai Coach Response",aiCoachRes);
       if (aiCoachRes?.data?.data) {
-        const aiCoachData = aiCoachRes.data.data?.coach;
+        const aiCoachData = aiCoachRes.data.data?.steps;
         console.log("This is the ai coach data: ",aiCoachData)
         setAiCoach(aiCoachData);
         setChatMessages(prev => [...prev.slice(0, -1), { type: 'success', message: 'Study plan generated', data: aiCoachData }]);

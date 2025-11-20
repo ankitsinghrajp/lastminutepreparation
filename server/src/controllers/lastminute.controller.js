@@ -3,342 +3,384 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { detectCategory, parseSubject } from "../utils/helper.js";
 import { askOpenAI } from "../utils/OpenAI.js";
 
+const extractJSON = (text) => {
+  if (!text) throw new Error("Empty response received from AI.");
+
+  text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+
+  // Extract only JSON object
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+  if (first === -1 || last === -1) throw new Error("No JSON found.");
+
+  let jsonString = text.substring(first, last + 1);
+
+  jsonString = jsonString.replace(/\\/g, "\\\\");
+
+  jsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
+
+  return JSON.parse(jsonString);
+};
+
 const LastMinutePanelSummary = asyncHandler(async (req, res) => {
-    const { className, subject, chapter } = req.body;
-    const { mainSubject, bookName } = parseSubject(subject);
+  const { className, subject, chapter } = req.body;
+  const { mainSubject, bookName } = parseSubject(subject);
+  const category = detectCategory(mainSubject);
 
-    const prompt = `
-Give a 3-line NCERT-based summary for Class ${className}, 
-Subject: ${mainSubject}, Book: ${bookName}, Chapter: ${chapter}.
+  const prompt = `
+You are an API. First think internally about the NCERT chapter.
+Then output ONLY valid JSON. No markdown, no backticks.
 
-Strictly follow this:
-1) What this chapter teaches  
-2) 3 most important concepts  
-3) From where questions usually come  
+Class ${className} | Subject: ${mainSubject} | Book: ${bookName}
+Chapter: ${chapter} | Stream: ${category}
 
-Return JSON: { "summary": "..." }
+TASK:
+Generate EXACTLY 3 short points:
+1. What students learn (1 simple sentence)
+2. Top 3 key concepts (comma-separated)
+3. Common exam focus areas (1 sentence)
+
+JSON ONLY:
+{
+  "summary":[
+      "point 1",
+      "point 2",
+      "point 3"
+  ]
+}
 `;
 
-    const output = await askOpenAI(prompt);
+  try {
+    let output = await askOpenAI(prompt);
+    const parsed = extractJSON(output);
 
-    return res.status(200).json(new ApiResponse(200, JSON.parse(output), "Summary Ready"));
+    return res.status(200).json(new ApiResponse(200, parsed, "Summary Ready"));
+  } catch (error) {
+    console.error("Summary generation failed:", error);
+    return res
+      .status(500)
+      .json(
+        new ApiResponse(500, null, "Failed to generate summary. Please try again.")
+      );
+  }
 });
 
 const LastMinutePanelImportantTopics = asyncHandler(async (req, res) => {
-    const { className, subject, chapter } = req.body;
-    const { mainSubject, bookName } = parseSubject(subject);
+  const { className, subject, chapter } = req.body;
+  const { mainSubject, bookName } = parseSubject(subject);
+  const category = detectCategory(mainSubject);
 
- const prompt = `
-You must return ONLY valid JSON.
-No Markdown. No backticks. No comments. No explanation.
+  const prompt = `
+You are an API. Think internally, then output ONLY valid JSON.
 
-Class: ${className}
-Subject: ${mainSubject}
-Chapter: ${chapter}
-BookName: ${bookName} // This is the name of ncert book class ${className}
+Class ${className} | Subject: ${mainSubject} | Book: ${bookName}
+Chapter: ${chapter} | Stream: ${category}
 
-Return EXACT JSON in this format:
+Formula Rule:
+- Use pure LaTeX only.
+- "" if no formula needed.
+
+TASK:
+List EXACTLY 6 most important exam topics.
+
+JSON:
 {
-  "topics": [
-    {
-      "topic": "TOPIC_NAME",
-      "explanation": "30–40 word explanation",
-      "formula": "If formula exists, format it using HTML math tags (<sup>, <sub>) and fraction structure. Wrap the entire formula inside <p class='text-lg font-semibold text-blue-700 my-2'> ... </p>. If no formula, return ''."
-    }
+  "topics":[
+      {
+        "topic":"...",
+        "explanation":"...",
+        "formula":""
+      }
   ]
 }
-
-Formula Formatting Rules:
-1. Use <sup> for powers (example: c<sup>2</sup>).
-2. Use <sub> for indices (example: H<sub>2</sub>O).
-3. Format fractions like this:
-   <span class='inline-block'>
-     <span class='block border-b border-gray-700 text-center'>NUMERATOR</span>
-     <span class='block text-center'>DENOMINATOR</span>
-   </span>
-4. Combine HTML tags to create clean, readable mathematical expressions.
-5. The final answer MUST be valid JSON ONLY. No text outside the JSON.
 `;
 
+  try {
+    let output = await askOpenAI(prompt);
+    const parsed = extractJSON(output);
 
+    if (!parsed.topics || !Array.isArray(parsed.topics)) {
+      throw new Error("Invalid topics format");
+    }
 
-    const output = await askOpenAI(prompt);
+    parsed.topics.forEach((topic, idx) => {
+      if (!topic.topic || !topic.explanation || topic.formula === undefined) {
+        throw new Error(`Invalid topic structure at index ${idx}`);
+      }
+    });
 
-    return res.status(200).json(new ApiResponse(200, JSON.parse(output), "Important Topics Ready"));
+    return res
+      .status(200)
+      .json(new ApiResponse(200, parsed, "Important Topics Ready"));
+  } catch (error) {
+    console.error("Topics generation failed:", error);
+    return res
+      .status(500)
+      .json(
+        new ApiResponse(500, null, "Failed to generate topics. Please try again.")
+      );
+  }
 });
 
 const LastMinutePanelQuickShots = asyncHandler(async (req, res) => {
-    const { className, subject, chapter } = req.body;
-    const { mainSubject, bookName } = parseSubject(subject);
-    const category = detectCategory(mainSubject);
+  const { className, subject, chapter } = req.body;
+  const { mainSubject, bookName } = parseSubject(subject);
+  const category = detectCategory(mainSubject);
 
-    const prompt = `
-Generate 10 QUICK revision shots for ${className} ${chapter} (${mainSubject}).
-NCERT Book: ${bookName}
-Stream: ${category}
+  const prompt = `
+You are an API. Think first. Output ONLY valid JSON.
 
-Make each shot a micro-bite for fast revision:
-- 5-word definition
-- OPTIONAL Formula / Rule (only if chapter actually has one)
-- Diagram / Figure name
-- Law + simple application
-- One memory trick
+Class ${className} | Subject: ${mainSubject} | Book: ${bookName}
+Chapter: ${chapter} | Stream: ${category}
 
-⚠️ **Formula Formatting Rules**
-If a formula exists:
-- Format using HTML math tags:
-  - <sub> for subscript → H<sub>2</sub>O
-  - <sup> for superscript → E = mc<sup>2</sup>
-- For fractions use:
-  <div class="fraction"><span class="num">a</span><span class="den">b</span></div>
-- Wrap the complete formula inside:
-  <p class="text-lg font-semibold text-blue-700 my-2"> ... </p>
+Formula Rule:
+- Use pure LaTeX.
+- "" if not needed.
 
-If NO formula exists for that point:
-- Return an empty string "" for the formula field.
+TASK:
+Generate 8–10 quick revision shots.
 
-Return JSON strictly in this format:
+JSON:
 {
-  "shots": [
-    {
-      "definition": "",
-      "formula": "",
-      "diagram": "",
-      "law": "",
-      "memory_trick": ""
-    }
+  "shots":[
+      {
+        "type":"definition|formula|diagram|law|trick",
+        "content":"..."
+      }
   ]
 }
-NO additional text. ONLY JSON.
 `;
 
-    const output = await askOpenAI(prompt);
-    return res.status(200).json(new ApiResponse(200, JSON.parse(output), "Quick Shots Ready"));
+  try {
+    let output = await askOpenAI(prompt);
+    const parsed = extractJSON(output);
+
+    const validTypes = ["definition", "formula", "diagram", "law", "trick"];
+
+    parsed.shots.forEach((shot, idx) => {
+      if (!shot.type || !shot.content)
+        throw new Error(`Invalid shot structure at index ${idx}`);
+
+      if (!validTypes.includes(shot.type))
+        throw new Error(`Invalid shot type "${shot.type}" at index ${idx}`);
+    });
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, parsed, "Quick Shots Ready"));
+  } catch (error) {
+    console.error("Quick shots generation failed:", error);
+    return res
+      .status(500)
+      .json(
+        new ApiResponse(500, null, "Failed to generate quick shots. Please try again.")
+      );
+  }
 });
 
 const LastMinutePanelPredictedQuestions = asyncHandler(async (req, res) => {
-    const { className, subject, chapter } = req.body;
-    const { mainSubject, bookName } = parseSubject(subject);
-    const category = detectCategory(mainSubject);
+  const { className, subject, chapter } = req.body;
+  const { mainSubject, bookName } = parseSubject(subject);
+  const category = detectCategory(mainSubject);
 
-    const prompt = `
-You are an API. Output ONLY valid JSON. No markdown, no backticks, no commentary, no explanation.
+  const prompt = `
+You are an API. Think internally first. Respond ONLY with JSON.
 
-Generate 5 CBSE-board **high-probability exam questions** for:
-Class: ${className}
-Subject: ${mainSubject}
-Chapter: ${chapter}
-NCERT Book: ${bookName}
-Stream: ${category}
+Class ${className} | Subject: ${mainSubject} | Book: ${bookName}
+Chapter: ${chapter} | Stream: ${category}
 
-FOLLOW CBSE RULES:
-- Use NCERT + CBSE PYQs + CBSE Sample Papers ONLY
-- Pick MOST REPEATED & MOST IMPORTANT questions
-- Highest chance to appear in upcoming CBSE exam
-- Strict board-exam style: crisp, factual, examiner-friendly
+Formula Rule:
+- Use pure LaTeX.
+- "" if not needed.
 
-ANSWER FORMAT RULES:
-- Each answer must be 3–6 lines, to-the-point
-- Use scoring keywords used by CBSE examiners
-- Definitions, logic, reasoning, examples allowed
-- OPTIONAL Formula (include ONLY if chapter actually has one)
+TASK:
+Generate EXACTLY 5 exam-style Q&A.
 
-⚠️ FORMULA FORMATTING RULES (If formula exists):
-- Use <sub> for subscript → H<sub>2</sub>O
-- Use <sup> for superscript → E = mc<sup>2</sup>
-- Fractions must use:
-  <div class="fraction"><span class="num">a</span><span class="den">b</span></div>
-- Wrap whole formula inside:
-  <p class="text-lg font-semibold text-blue-700 my-2"> ... </p>
-- If no formula exists → return "" in formula field.
-
-STRICT OUTPUT FORMAT (NO EXTRA TEXT):
+JSON:
 {
-  "questions": [
+  "questions":[
     {
-      "question": "",
-      "answer": "",
-      "formula": "",
-      "keywords": [""]
+      "question":"...",
+      "answer":"...",
+      "formula":""
     }
   ]
 }
-Output ONLY pure JSON. Nothing else.
 `;
 
-    const output = await askOpenAI(prompt);
+  try {
+    let output = await askOpenAI(prompt);
+    const parsed = extractJSON(output);
 
-    return res.status(200).json(new ApiResponse(200, JSON.parse(output), "Predicted Questions Ready"));
+    parsed.questions.forEach((q, idx) => {
+      if (!q.question || !q.answer || q.formula === undefined) {
+        throw new Error(`Invalid question structure at index ${idx}`);
+      }
+    });
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, parsed, "Predicted Questions Ready"));
+  } catch (error) {
+    console.error("Predicted questions generation failed:", error);
+    return res
+      .status(500)
+      .json(
+        new ApiResponse(
+          500,
+          null,
+          "Failed to generate predicted questions. Please try again."
+        )
+      );
+  }
 });
 
 const LastMinutePanelMCQs = asyncHandler(async (req, res) => {
-    const { className, subject, chapter } = req.body;
-    const { mainSubject, bookName } = parseSubject(subject);
-    const category = detectCategory(mainSubject);
+  const { className, subject, chapter } = req.body;
+  const { mainSubject, bookName } = parseSubject(subject);
+  const category = detectCategory(mainSubject);
 
-    const prompt = `
-You are an API. Output ONLY valid JSON. No markdown, no backticks, no explanations.
+  const prompt = `
+You are an API. Output ONLY valid JSON.
 
-Generate EXACTLY 5 CBSE-board style **high-probability MCQs** for:
-Class: ${className}
-Subject: ${mainSubject}
-Chapter: ${chapter}
-Book: ${bookName}
-Stream: ${category}
+Class ${className} | Subject: ${mainSubject} | Book: ${bookName}
+Chapter: ${chapter} | Stream: ${category}
 
-MCQ RULES:
-- Follow NCERT + CBSE PYQs + CBSE Sample Papers
-- Only pick MOST IMPORTANT & MOST REPEATED MCQs
-- 4 options per MCQ (A/B/C/D)
-- 1 correct option
-- Very short, exam-style explanation (2–3 lines)
-- If a formula is needed, apply OPTIONAL formula formatting rules below
+Formula Rule: pure LaTeX only.
 
-⚠️ FORMULA FORMATTING RULES (ONLY IF formula appears):
-- Use <sub> for subscript → H<sub>2</sub>O
-- Use <sup> for superscript → E = mc<sup>2</sup>
-- For fractions use:
-  <div class="fraction"><span class="num">a</span><span class="den">b</span></div>
-- Wrap whole formula inside:
-  <p class="text-lg font-semibold text-blue-700 my-2"> ... </p>
-- If formula not required → return "".
+TASK:
+Generate EXACTLY 5 MCQs.
 
-STRICT JSON OUTPUT FORMAT:
+JSON:
 {
-  "mcqs": [
+  "mcqs":[
     {
-      "question": "",
-      "options": ["A) ", "B) ", "C) ", "D) "],
-      "correct": "",
-      "formula": "",
-      "explanation": ""
+      "question":"...",
+      "options":["...","...","...","..."],
+      "correct":"...",
+      "explanation":"...",
+      "formula":""
     }
   ]
 }
-
-Output ONLY the JSON. No text before or after.
 `;
 
-    const output = await askOpenAI(prompt);
-    return res.status(200).json(new ApiResponse(200, JSON.parse(output), "MCQs Ready"));
+  try {
+    let output = await askOpenAI(prompt);
+    const parsed = extractJSON(output);
+
+    parsed.mcqs.forEach((mcq, idx) => {
+      if (!mcq.question || !mcq.correct || !mcq.options)
+        throw new Error(`Invalid MCQ structure at ${idx}`);
+
+      if (!Array.isArray(mcq.options) || mcq.options.length !== 4)
+        throw new Error(`MCQ ${idx} must contain exactly 4 options`);
+
+      if (!mcq.options.includes(mcq.correct))
+        throw new Error(`Correct answer mismatch in MCQ ${idx}`);
+    });
+
+    return res.status(200).json(new ApiResponse(200, parsed, "MCQs Ready"));
+  } catch (error) {
+    console.error("MCQs generation failed:", error);
+    return res
+      .status(500)
+      .json(new ApiResponse(500, null, "Failed to generate MCQs."));
+  }
 });
 
 const LastMinutePanelMemoryBooster = asyncHandler(async (req, res) => {
-    const { className, subject, chapter } = req.body;
-    const { mainSubject, bookName } = parseSubject(subject);
-    const category = detectCategory(mainSubject);
+  const { className, subject, chapter } = req.body;
+  const { mainSubject, bookName } = parseSubject(subject);
+  const category = detectCategory(mainSubject);
 
-    const prompt = `
-You are an API. Output ONLY valid JSON. Do NOT use markdown, do NOT use backticks.
+  const prompt = `
+You are an API. Output ONLY valid JSON.
 
-Generate EXACTLY 3 **CBSE-based high-impact memory boosters** for:
-Class: ${className}
-Subject: ${mainSubject}
-Chapter: ${chapter}
-NCERT Book: ${bookName}
-Stream: ${category}
+Class ${className} | Subject: ${mainSubject} | Chapter: ${chapter}
+NCERT Book: ${bookName} | Stream: ${category}
 
-CONTENT RULES:
-- Use ONLY NCERT + CBSE PYQs + CBSE Sample Papers
-- Boosters must be meaningful, highly effective, exam-focused
-- Each booster should be one of:
-  • Acronym  
-  • Story / Mini tale  
-  • Pattern / Logic  
-  • Visual Association  
-- Be short, powerful, and easy to remember
-- If a formula is needed, apply the formula rules below
+TASK:
+Generate EXACTLY 3 boosters:
+1) acronym
+2) story
+3) pattern
 
-⚠️ FORMULA FORMATTING RULES (ONLY IF formula appears):
-- Use <sub> for subscript → H<sub>2</sub>O
-- Use <sup> for superscript → E = mc<sup>2</sup>
-- Use fraction HTML:
-  <div class="fraction"><span class="num">a</span><span class="den">b</span></div>
-- Wrap full formula in:
-  <p class="text-lg font-semibold text-blue-700 my-2"> ... </p>
-- If no formula required, return "" in formula field
+Formula Rule:
+- Use pure LaTeX only.
 
-STRICT JSON OUTPUT:
+JSON:
 {
-  "boosters": [
-    {
-      "text": "",
-      "formula": ""
-    }
+  "boosters":[
+    {"type":"acronym","content":"...","formula":""},
+    {"type":"story","content":"...","formula":""},
+    {"type":"pattern","content":"...","formula":""}
   ]
 }
-
-Output ONLY the JSON object. No explanation. No surrounding text.
 `;
 
-    const output = await askOpenAI(prompt);
+  try {
+    let output = await askOpenAI(prompt);
+    const parsed = extractJSON(output);
 
-    return res.status(200).json(new ApiResponse(200, JSON.parse(output), "Memory Booster Ready"));
+    return res
+      .status(200)
+      .json(new ApiResponse(200, parsed, "Memory Booster Ready"));
+  } catch (error) {
+    console.error("Memory booster generation failed:", error);
+    return res
+      .status(500)
+      .json(
+        new ApiResponse(500, null, "Failed to generate memory boosters.")
+      );
+  }
 });
 
 const LastMinutePanelAICoach = asyncHandler(async (req, res) => {
-    const { className, subject, chapter } = req.body;
-    const { mainSubject, bookName } = parseSubject(subject);
-    const category = detectCategory(mainSubject);
+  const { className, subject, chapter } = req.body;
+  const { mainSubject, bookName } = parseSubject(subject);
+  const category = detectCategory(mainSubject);
 
-    const prompt = `
-You are an API. Output ONLY valid JSON. NO markdown, NO backticks, NO text outside JSON.
+  const prompt = `
+You are an API. Output ONLY valid JSON.
+
+Class ${className} | Subject: ${mainSubject} | Book: ${bookName}
+Chapter: ${chapter} | Stream: ${category}
 
 TASK:
-Act as a CBSE-focused AI revision coach for:
-Class: ${className}
-Subject: ${mainSubject}
-Chapter: ${chapter}
-NCERT Book: ${bookName}
-Stream: ${category}
+Give EXACTLY 6 revision steps.
 
-REVISION RULES:
-- Follow ONLY NCERT, CBSE PYQs, CBSE Sample Papers.
-- Advice must be practical, exam-focused and short.
-- Include what to read first, next and last.
-- Include break strategy & revision cycle.
-- Keep steps short and clear.
-
-FORMULA RULES (ONLY IF formula is needed in the step):
-- Use HTML formatting:
-  - <sub> for subscript → H<sub>2</sub>O
-  - <sup> for superscript → E = mc<sup>2</sup>
-  - Fractions:
-    <div class="fraction"><span class="num">a</span><span class="den">b</span></div>
-- Wrap the entire formula inside:
-  <p class="text-lg font-semibold text-blue-700 my-2"> ... </p>
-- If no formula required → return "" in formula field.
-
-STRICT JSON OUTPUT (MANDATORY):
+JSON:
 {
-  "coach": [
-    {
-      "step": "",
-      "formula": ""
-    }
+  "steps":[
+     {"priority":1,"action":"...","formula":""}
   ]
 }
-
-RULES:
-- Do NOT include any extra text before or after this JSON.
-- Do NOT include comments, explanations, or markdown.
-- Use only plain JSON.
-- Ensure JSON is 100% valid and parsable.
-
 `;
 
-    const output = await askOpenAI(prompt);
+  try {
+    let output = await askOpenAI(prompt);
+    const parsed = extractJSON(output);
 
-    return res.status(200).json(new ApiResponse(200, JSON.parse(output), "AI Coach Ready"));
+    parsed.steps.sort((a, b) => a.priority - b.priority);
+
+    return res.status(200).json(new ApiResponse(200, parsed, "AI Coach Ready"));
+  } catch (error) {
+    console.error("AI coach generation failed:", error);
+    return res
+      .status(500)
+      .json(
+        new ApiResponse(500, null, "Failed to generate coaching steps.")
+      );
+  }
 });
 
-
 export {
-    LastMinutePanelSummary, 
-    LastMinutePanelImportantTopics,
-    LastMinutePanelQuickShots,
-    LastMinutePanelPredictedQuestions,
-    LastMinutePanelMCQs,
-    LastMinutePanelMemoryBooster,
-    LastMinutePanelAICoach
-}
+  LastMinutePanelSummary,
+  LastMinutePanelImportantTopics,
+  LastMinutePanelQuickShots,
+  LastMinutePanelPredictedQuestions,
+  LastMinutePanelMCQs,
+  LastMinutePanelMemoryBooster,
+  LastMinutePanelAICoach,
+};
