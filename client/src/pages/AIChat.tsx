@@ -12,7 +12,6 @@ import {
    useGetLastNightImportantTopicsMutation,
    useGetLastNightMcqsMutation,
    useGetLastNightMemoryBoosterMutation,
-   useGetLastNightQuickShotsMutation,
   useLazyGetChaptersQuery,
   useLazyGetSubjectsQuery,
 } from "@/redux/api/api";
@@ -66,22 +65,22 @@ export default function LastNightBeforeExam() {
     },
   ] = useLazyGetChaptersQuery();
 
-  const [getSummary, isGetSummaryLoading, getSummaryData] = useAsyncMutation(
+  const [getSummary] = useAsyncMutation(
     useGetLastNightSummaryMutation
   );
-  const [getImportantTopics, isGetImportantTopicsLoading, getImportantTopicsData] = useAsyncMutation(
+  const [getImportantTopics] = useAsyncMutation(
     useGetLastNightImportantTopicsMutation
   );
-  const [getPredictedQuestion, isGetPredictedQuestionsLoading, getPredictedQuestionsData] = useAsyncMutation(
+  const [getPredictedQuestion] = useAsyncMutation(
     useGetLastNightPredictedQuestionsMutation
   );
-  const [getMcqs, isGetMcqsLoading, getMcqsData] = useAsyncMutation(
+  const [getMcqs] = useAsyncMutation(
     useGetLastNightMcqsMutation
   );
-  const [getMemoryBooster, isGetMemoryBoosterLoading, getMemoryBoosterData] = useAsyncMutation(
+  const [getMemoryBooster] = useAsyncMutation(
     useGetLastNightMemoryBoosterMutation
   );
-  const [getAiCoach, isGetAiCoachLoading, getAiCoachData] = useAsyncMutation(
+  const [getAiCoach] = useAsyncMutation(
     useGetLastNightAiCoachMutation
   );
 
@@ -244,10 +243,8 @@ export default function LastNightBeforeExam() {
       setChatMessages(prev => [...prev, { type: 'loading', message: 'Generating study plan...' }]);
       
       const aiCoachRes = await getAiCoach("Generating study plan...", params);
-      console.log("This is the ai Coach Response",aiCoachRes);
       if (aiCoachRes?.data?.data) {
         const aiCoachData = aiCoachRes.data.data?.steps;
-        console.log("This is the ai coach data: ",aiCoachData)
         setAiCoach(aiCoachData);
         setChatMessages(prev => [...prev.slice(0, -1), { type: 'success', message: 'Study plan generated', data: aiCoachData }]);
       }
@@ -295,10 +292,10 @@ export default function LastNightBeforeExam() {
   const hasRevision = chatMessages.length > 0;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen w-full bg-background">
       <Navbar />
 
-      <div className="container mx-auto px-4 py-20 sm:py-24 max-w-6xl">
+      <div className="container mx-auto px-1 py-20 sm:py-24 lg:max-w-[90%] xl:max-w-[90%] max-w-7xl">
         {/* Header */}
         <div className="text-center mb-6 sm:mb-10">
           <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 mb-4">
@@ -354,155 +351,157 @@ export default function LastNightBeforeExam() {
 
         {/* Input Section - Only show when no revision */}
         {!hasRevision && (
-          <div className="max-w-2xl mx-auto space-y-6">
-            <Card className="p-6 sm:p-8">
-              <div className="space-y-5">
-                {/* Class Selection */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Class
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={selectedClass}
-                      onChange={(e) => setSelectedClass(e.target.value)}
-                      className="w-full h-11 px-4 pr-10 rounded-lg bg-background border border-input focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none cursor-pointer"
-                    >
-                      {classes.map((cls) => (
-                        <option key={cls} value={cls}>
-                          Class {cls}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Subject Selection */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Subject
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={selectedSubject}
-                      onChange={(e) => setSelectedSubject(e.target.value)}
-                      disabled={isSubjectLoading || subjects.length === 0}
-                      className="w-full h-11 px-4 pr-10 rounded-lg bg-background border border-input focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
-                    >
-                      {isSubjectLoading ? (
-                        <option>Loading subjects...</option>
-                      ) : subjects.length > 0 ? (
-                        subjects.map((subject) => (
-                          <option key={subject.subject} value={subject.subject}>
-                            {subject.subject}
+          <div className="max-w-2xl lg:max-w-5xl mx-auto space-y-6">
+            <div className="grid lg:grid-cols-2 gap-6">
+              <Card className="p-6 sm:p-8">
+                <div className="space-y-5">
+                  {/* Class Selection */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Class
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={selectedClass}
+                        onChange={(e) => setSelectedClass(e.target.value)}
+                        className="w-full h-11 px-4 pr-10 rounded-lg bg-background border border-input focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none cursor-pointer"
+                      >
+                        {classes.map((cls) => (
+                          <option key={cls} value={cls}>
+                            Class {cls}
                           </option>
-                        ))
-                      ) : (
-                        <option>No subjects available</option>
-                      )}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Chapter Selection */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Chapter
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={selectedChapter}
-                      onChange={(e) => setSelectedChapter(e.target.value)}
-                      disabled={isChapterLoading || chapters.length === 0}
-                      className="w-full h-11 px-4 pr-10 rounded-lg bg-background border border-input focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
-                    >
-                      {isChapterLoading ? (
-                        <option>Loading chapters...</option>
-                      ) : chapters.length > 0 ? (
-                        chapters.map((chapter) => (
-                          <option key={chapter.chapter} value={chapter.chapter}>
-                            {chapter.chapter}
-                          </option>
-                        ))
-                      ) : (
-                        <option>No chapters available</option>
-                      )}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Timer Setup */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Focus Timer (minutes)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="120"
-                    value={timerMinutes}
-                    onChange={(e) => setTimerMinutes(parseInt(e.target.value) || 30)}
-                    className="w-full h-11 px-4 rounded-lg bg-background border border-input focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-
-                {/* Generate Button */}
-                <Button
-                  onClick={handleGenerate}
-                  disabled={loading || !selectedClass || !selectedSubject || !selectedChapter}
-                  className="w-full h-12 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-medium shadow-md hover:shadow-lg transition-all"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-5 h-5 mr-2" />
-                      Generate Revision
-                    </>
-                  )}
-                </Button>
-              </div>
-            </Card>
-
-            {/* Info Card */}
-            <Card className="p-6 sm:p-8 bg-gradient-to-br from-orange-500/5 to-red-500/5 border-orange-500/20">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="p-2.5 rounded-xl bg-orange-500/10 flex-shrink-0">
-                  <HelpCircle className="w-6 h-6 text-orange-500" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg mb-1">What You'll Get</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Comprehensive last-minute revision materials
-                  </p>
-                </div>
-              </div>
-              
-              <div className="space-y-3">
-                {[
-                  { label: "Chapter Summary", desc: "Key concepts at a glance" },
-                  { label: "Important Topics", desc: "Focus areas with formulas" },
-                  { label: "Predicted Questions", desc: "High-yield exam questions" },
-                  { label: "Practice MCQs", desc: "Test your understanding" },
-                  { label: "Memory Boosters", desc: "Quick recall techniques" },
-                  { label: "Study Plan", desc: "Time-bound revision strategy" }
-                ].map((item, idx) => (
-                  <div key={idx} className="flex items-start gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-2 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium">{item.label}</p>
-                      <p className="text-xs text-muted-foreground">{item.desc}</p>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                     </div>
                   </div>
-                ))}
-              </div>
-            </Card>
+
+                  {/* Subject Selection */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Subject
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={selectedSubject}
+                        onChange={(e) => setSelectedSubject(e.target.value)}
+                        disabled={isSubjectLoading || subjects.length === 0}
+                        className="w-full h-11 px-4 pr-10 rounded-lg bg-background border border-input focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
+                      >
+                        {isSubjectLoading ? (
+                          <option>Loading subjects...</option>
+                        ) : subjects.length > 0 ? (
+                          subjects.map((subject) => (
+                            <option key={subject.subject} value={subject.subject}>
+                              {subject.subject}
+                            </option>
+                          ))
+                        ) : (
+                          <option>No subjects available</option>
+                        )}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Chapter Selection */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Chapter
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={selectedChapter}
+                        onChange={(e) => setSelectedChapter(e.target.value)}
+                        disabled={isChapterLoading || chapters.length === 0}
+                        className="w-full h-11 px-4 pr-10 rounded-lg bg-background border border-input focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
+                      >
+                        {isChapterLoading ? (
+                          <option>Loading chapters...</option>
+                        ) : chapters.length > 0 ? (
+                          chapters.map((chapter) => (
+                            <option key={chapter.chapter} value={chapter.chapter}>
+                              {chapter.chapter}
+                            </option>
+                          ))
+                        ) : (
+                          <option>No chapters available</option>
+                        )}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Timer Setup */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Focus Timer (minutes)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="120"
+                      value={timerMinutes}
+                      onChange={(e) => setTimerMinutes(parseInt(e.target.value) || 30)}
+                      className="w-full h-11 px-4 rounded-lg bg-background border border-input focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+
+                  {/* Generate Button */}
+                  <Button
+                    onClick={handleGenerate}
+                    disabled={loading || !selectedClass || !selectedSubject || !selectedChapter}
+                    className="w-full h-12 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-medium shadow-md hover:shadow-lg transition-all"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-5 h-5 mr-2" />
+                        Generate Revision
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </Card>
+
+              {/* Info Card */}
+              <Card className="p-6 sm:p-8 bg-gradient-to-br from-orange-500/5 to-red-500/5 border-orange-500/20">
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="p-2.5 rounded-xl bg-orange-500/10 flex-shrink-0">
+                    <HelpCircle className="w-6 h-6 text-orange-500" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg mb-1">What You'll Get</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Comprehensive last-minute revision materials
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  {[
+                    { label: "Chapter Summary", desc: "Key concepts at a glance" },
+                    { label: "Important Topics", desc: "Focus areas with formulas" },
+                    { label: "Predicted Questions", desc: "High-yield exam questions" },
+                    { label: "Practice MCQs", desc: "Test your understanding" },
+                    { label: "Memory Boosters", desc: "Quick recall techniques" },
+                    { label: "Study Plan", desc: "Time-bound revision strategy" }
+                  ].map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-2 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium">{item.label}</p>
+                        <p className="text-xs text-muted-foreground">{item.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
           </div>
         )}
 
@@ -546,7 +545,7 @@ export default function LastNightBeforeExam() {
             </Card>
 
             {/* Revision Content */}
-            <Card>
+            <div>
               <RevisionPanel 
                 summary={summary} 
                 importantTopics={importantTopics} 
@@ -555,13 +554,13 @@ export default function LastNightBeforeExam() {
                 memoryBooster={memoryBooster} 
                 aiCoach={aiCoach}
               />
-            </Card>
+            </div>
           </div>
         )}
 
         {/* Empty State */}
         {!hasRevision && !loading && (
-          <Card className="p-12 sm:p-16 text-center mt-8">
+          <Card className="p-12 sm:p-16 text-center mt-8 max-w-2xl lg:max-w-5xl mx-auto">
             <Brain className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 text-orange-500/30" />
             <h3 className="text-lg sm:text-xl font-semibold mb-2 text-muted-foreground">
               Ready When You Are
