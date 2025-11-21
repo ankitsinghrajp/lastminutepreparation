@@ -5,8 +5,7 @@ export const renderFormula = (text) => {
   if (!text?.trim()) return null;
 
   // Check if the text contains LaTeX patterns
-  const hasLatex = /\$\$.*?\$\$|\\\[.*?\\\]|\\\(.*?\\\)|\\[a-zA-Z]+\{|\\frac|\\sqrt|\\int|\\sum|\\pi|\\alpha|\\beta|\\gamma|\\delta|\\theta|\\lambda|\\mu|\\sigma|\\omega|\^|_/.test(text);
-
+  const hasLatex = /\$\$.*?\$\$|\\\[.*?\\\]|\\\(.*?\\\)|\\[a-zA-Z]+|\^|_/.test(text);
   // If no LaTeX detected, return plain text
   if (!hasLatex) {
     return <span className="inline-block">{text}</span>;

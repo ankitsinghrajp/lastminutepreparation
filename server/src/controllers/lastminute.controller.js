@@ -189,24 +189,17 @@ You are an API. Think internally first. Respond ONLY with JSON.
 Class ${className} | Subject: ${mainSubject} | Book: ${bookName}
 Chapter: ${chapter} | Stream: ${category}
 
-Answer Style Rules (VERY IMPORTANT):
-- Answers must be written like a CBSE TOPPER writing a 5-mark answer.
-- Use clear headings, bullet points, subpoints, and crisp explanations.
-- Include definitions, diagrams (explain in words), applications, examples if relevant.
-- Each answer should be 120–160 words (strict) — perfect for a 5-mark question.
-- No extra commentary. No markdown.
 - If formula is needed: provide ONLY LaTeX (pure). Otherwise formula = "".
 
 TASK:
-Generate EXACTLY 5 exam-style predicted Q&A for CBSE boards.
-Questions must be high-probability and concept-based.
+Generate EXACTLY 5-7 exam-style predicted Questions for CBSE boards.
+Questions must be high-probability and concept-based (This questions should be of ncert back questions or pyqs for cbse exam).
 
 JSON FORMAT (STRICT):
 {
   "questions":[
     {
       "question":"...",
-      "answer":"...",
       "formula":""
     }
   ]
@@ -218,7 +211,7 @@ JSON FORMAT (STRICT):
     const parsed = extractJSON(output);
 
     parsed.questions.forEach((q, idx) => {
-      if (!q.question || !q.answer || q.formula === undefined) {
+      if (!q.question) {
         throw new Error(`Invalid question structure at index ${idx}`);
       }
     });
