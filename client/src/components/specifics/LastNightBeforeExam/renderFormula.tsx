@@ -2,7 +2,7 @@ import "katex/dist/katex.min.css";
 import Latex from "react-latex-next";
 
 export const renderFormula = (text) => {
-  if (!text?.trim()) return null;
+  if (!text || !text?.trim()) return null;
 
   // Check if the text contains LaTeX patterns
   const hasLatex = /\$\$.*?\$\$|\\\[.*?\\\]|\\\(.*?\\\)|\\[a-zA-Z]+|\^|_/.test(text);

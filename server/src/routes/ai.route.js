@@ -1,5 +1,5 @@
 import express from "express";
-import { askAnyQuestion, chapterWiseStudy, diagramImageAnalysis, importantQuestionGenerator, quizMcqFillupTrueFalse, summarizer } from "../controllers/ai.controller.js";
+import { askAnyQuestion, chapterWiseStudy, diagramImageAnalysis, importantQuestionGenerator, quizMcqFillupTrueFalse, summarizer, topperStyleAnswer } from "../controllers/ai.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { verifyEmailMiddleware } from "../middlewares/mailVerify.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
@@ -19,7 +19,7 @@ router.post("/summarizer",upload.fields([
 ]),summarizer);
 
 // Last Night Before Exam Things
- 
+
 router.post("/last-night-before-exam/summary",LastMinutePanelSummary);
 router.post("/last-night-before-exam/important-topics",LastMinutePanelImportantTopics);
 router.post("/last-night-before-exam/quick-shots",LastMinutePanelQuickShots);
@@ -27,6 +27,10 @@ router.post("/last-night-before-exam/predicted-questions",LastMinutePanelPredict
 router.post("/last-night-before-exam/mcqs",LastMinutePanelMCQs);
 router.post("/last-night-before-exam/memory-booster",LastMinutePanelMemoryBooster);
 router.post("/last-night-before-exam/ai-coach",LastMinutePanelAICoach);
+
+
+// Topper Style Answer API Routes
+router.post("/topper-style-answer",topperStyleAnswer);
 
 
 

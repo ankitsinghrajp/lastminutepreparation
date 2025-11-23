@@ -5,7 +5,6 @@ import { askOpenAI } from "../utils/OpenAI.js";
 import vision from "@google-cloud/vision";
 import { openai } from "../utils/OpenAI.js";
 import { configDotenv } from "dotenv";
-import { detectCategory, parseSubject } from "../utils/helper.js";
 configDotenv();
 
 const summarizer = asyncHandler(async (req, res) => {
@@ -139,27 +138,70 @@ Remember: This student has ONE NIGHT. Make every word count for marks! 🎯`;
         )
     );
 });
+const topperStyleAnswer = asyncHandler(async (req, res) => {
+  const { user_question } = req.body;
+  const prompt = `You are a CBSE Board exam expert. Think internally first, but DO NOT show your thinking. Your ONLY task is to write full-mark answers exactly the way toppers write in their exam notebooks — clean, simple, direct, and only what is required to score full marks.
 
-const lastNightBeforeExam = asyncHandler(async (req, res) => {
-    const { className, subject, chapter, index } = req.body;
+Rules:
+- Start the answer directly using the main concept asked in the question — no introduction, no background story.
+- Keep the language simple and crisp — not bookish, not heavy, not long.
+- Include formulas, steps, diagrams, tables, or bullet points ONLY when they improve scoring — do NOT force them.
+- Do NOT explain extra theory that is not needed to score marks.
+- Bold only very important keywords and terms — not the whole line.
+- Maintain natural flow like exam writing, not like a textbook.
 
-    if ([className, subject, chapter].some((field) => field.trim() === "")) {
-        throw new ApiError(400, "All fields are required!");
-    }
+Special case — derivation / numerical / maths questions:
+- Do NOT add theory or definition.
+- Do NOT write introduction or conclusion.
+- Only write the required steps and expressions that lead to the final result.
+- Keep everything as compact as toppers write.
+- ALL formulas inside $$...$$ must contain ONLY mathematical expressions — NO units, NO words, NO direction, NO sentences. Write units or explanation OUTSIDE the $$ formula $$ on the next line.
 
-    const {mainSubject, bookName} = parseSubject(subject);
-    
-    const category = detectCategory(mainSubject);
+If any formula contains \\frac, \\sqrt, powers, subscripts, Greek letters or scientific symbols, ALWAYS write them using standard LaTeX syntax (for example \\alpha, \\mu, \\Omega, \\theta, \\Delta — NOT /alpha or /Omega) and wrap the entire formula in $$ ... $$.
 
+Output safety:
+- LaTeX formulas must be wrapped in $...$ or $$...$$.
+- No markdown headings (#), no backticks, no JSON, no code formatting.
+- No phrases like "Final Answer:", "Explanation:", "According to the question", etc.
+- If you break any of these output rules, rewrite the answer again until ALL rules are satisfied.
 
-    return res.status(200).json(
-        new ApiResponse(
-            200,
-            // { data: revisionGuide },
-            "Last-Minute Revision Guide with Practice Questions Ready! 🎯"
-        )
-    );
+❗Very important: NEVER write formulas inside normal brackets like ( V ), ( V_s ), ( Phi ), ( N ). Every mathematical symbol MUST be written ONLY inside $...$ or $$...$$ LaTeX format.
+
+Goal: A topper-style answer that is short, neat, direct, and guaranteed full marks — without unnecessary information.
+
+ADDITIONAL VALIDATIONS (EXTREMELY IMPORTANT):
+✔️ If the question has multiple parts, YOU MUST answer ALL parts one-by-one. No skipping.
+✔️ Every heading MUST be followed by proper explanation — NEVER give empty headings.
+✔️ If the question includes "Explain", "Define", "List", or "Write properties/advantages/characteristics", YOU MUST give clear points.
+✔️ Minimum 4 points whenever properties/advantages/characteristics are asked.
+✔️ Do NOT stop until the ENTIRE question is fully answered.
+✔️ Every mathematical formula MUST be written inside $ ... $ only.
+❌ Never use brackets like ( \\vec{E} ), [ \\vec{E} ], or \\( \\vec{E} \\).
+❌ Never escape slashes like \\\\vec or \\ldots.
+
+Correct format example: $\\vec{E} = \\frac{1}{4 \\pi \\epsilon_0} \\frac{q}{r^2}$
+
+DOUBLE-CHECK formula formatting before generating the final answer.
+
+✔️ Every formula involved in derivations MUST be written in display math using $$ ... $$ (not inline $...$).
+✔️ Each equation in a derivation must be on a separate line using its own $$ block.
+✔️ Never write multiple formulas in one $$ block.
+
+BEFORE sending the final answer:
+🟢 Double-check that every part of the question is answered completely.
+🟢 Double-check that no heading is without its explanation.
+
+OUTPUT: Only the topper-style answer. Nothing else.
+
+Now answer the question: ${user_question}`;
+
+  const safePrompt = prompt.replace(/\\/g, "\\\\");
+  const apiData = await askOpenAI(safePrompt, "gpt-5.1");
+  return res.status(200).json(
+    new ApiResponse(200, { answer: apiData }, "Answer generated successfully!")
+  );
 });
+
 
 const chapterWiseStudy = asyncHandler(async (req, res) => {
     const { className, subject, chapter, index } = req.body;
@@ -394,6 +436,7 @@ const chapterWiseStudy = asyncHandler(async (req, res) => {
         )
     );
 });
+
 
 const importantQuestionGenerator = asyncHandler(async (req, res) => {
     const { className, subject, chapter, index } = req.body;
@@ -711,4 +754,4 @@ const diagramImageAnalysis = asyncHandler(async (req, res) => {
 
 
 
-export { summarizer, lastNightBeforeExam, chapterWiseStudy, importantQuestionGenerator, quizMcqFillupTrueFalse,askAnyQuestion, diagramImageAnalysis};
+export { summarizer, chapterWiseStudy,topperStyleAnswer, importantQuestionGenerator, quizMcqFillupTrueFalse,askAnyQuestion, diagramImageAnalysis};

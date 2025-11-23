@@ -28,39 +28,44 @@ const LastMinutePanelSummary = asyncHandler(async (req, res) => {
   const category = detectCategory(mainSubject);
 
   const prompt = `
-You are an API. First think internally about the NCERT chapter.
-Then output ONLY valid JSON. No markdown, no backticks.
+You are an API. Think silently but DO NOT show your internal thinking.
 
-Class ${className} | Subject: ${mainSubject} | Book: ${bookName}
-Chapter: ${chapter} | Stream: ${category}
+Write a short NCERT-style chapter summary in **3–4 simple lines** only.
+It must be crisp, student-friendly, and useful for last-minute revision.
 
-TASK:
-Generate EXACTLY 3 short points:
-1. What students learn (1 simple sentence)
-2. Top 3 key concepts (comma-separated)
-3. Common exam focus areas (1 sentence)
+❌ Do NOT include formulas, numericals, derivations, diagrams, definitions, tables, or headings.
+❌ Do NOT use bullet points, lists, or line breaks after every sentence.
+✔ The summary must be a **single flowing paragraph of 3–4 lines** only.
 
-JSON ONLY:
+Return output in JSON format ONLY:
 {
-  "summary":[
-      "point 1",
-      "point 2",
-      "point 3"
-  ]
+  "summary": "3–4 line paragraph here"
 }
+
+Class: ${className}
+Subject: ${mainSubject}
+Book: ${bookName}
+Chapter: ${chapter}
+Stream: ${category}
 `;
 
   try {
-    let output = await askOpenAI(prompt);
+    const output = await askOpenAI(prompt);
     const parsed = extractJSON(output);
 
-    return res.status(200).json(new ApiResponse(200, parsed, "Summary Ready"));
+    return res
+      .status(200)
+      .json(new ApiResponse(200, parsed, "Summary Ready"));
   } catch (error) {
     console.error("Summary generation failed:", error);
     return res
       .status(500)
       .json(
-        new ApiResponse(500, null, "Failed to generate summary. Please try again.")
+        new ApiResponse(
+          500,
+          null,
+          "Failed to generate summary. Please try again."
+        )
       );
   }
 });
@@ -71,40 +76,91 @@ const LastMinutePanelImportantTopics = asyncHandler(async (req, res) => {
   const category = detectCategory(mainSubject);
 
   const prompt = `
-You are an API. Think internally, then output ONLY valid JSON.
+You are an API. Think internally first, but DO NOT show your thinking.
 
-Class ${className} | Subject: ${mainSubject} | Book: ${bookName}
-Chapter: ${chapter} | Stream: ${category}
+Your ONLY task is to generate the 6 most important exam topics from this NCERT chapter.
 
-Formula Rule:
-- Use pure LaTeX only.
-- "" if no formula needed.
+Class: ${className}
+Subject: ${mainSubject}
+Book: ${bookName}
+Chapter: ${chapter}
+Stream: ${category}
 
-TASK:
-List EXACTLY 6 most important exam topics.
+GENERAL RULES:
+- Focus only on CBSE-style exam content.
+- Keep language simple, clear, and student-friendly.
+- No history, no stories, no real-life examples unless directly exam-relevant.
 
-JSON:
+RULES FOR EACH TOPIC OBJECT:
+- "topic": 3–7 word subtopic name ONLY. Example: "Coulomb's Law", "Electric Field Intensity".
+- "explanation": 2–4 short lines in plain English, describing what it is and why it is important for exams.
+  • No bullet points, no headings, no numbering.
+  • You MAY include inline or block math using LaTeX, but only if really needed.
+- "formula": 
+  • If a key formula is associated with this topic, put ONLY the LaTeX formula here as a JSON string.
+  • If no formula is needed, set "formula": "".
+
+STRICT LATEX + JSON RULES (VERY IMPORTANT):
+- All LaTeX commands MUST start with a backslash:
+  ✔ \\frac, \\sqrt, \\theta, \\pi, \\epsilon_0, \\vec{E}
+  ✖ frac, sqrt, theta, pi, epsilon_0 (NOT allowed)
+- Formulas MUST be inside quotes because this is JSON:
+  ✔ "formula": "$$ F = k \\\\frac{q_1 q_2}{r^2} $$"
+- You may use:
+  • "$ ... $" for short inline formulas.
+  • "$$ ... $$" for display equations (each equation in its own $$ block).
+- The "formula" field must contain ONLY the mathematical expression, NO sentences, NO units, NO words.
+  Example (correct):
+    "formula": "$$ E = \\\\frac{1}{4 \\\\pi \\\\epsilon_0} \\\\frac{q}{r^2} $$"
+- NEVER output bare $$ ... $$ outside of quotes. JSON MUST stay valid.
+- NEVER escape slashes twice. Use \\\\frac inside JSON (so that the final value is \\frac).
+
+TOPIC COUNT + STRUCTURE VALIDATION:
+- You MUST return EXACTLY 6 topics — not more, not less.
+- Output must have this exact structure:
+
 {
-  "topics":[
-      {
-        "topic":"...",
-        "explanation":"...",
-        "formula":""
-      }
+  "topics": [
+    {
+      "topic": "...",
+      "explanation": "...",
+      "formula": "..."
+    }
   ]
 }
+
+- Do NOT add any other keys at root level or inside topic objects.
+- Do NOT output markdown, comments, prose, or any text before or after the JSON.
+
+IF ANY RULE IS BROKEN (invalid LaTeX, wrong JSON, missing fields, wrong topic count),
+you MUST internally fix and regenerate UNTIL everything satisfies all rules.
+
+OUTPUT: ONLY the final JSON object. No backticks, no markdown, no extra text.
 `;
 
   try {
-    let output = await askOpenAI(prompt);
+    // Call your OpenAI wrapper – NO extra escaping of backslashes
+    const output = await askOpenAI(prompt);
+
+    // Your existing JSON extractor
     const parsed = extractJSON(output);
 
+    // Runtime validation (extra safety)
     if (!parsed.topics || !Array.isArray(parsed.topics)) {
-      throw new Error("Invalid topics format");
+      throw new Error("Invalid topics format: 'topics' must be an array.");
+    }
+
+    if (parsed.topics.length !== 6) {
+      throw new Error(`Invalid topics count: expected 6, got ${parsed.topics.length}.`);
     }
 
     parsed.topics.forEach((topic, idx) => {
-      if (!topic.topic || !topic.explanation || topic.formula === undefined) {
+      if (
+        !topic ||
+        typeof topic.topic !== "string" ||
+        typeof topic.explanation !== "string" ||
+        typeof topic.formula !== "string"
+      ) {
         throw new Error(`Invalid topic structure at index ${idx}`);
       }
     });
@@ -117,7 +173,11 @@ JSON:
     return res
       .status(500)
       .json(
-        new ApiResponse(500, null, "Failed to generate topics. Please try again.")
+        new ApiResponse(
+          500,
+          null,
+          "Failed to generate topics. Please try again."
+        )
       );
   }
 });

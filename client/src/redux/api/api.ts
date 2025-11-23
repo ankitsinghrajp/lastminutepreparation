@@ -159,6 +159,15 @@ const api = createApi({
         }),
 
 
+        //Topper style answer api
+        topperStyle: builder.mutation({
+          query:({user_question})=>({
+            url:"ai/topper-style-answer",
+            method:"post",
+            credentials:"include",
+            body:{user_question}
+          })  
+        }),
 
 
 
@@ -226,6 +235,9 @@ export const {
    useGetLastNightImportantTopicsMutation,
    useGetLastNightMcqsMutation,
    useGetLastNightMemoryBoosterMutation,
-   useGetLastNightQuickShotsMutation
+   useGetLastNightQuickShotsMutation,
+
+   // Topper
+   useTopperStyleMutation
 } = api;
 

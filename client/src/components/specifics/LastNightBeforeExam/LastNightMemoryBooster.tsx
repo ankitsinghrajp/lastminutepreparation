@@ -1,6 +1,20 @@
 import { Zap } from 'lucide-react'
 import { renderFormula } from './renderFormula'
 
+const looksLikeFormula = (text) => {
+  if (!text) return false;
+
+  return (
+    /[A-Za-z0-9]+\s*=\s*[A-Za-z0-9^+*\/().-]+/.test(text) ||
+    /\\frac{.*?}{.*?}/.test(text) ||
+    /\\sqrt{.*?}/.test(text) ||
+    text.startsWith("\\(") ||
+    text.startsWith("\\[") ||
+    text.endsWith("\\)") ||
+    text.endsWith("\\]")
+  );
+};
+
 const LastNightMemoryBooster = ({ memoryBooster }) => {
   return (
     <div className="rounded-none shadow-sm border-y overflow-hidden">
@@ -15,22 +29,31 @@ const LastNightMemoryBooster = ({ memoryBooster }) => {
 
       <div className="py-4 space-y-3">
         {memoryBooster.map((booster, idx) => (
-          <div key={idx} className="bg-muted/50 rounded-xl p-4 border border-border">
+          <div key={idx} className="bg-muted/50 rounded-xl p-4 border border-border overflow-hidden">
             <div className="flex gap-3">
               <Zap className="h-5 w-5 text-orange-500 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
+
+              <div className="flex-1 min-w-0">
                 <div className="text-sm leading-relaxed text-foreground/90 mb-3">
-                  {booster.content.split('\\n').map((line, i, arr) => (
-                    <span key={i}>
-                      {renderFormula(line.trim())}
-                      {i < arr.length - 1 && <br />}
-                    </span>
-                  ))}
+                  {booster.content.split('\\n').map((line, i, arr) => {
+                    const trimmed = line.trim();
+                    return (
+                      <span key={i}>
+                        {looksLikeFormula(trimmed)
+                          ? renderFormula(trimmed)
+                          : <span>{trimmed}</span>
+                        }
+                        {i < arr.length - 1 && <br />}
+                      </span>
+                    );
+                  })}
                 </div>
 
                 {booster.formula && (
-                  <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                    {renderFormula(booster.formula)}
+                  <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20 overflow-x-auto">
+                    <div className="min-w-fit">
+                      {renderFormula(booster.formula)}
+                    </div>
                   </div>
                 )}
               </div>

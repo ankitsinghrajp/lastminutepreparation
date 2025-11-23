@@ -103,3 +103,28 @@ All colors MUST be HSL.
     }
   }
 }
+
+
+.prose {
+  max-width: 100% !important;
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.prose table th,
+.prose table td {
+  border: 1px solid #dcdcdc;
+  padding: 8px;
+}
+
+.prose blockquote {
+  border-left: 4px solid #aaa;
+  padding-left: 12px;
+  color: #555;
+  font-style: italic;
+}

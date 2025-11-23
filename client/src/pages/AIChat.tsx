@@ -5,13 +5,14 @@ import { Navbar } from "@/components/Navbar";
 import { Clock, Loader2, Brain, Sparkles, Trash2, HelpCircle, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Footer } from "@/components/Footer";
+import logo from "../assets/logo.png"
 import {
-   useGetLastNightSummaryMutation,
-   useGetLastNightAiCoachMutation,
-   useGetLastNightPredictedQuestionsMutation,
-   useGetLastNightImportantTopicsMutation,
-   useGetLastNightMcqsMutation,
-   useGetLastNightMemoryBoosterMutation,
+  useGetLastNightSummaryMutation,
+  useGetLastNightAiCoachMutation,
+  useGetLastNightPredictedQuestionsMutation,
+  useGetLastNightImportantTopicsMutation,
+  useGetLastNightMcqsMutation,
+  useGetLastNightMemoryBoosterMutation,
   useLazyGetChaptersQuery,
   useLazyGetSubjectsQuery,
 } from "@/redux/api/api";
@@ -24,12 +25,10 @@ export default function LastNightBeforeExam() {
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
 
-  // Dropdown of class subject and chapters
   const [selectedClass, setSelectedClass] = useState("12th");
   const [selectedSubject, setSelectedSubject] = useState("");
   const [selectedChapter, setSelectedChapter] = useState("");
 
-  // states of data
   const [summary, setSummary] = useState("");
   const [importantTopics, setImportantTopics] = useState([]);
   const [predictedQuestion, setPredictedQuestion] = useState([]);
@@ -37,60 +36,38 @@ export default function LastNightBeforeExam() {
   const [memoryBooster, setMemoryBooster] = useState([]);
   const [aiCoach, setAiCoach] = useState([]);
 
-  // Chat messages for sequential loading
-  const [chatMessages, setChatMessages] = useState([]);
+  // Current loading message (like chatbot typing)
+  const [currentLoadingMessage, setCurrentLoadingMessage] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [hasGenerated, setHasGenerated] = useState(false);
   const [timerMinutes, setTimerMinutes] = useState(30);
   const [timerActive, setTimerActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(timerMinutes * 60);
   const timerRef = useRef(null);
+  const contentEndRef = useRef(null);
 
   const [
     fetchSubject,
-    {
-      isLoading: isSubjectLoading,
-      isError: isSubjectError,
-      error: subjectError,
-      data: subjectData,
-    },
+    { isLoading: isSubjectLoading, isError: isSubjectError, error: subjectError, data: subjectData },
   ] = useLazyGetSubjectsQuery();
   const [
     fetchChapter,
-    {
-      isLoading: isChapterLoading,
-      isError: isChapterError,
-      error: chapterError,
-      data: ChapterData,
-    },
+    { isLoading: isChapterLoading, isError: isChapterError, error: chapterError, data: ChapterData },
   ] = useLazyGetChaptersQuery();
 
-  const [getSummary] = useAsyncMutation(
-    useGetLastNightSummaryMutation
-  );
-  const [getImportantTopics] = useAsyncMutation(
-    useGetLastNightImportantTopicsMutation
-  );
-  const [getPredictedQuestion] = useAsyncMutation(
-    useGetLastNightPredictedQuestionsMutation
-  );
-  const [getMcqs] = useAsyncMutation(
-    useGetLastNightMcqsMutation
-  );
-  const [getMemoryBooster] = useAsyncMutation(
-    useGetLastNightMemoryBoosterMutation
-  );
-  const [getAiCoach] = useAsyncMutation(
-    useGetLastNightAiCoachMutation
-  );
+  const [getSummary] = useAsyncMutation(useGetLastNightSummaryMutation);
+  const [getImportantTopics] = useAsyncMutation(useGetLastNightImportantTopicsMutation);
+  const [getPredictedQuestion] = useAsyncMutation(useGetLastNightPredictedQuestionsMutation);
+  const [getMcqs] = useAsyncMutation(useGetLastNightMcqsMutation);
+  const [getMemoryBooster] = useAsyncMutation(useGetLastNightMemoryBoosterMutation);
+  const [getAiCoach] = useAsyncMutation(useGetLastNightAiCoachMutation);
 
-  // Handle errors
   useErrors([
     { isError: isSubjectError, error: subjectError },
     { isError: isChapterError, error: chapterError },
   ]);
 
-  // Fetch subjects when class changes
   useEffect(() => {
     const fetchSubjectFun = async () => {
       if (selectedClass) {
@@ -108,7 +85,6 @@ export default function LastNightBeforeExam() {
     fetchSubjectFun();
   }, [selectedClass, fetchSubject]);
 
-  // Update subjects when subject data is loaded
   useEffect(() => {
     if (subjectData?.data?.subjects) {
       const subjects = subjectData.data.subjects;
@@ -122,7 +98,6 @@ export default function LastNightBeforeExam() {
     }
   }, [subjectData, isSubjectLoading]);
 
-  // Fetch chapters when subject changes
   useEffect(() => {
     const fetchChaptersFun = async () => {
       if (selectedSubject && selectedClass) {
@@ -138,15 +113,12 @@ export default function LastNightBeforeExam() {
     fetchChaptersFun();
   }, [selectedSubject, selectedClass, fetchChapter]);
 
-  // Update chapters when chapter data is loaded
   useEffect(() => {
     if (ChapterData?.data?.chapters) {
       const chapters = ChapterData.data.chapters;
       setChapters(chapters);
-      
       if (chapters.length > 0 && !isChapterLoading) {
-        const firstChapter = chapters[0].chapter;
-        setSelectedChapter(firstChapter);
+        setSelectedChapter(chapters[0].chapter);
       }
     } else if (!isChapterLoading && ChapterData) {
       setChapters([]);
@@ -154,7 +126,6 @@ export default function LastNightBeforeExam() {
     }
   }, [ChapterData, isChapterLoading]);
 
-  // Timer logic
   useEffect(() => {
     if (timerActive && timeLeft > 0) {
       timerRef.current = setInterval(() => {
@@ -180,7 +151,7 @@ export default function LastNightBeforeExam() {
     }
 
     setLoading(true);
-    setChatMessages([]);
+    setHasGenerated(true);
     
     const params = {
       className: selectedClass,
@@ -190,71 +161,52 @@ export default function LastNightBeforeExam() {
 
     try {
       // 1. Get Summary
-      setChatMessages(prev => [...prev, { type: 'loading', message: 'Analyzing CBSE patterns and extracting key points...' }]);
-      
-      const summaryRes = await getSummary("Analyzing CBSE patterns and extracting key points...", params);
+      setCurrentLoadingMessage("Analyzing CBSE patterns and extracting key points...");
+      const summaryRes = await getSummary("Analyzing CBSE patterns...", params);
       if (summaryRes?.data?.data) {
-        const summaryData = summaryRes.data.data?.summary;
-        setSummary(summaryData);
-        setChatMessages(prev => [...prev.slice(0, -1), { type: 'success', message: 'Summary generated', data: summaryData }]);
+        setSummary(summaryRes.data.data?.summary);
       }
 
       // 2. Get Important Topics
-      setChatMessages(prev => [...prev, { type: 'loading', message: 'Extracting important topics...' }]);
-      
+      setCurrentLoadingMessage("Extracting important topics...");
       const topicsRes = await getImportantTopics("Extracting important topics...", params);
       if (topicsRes?.data?.data) {
-        const topicsData = topicsRes.data.data?.topics;
-        setImportantTopics(topicsData);
-        setChatMessages(prev => [...prev.slice(0, -1), { type: 'success', message: 'Important topics extracted', data: topicsData }]);
+        setImportantTopics(topicsRes.data.data?.topics);
       }
 
       // 3. Get Predicted Questions
-      setChatMessages(prev => [...prev, { type: 'loading', message: 'Generating predicted questions...' }]);
-      
+      setCurrentLoadingMessage("Generating predicted questions...");
       const questionsRes = await getPredictedQuestion("Generating predicted questions...", params);
       if (questionsRes?.data?.data) {
-        const questionsData = questionsRes.data.data?.questions;
-        setPredictedQuestion(questionsData);
-        setChatMessages(prev => [...prev.slice(0, -1), { type: 'success', message: 'Predicted questions generated', data: questionsData }]);
+        setPredictedQuestion(questionsRes.data.data?.questions);
       }
 
       // 4. Get MCQs
-      setChatMessages(prev => [...prev, { type: 'loading', message: 'Creating practice MCQs...' }]);
-      
+      setCurrentLoadingMessage("Creating practice MCQs...");
       const mcqsRes = await getMcqs("Creating practice MCQs...", params);
       if (mcqsRes?.data?.data) {
-        const mcqsData = mcqsRes.data.data?.mcqs;
-        setMcqs(mcqsData);
-        setChatMessages(prev => [...prev.slice(0, -1), { type: 'success', message: 'MCQs created', data: mcqsData }]);
+        setMcqs(mcqsRes.data.data?.mcqs);
       }
 
       // 5. Get Memory Booster
-      setChatMessages(prev => [...prev, { type: 'loading', message: 'Creating memory boosters...' }]);
-      
+      setCurrentLoadingMessage("Creating memory boosters...");
       const memoryBoosterRes = await getMemoryBooster("Creating memory boosters...", params);
       if (memoryBoosterRes?.data?.data) {
-        const memoryBoosterData = memoryBoosterRes.data.data?.boosters;
-        setMemoryBooster(memoryBoosterData);
-        setChatMessages(prev => [...prev.slice(0, -1), { type: 'success', message: 'Memory boosters created', data: memoryBoosterData }]);
+        setMemoryBooster(memoryBoosterRes.data.data?.boosters);
       }
 
       // 6. Get AI Coach
-      setChatMessages(prev => [...prev, { type: 'loading', message: 'Generating study plan...' }]);
-      
+      setCurrentLoadingMessage("Generating study plan...");
       const aiCoachRes = await getAiCoach("Generating study plan...", params);
       if (aiCoachRes?.data?.data) {
-        const aiCoachData = aiCoachRes.data.data?.steps;
-        setAiCoach(aiCoachData);
-        setChatMessages(prev => [...prev.slice(0, -1), { type: 'success', message: 'Study plan generated', data: aiCoachData }]);
+        setAiCoach(aiCoachRes.data.data?.steps);
       }
 
-      // Add completion message
-      setChatMessages(prev => [...prev, { type: 'complete', message: '✓ All materials ready for revision' }]);
+      setCurrentLoadingMessage("");
       toast.success("Revision materials generated successfully!");
 
     } catch (error) {
-      setChatMessages(prev => [...prev, { type: 'error', message: 'Failed to generate materials' }]);
+      setCurrentLoadingMessage("");
       toast.error("Failed to generate revision materials");
     } finally {
       setLoading(false);
@@ -283,19 +235,21 @@ export default function LastNightBeforeExam() {
     setMcqs([]);
     setMemoryBooster([]);
     setAiCoach([]);
-    setChatMessages([]);
+    setCurrentLoadingMessage("");
+    setHasGenerated(false);
     setTimerActive(false);
     setTimeLeft(timerMinutes * 60);
     toast.success("Cleared - Ready for new revision");
   };
 
-  const hasRevision = chatMessages.length > 0;
+  const hasContent = summary || importantTopics.length > 0 || predictedQuestion.length > 0 || 
+                     mcqs.length > 0 || memoryBooster.length > 0 || aiCoach.length > 0;
 
   return (
     <div className="min-h-screen w-full bg-background">
       <Navbar />
 
-      <div className="container mx-auto px-1 py-20 sm:py-24 lg:max-w-[90%] xl:max-w-[90%] max-w-7xl">
+      <div className="container mx-auto px-1 pt-20 sm:pt-24 lg:max-w-[90%] xl:max-w-[90%] ">
         {/* Header */}
         <div className="text-center mb-6 sm:mb-10">
           <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 mb-4">
@@ -313,7 +267,7 @@ export default function LastNightBeforeExam() {
         </div>
 
         {/* Timer Bar - Sticky when content exists */}
-        {hasRevision && (
+        {hasGenerated && (
           <div className="sticky top-16 sm:top-20 z-40 mb-6">
             <Card className="p-4 bg-gradient-to-r from-orange-500 to-red-500 border-0 shadow-lg">
               <div className="flex items-center justify-between gap-4">
@@ -327,20 +281,10 @@ export default function LastNightBeforeExam() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    onClick={toggleTimer}
-                    size="sm"
-                    variant="secondary"
-                    className="h-9 px-4 font-medium"
-                  >
+                  <Button onClick={toggleTimer} size="sm" variant="secondary" className="h-9 px-4 font-medium">
                     {timerActive ? "Pause" : "Start"}
                   </Button>
-                  <Button
-                    onClick={handleClear}
-                    size="sm"
-                    variant="secondary"
-                    className="h-9 px-3"
-                  >
+                  <Button onClick={handleClear} size="sm" variant="secondary" className="h-9 px-3">
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
@@ -350,16 +294,13 @@ export default function LastNightBeforeExam() {
         )}
 
         {/* Input Section - Only show when no revision */}
-        {!hasRevision && (
-          <div className="max-w-2xl lg:max-w-5xl mx-auto space-y-6">
+        {!hasGenerated && (
+          <div className="max-w-2xl lg:max-w-7xl mx-auto space-y-6">
             <div className="grid lg:grid-cols-2 gap-6">
               <Card className="p-6 sm:p-8">
                 <div className="space-y-5">
-                  {/* Class Selection */}
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Class
-                    </label>
+                    <label className="block text-sm font-medium mb-2">Class</label>
                     <div className="relative">
                       <select
                         value={selectedClass}
@@ -367,20 +308,15 @@ export default function LastNightBeforeExam() {
                         className="w-full h-11 px-4 pr-10 rounded-lg bg-background border border-input focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none cursor-pointer"
                       >
                         {classes.map((cls) => (
-                          <option key={cls} value={cls}>
-                            Class {cls}
-                          </option>
+                          <option key={cls} value={cls}>Class {cls}</option>
                         ))}
                       </select>
                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                     </div>
                   </div>
 
-                  {/* Subject Selection */}
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Subject
-                    </label>
+                    <label className="block text-sm font-medium mb-2">Subject</label>
                     <div className="relative">
                       <select
                         value={selectedSubject}
@@ -392,9 +328,7 @@ export default function LastNightBeforeExam() {
                           <option>Loading subjects...</option>
                         ) : subjects.length > 0 ? (
                           subjects.map((subject) => (
-                            <option key={subject.subject} value={subject.subject}>
-                              {subject.subject}
-                            </option>
+                            <option key={subject.subject} value={subject.subject}>{subject.subject}</option>
                           ))
                         ) : (
                           <option>No subjects available</option>
@@ -404,11 +338,8 @@ export default function LastNightBeforeExam() {
                     </div>
                   </div>
 
-                  {/* Chapter Selection */}
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Chapter
-                    </label>
+                    <label className="block text-sm font-medium mb-2">Chapter</label>
                     <div className="relative">
                       <select
                         value={selectedChapter}
@@ -420,9 +351,7 @@ export default function LastNightBeforeExam() {
                           <option>Loading chapters...</option>
                         ) : chapters.length > 0 ? (
                           chapters.map((chapter) => (
-                            <option key={chapter.chapter} value={chapter.chapter}>
-                              {chapter.chapter}
-                            </option>
+                            <option key={chapter.chapter} value={chapter.chapter}>{chapter.chapter}</option>
                           ))
                         ) : (
                           <option>No chapters available</option>
@@ -432,11 +361,8 @@ export default function LastNightBeforeExam() {
                     </div>
                   </div>
 
-                  {/* Timer Setup */}
                   <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Focus Timer (minutes)
-                    </label>
+                    <label className="block text-sm font-medium mb-2">Focus Timer (minutes)</label>
                     <input
                       type="number"
                       min="1"
@@ -447,7 +373,6 @@ export default function LastNightBeforeExam() {
                     />
                   </div>
 
-                  {/* Generate Button */}
                   <Button
                     onClick={handleGenerate}
                     disabled={loading || !selectedClass || !selectedSubject || !selectedChapter}
@@ -468,7 +393,6 @@ export default function LastNightBeforeExam() {
                 </div>
               </Card>
 
-              {/* Info Card */}
               <Card className="p-6 sm:p-8 bg-gradient-to-br from-orange-500/5 to-red-500/5 border-orange-500/20">
                 <div className="flex items-start gap-4 mb-4">
                   <div className="p-2.5 rounded-xl bg-orange-500/10 flex-shrink-0">
@@ -476,9 +400,7 @@ export default function LastNightBeforeExam() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-lg mb-1">What You'll Get</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Comprehensive last-minute revision materials
-                    </p>
+                    <p className="text-sm text-muted-foreground">Comprehensive last-minute revision materials</p>
                   </div>
                 </div>
                 
@@ -505,47 +427,10 @@ export default function LastNightBeforeExam() {
           </div>
         )}
 
-        {/* Progress & Content Display */}
-        {hasRevision && (
+        {/* Revision Content */}
+        {hasGenerated && (
           <div className="space-y-6">
-            {/* Progress Card */}
-            <Card className="p-4 sm:p-6">
-              <h3 className="text-base font-semibold mb-4">Generation Progress</h3>
-              <div className="space-y-3">
-                {chatMessages.map((msg, idx) => (
-                  <div key={idx} className="flex items-start gap-3">
-                    <div className="flex-shrink-0 mt-0.5">
-                      {msg.type === 'loading' && (
-                        <Loader2 className="w-5 h-5 text-orange-500 animate-spin" />
-                      )}
-                      {msg.type === 'success' && (
-                        <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center">
-                          <div className="w-2 h-2 rounded-full bg-green-500" />
-                        </div>
-                      )}
-                      {msg.type === 'error' && (
-                        <div className="w-5 h-5 rounded-full bg-red-500/10 flex items-center justify-center">
-                          <div className="w-2 h-2 rounded-full bg-red-500" />
-                        </div>
-                      )}
-                      {msg.type === 'complete' && (
-                        <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center">
-                          <Sparkles className="w-3 h-3 text-green-500" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${msg.type === 'error' ? 'text-red-500' : 'text-foreground'}`}>
-                        {msg.message}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            {/* Revision Content */}
-            <div>
+            {hasContent && (
               <RevisionPanel 
                 summary={summary} 
                 importantTopics={importantTopics} 
@@ -554,13 +439,31 @@ export default function LastNightBeforeExam() {
                 memoryBooster={memoryBooster} 
                 aiCoach={aiCoach}
               />
-            </div>
+            )}
+
+            {/* Chatbot-style loading indicator at the bottom */}
+            {currentLoadingMessage && (
+              <div className="flex items-start gap-3 p-4">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                  <img className="h-8 w-8" src={logo} alt="" />
+                </div>
+                <div className="flex-1">
+                  <div className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl rounded-tl-sm bg-muted/50 border border-border/50">
+                    <Loader2 className="w-4 h-4 text-orange-500 animate-spin" />
+                    <span className="text-sm text-muted-foreground">{currentLoadingMessage}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Scroll anchor */}
+            <div ref={contentEndRef} />
           </div>
         )}
 
         {/* Empty State */}
-        {!hasRevision && !loading && (
-          <Card className="p-12 sm:p-16 text-center mt-8 max-w-2xl lg:max-w-5xl mx-auto">
+        {!hasGenerated && !loading && (
+          <Card className="p-12 sm:p-16 mb-8 text-center mt-8 max-w-2xl lg:max-w-5xl mx-auto">
             <Brain className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 text-orange-500/30" />
             <h3 className="text-lg sm:text-xl font-semibold mb-2 text-muted-foreground">
               Ready When You Are
