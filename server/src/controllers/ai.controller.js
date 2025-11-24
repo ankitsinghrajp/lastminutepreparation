@@ -138,10 +138,22 @@ Remember: This student has ONE NIGHT. Make every word count for marks! 🎯`;
         )
     );
 });
+
 const topperStyleAnswer = asyncHandler(async (req, res) => {
-  const { user_question } = req.body;
+  const { user_question, selectedClass, selectedSubject, selectedChapter } = req.body;
+
   const prompt = `You are a CBSE Board exam expert. Think internally first, but DO NOT show your thinking. Your ONLY task is to write full-mark answers exactly the way toppers write in their exam notebooks — clean, simple, direct, and only what is required to score full marks.
 
+
+STRICT LANGUAGE RULE:
+If the subject is Hindi  → then deep read the chapter first then answer the question ONLY in Hindi.
+If the subject is Sanskrit  → then deep read the chapter first then answer the question ONLY in Sanskrit and must strictly answer in 3 lines only, it can less then 3 but not more than 3 strictly.
+Otherwise → answer ONLY in English. DO NOT USE Hindi for English or any other subject.
+If this rule is violated, regenerate the answer.
+
+Language Subject Rules: 
+- If subject is hindi then deep read the chapter then answer the question in hindi only
+- If subject is Sanskrit then first read the chapter then answer 2-3 lines if possible not more than this. It should be simple and concise 
 Rules:
 - Start the answer directly using the main concept asked in the question — no introduction, no background story.
 - Keep the language simple and crisp — not bookish, not heavy, not long.
@@ -193,7 +205,12 @@ BEFORE sending the final answer:
 
 OUTPUT: Only the topper-style answer. Nothing else.
 
-Now answer the question: ${user_question}`;
+Now answer the question: 
+Question: ${user_question}
+class: ${selectedClass}
+subject: ${selectedSubject}
+chapter: ${selectedChapter}
+`;
 
   const safePrompt = prompt.replace(/\\/g, "\\\\");
   const apiData = await askOpenAI(safePrompt, "gpt-5.1");
@@ -201,7 +218,6 @@ Now answer the question: ${user_question}`;
     new ApiResponse(200, { answer: apiData }, "Answer generated successfully!")
   );
 });
-
 
 const chapterWiseStudy = asyncHandler(async (req, res) => {
     const { className, subject, chapter, index } = req.body;

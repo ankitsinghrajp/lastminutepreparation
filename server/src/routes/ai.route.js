@@ -4,7 +4,7 @@ import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { verifyEmailMiddleware } from "../middlewares/mailVerify.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { rateLimitByPlan } from "../rateLimiter.js";
-import { LastMinutePanelAICoach, LastMinutePanelImportantTopics, LastMinutePanelMCQs, LastMinutePanelMemoryBooster, LastMinutePanelPredictedQuestions, LastMinutePanelQuickShots, LastMinutePanelSummary } from "../controllers/lastminute.controller.js";
+import { LastMinutePanelAICoach, LastMinutePanelImportantTopics, LastMinutePanelMCQs, LastMinutePanelMemoryBooster, LastMinutePanelPredictedQuestions, LastMinutePanelSummary } from "../controllers/lastminute.controller.js";
 
 const router = express.Router();
 router.use(verifyJWT);
@@ -22,7 +22,6 @@ router.post("/summarizer",upload.fields([
 
 router.post("/last-night-before-exam/summary",LastMinutePanelSummary);
 router.post("/last-night-before-exam/important-topics",LastMinutePanelImportantTopics);
-router.post("/last-night-before-exam/quick-shots",LastMinutePanelQuickShots);
 router.post("/last-night-before-exam/predicted-questions",LastMinutePanelPredictedQuestions);
 router.post("/last-night-before-exam/mcqs",LastMinutePanelMCQs);
 router.post("/last-night-before-exam/memory-booster",LastMinutePanelMemoryBooster);

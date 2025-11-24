@@ -438,6 +438,9 @@ export default function LastNightBeforeExam() {
                 mcqs={mcqs} 
                 memoryBooster={memoryBooster} 
                 aiCoach={aiCoach}
+                selectedClass ={selectedClass}
+                selectedSubject = {selectedSubject}
+                selectedChapter = {selectedChapter}
               />
             )}
 

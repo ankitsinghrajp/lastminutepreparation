@@ -1,7 +1,18 @@
 import { BookOpen } from "lucide-react";
-import AIOutput from "../AIOutput";
 
 const LastNightBeforeExamSummary = ({ summary }) => {
+  // Convert \\n\\n → \n\n (real newline)
+  const cleanSummary = summary.replace(/\\n/g, "\n");
+
+  // Split into paragraphs
+  const paragraphs = cleanSummary
+    .split(/\n\s*\n/)
+    .map((para, index) => (
+      <p key={index} className="mb-4 leading-relaxed">
+        {para.trim()}
+      </p>
+    ));
+
   return (
     <div className="bg-card rounded-none sm:rounded-2xl shadow-sm border-y sm:border border-border overflow-hidden">
       <div className="bg-gradient-to-r from-emerald-500 to-teal-500 p-4">
@@ -13,12 +24,12 @@ const LastNightBeforeExamSummary = ({ summary }) => {
         </div>
       </div>
 
-      {/* ⬇ now using AIOutput instead of bullet points */}
       <div className="p-4">
-        <AIOutput content={summary} />
+        {paragraphs}
       </div>
     </div>
   );
 };
 
 export default LastNightBeforeExamSummary;
+

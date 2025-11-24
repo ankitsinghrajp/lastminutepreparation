@@ -7,7 +7,7 @@ import LastNightMemoryBooster from "./LastNightBeforeExam/LastNightMemoryBooster
 import LastNightAiCoach from "./LastNightBeforeExam/LastNightAiCoach";
 
 
-const RevisionPanel = ({ summary, importantTopics, predictedQuestion, mcqs, memoryBooster, aiCoach }) => {
+const RevisionPanel = ({ summary, importantTopics, predictedQuestion, mcqs, memoryBooster, aiCoach, selectedClass, selectedSubject, selectedChapter }) => {
 
   return (
     <div className="bg-background overflow-y-auto h-full">
@@ -25,7 +25,7 @@ const RevisionPanel = ({ summary, importantTopics, predictedQuestion, mcqs, memo
 
         {/* Predicted Questions */}
         {predictedQuestion && predictedQuestion.length > 0 && (
-          <LastNightPredictedQuestions predictedQuestion={predictedQuestion}/>
+          <LastNightPredictedQuestions predictedQuestion={predictedQuestion} selectedClass={selectedClass} selectedSubject={selectedSubject} selectedChapter={selectedChapter}/>
         )}
 
         {/* MCQs */}

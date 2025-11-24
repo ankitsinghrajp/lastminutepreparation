@@ -1,19 +1,6 @@
 import { Zap } from 'lucide-react'
 import { renderFormula } from './renderFormula'
-
-const looksLikeFormula = (text) => {
-  if (!text) return false;
-
-  return (
-    /[A-Za-z0-9]+\s*=\s*[A-Za-z0-9^+*\/().-]+/.test(text) ||
-    /\\frac{.*?}{.*?}/.test(text) ||
-    /\\sqrt{.*?}/.test(text) ||
-    text.startsWith("\\(") ||
-    text.startsWith("\\[") ||
-    text.endsWith("\\)") ||
-    text.endsWith("\\]")
-  );
-};
+import AIOutput from '../AIOutput';
 
 const LastNightMemoryBooster = ({ memoryBooster }) => {
   return (
@@ -35,24 +22,13 @@ const LastNightMemoryBooster = ({ memoryBooster }) => {
 
               <div className="flex-1 min-w-0">
                 <div className="text-sm leading-relaxed text-foreground/90 mb-3">
-                  {booster.content.split('\\n').map((line, i, arr) => {
-                    const trimmed = line.trim();
-                    return (
-                      <span key={i}>
-                        {looksLikeFormula(trimmed)
-                          ? renderFormula(trimmed)
-                          : <span>{trimmed}</span>
-                        }
-                        {i < arr.length - 1 && <br />}
-                      </span>
-                    );
-                  })}
+                 <AIOutput content={booster?.content}/>
                 </div>
 
-                {booster.formula && (
+                {booster?.formula && (
                   <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20 overflow-x-auto">
                     <div className="min-w-fit">
-                      {renderFormula(booster.formula)}
+                      {renderFormula(booster?.formula)}
                     </div>
                   </div>
                 )}

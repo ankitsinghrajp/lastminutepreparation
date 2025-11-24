@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { renderFormula } from './renderFormula';
 import AIOutput from '../AIOutput';
 
-const LastNightPredictedQuestions = ({ predictedQuestion }) => {
+const LastNightPredictedQuestions = ({ predictedQuestion, selectedClass, selectedSubject, selectedChapter }) => {
   const [getAnswer] = useAsyncMutation(useTopperStyleMutation);
   const [answers, setAnswers] = useState({});
   const [loadingStates, setLoadingStates] = useState({});
@@ -16,7 +16,7 @@ const LastNightPredictedQuestions = ({ predictedQuestion }) => {
     try {
       const res = await getAnswer(
         "Generating topper style answer...",
-        { user_question: question }
+        { user_question: question, selectedClass, selectedSubject, selectedChapter }
       );
       if (res?.data?.data?.answer) {
         setAnswers(prev => ({ ...prev, [idx]: res.data.data.answer }));
@@ -101,7 +101,7 @@ const LastNightPredictedQuestions = ({ predictedQuestion }) => {
                   onClick={() => generateAnswer(q.question, idx)}
                   disabled={loadingStates[idx]}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 
-                  px-4 sm:px-5 py-2.5 sm:py-2 bg-gradient-to-r from-purple-500 to-pink-500 
+                  px-4 sm:px-5 py-2.5 sm:py-2 bg-gradient-to-r border border-pink-500 hover:from-gray-800 to-slate-800 from-gray-900
                   text-white rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity 
                   disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                 >

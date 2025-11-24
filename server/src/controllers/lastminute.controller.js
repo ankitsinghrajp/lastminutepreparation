@@ -1,3 +1,9 @@
+import { AiCoach } from "../models/LastMinuteBeforeExam/aiCoach.model.js";
+import { ImpTopicsModel } from "../models/LastMinuteBeforeExam/impTopics.model.js";
+import { LastMinuteMCQModel } from "../models/LastMinuteBeforeExam/lastMinuteMcq.model.js";
+import { Booster } from "../models/LastMinuteBeforeExam/memoryBooster.model.js";
+import { PredictedQuestionModel } from "../models/LastMinuteBeforeExam/predictedQuestion.model.js";
+import { LastMinuteSummaryModel } from "../models/LastMinuteBeforeExam/summary.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { detectCategory, parseSubject } from "../utils/helper.js";
@@ -6,7 +12,10 @@ import { askOpenAI } from "../utils/OpenAI.js";
 const extractJSON = (text) => {
   if (!text) throw new Error("Empty response received from AI.");
 
-  text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+  text = text
+    .replace(/```json/g, "")
+    .replace(/```/g, "")
+    .trim();
 
   // Extract only JSON object
   const first = text.indexOf("{");
@@ -27,7 +36,52 @@ const LastMinutePanelSummary = asyncHandler(async (req, res) => {
   const { mainSubject, bookName } = parseSubject(subject);
   const category = detectCategory(mainSubject);
 
-  const prompt = `
+  let prompt = "";
+
+  if (category === "language") {
+    prompt = `
+You are an API. Think silently but DO NOT show your internal thinking.
+
+First, internally understand the content of the given NCERT chapter(s) or poem(s) as if you have fully read them. Do NOT mention this step in the output.
+
+STRICT LANGUAGE RULE:
+If the subject is Hindi or Sanskrit → answer ONLY in Hindi.
+Otherwise → answer ONLY in English. DO NOT USE Hindi for English or any other subject.
+If this rule is violated, regenerate the answer.
+
+IMPORTANT:
+If the chapter/poem name contains "/", it means there are TWO different poems/chapters. They must be summarized SEPARATELY — never together, never merged.
+
+Your task:
+✔ If there is ONE poem/chapter → write its summary in 2–3 paragraphs (each paragraph 3–4 simple lines).
+✔ If there are TWO poems/chapters (detected using "/"):
+     → First poem/chapter only → 2–3 paragraphs (3–4 simple lines each)
+     → Leave ONE real blank line (ENTER twice)
+     → Second poem/chapter only → 2–3 paragraphs (3–4 simple lines each)
+
+HARD RULES (non-negotiable):
+✔ NO combining or comparing both poems/chapters
+✔ Do NOT mention that there are two poems/chapters
+✔ Do NOT include titles, headings, names, or section labels such as "First poem", "Second poem", etc.
+✔ Just write the first summary → blank line → second summary
+✔ REAL blank lines only + NO \\n or \\n\\n text
+✔ No bullet points, no numbering, no bold/italics, no emojis, no formulas, no quotes, no author names
+✔ Only clean plain text in paragraphs
+
+Return output ONLY in this JSON format:
+{
+  "summary": "Final summaries with real blank lines"
+}
+
+Class: ${className}
+Subject: ${mainSubject}
+Book: ${bookName}
+Chapter: ${chapter}
+Stream: ${category}
+`;
+
+  } else {
+    prompt = `
 You are an API. Think silently but DO NOT show your internal thinking.
 
 Write a short NCERT-style chapter summary in **3–4 simple lines** only.
@@ -48,14 +102,32 @@ Book: ${bookName}
 Chapter: ${chapter}
 Stream: ${category}
 `;
+  }
 
   try {
-    const output = await askOpenAI(prompt);
+
+    const cache = await LastMinuteSummaryModel.findOne({
+      className,
+      subject:mainSubject,
+      chapter
+    });
+
+    if(cache){
+       return res.status(200).json(new ApiResponse(200, cache.content, "Summary Ready"));
+    }
+
+    let output = await askOpenAI(prompt);
+
     const parsed = extractJSON(output);
 
-    return res
-      .status(200)
-      .json(new ApiResponse(200, parsed, "Summary Ready"));
+    await LastMinuteSummaryModel.create({
+      className,
+      subject:mainSubject,
+      chapter,
+      content:parsed
+    })
+
+    return res.status(200).json(new ApiResponse(200, parsed, "Summary Ready"));
   } catch (error) {
     console.error("Summary generation failed:", error);
     return res
@@ -76,94 +148,83 @@ const LastMinutePanelImportantTopics = asyncHandler(async (req, res) => {
   const category = detectCategory(mainSubject);
 
   const prompt = `
-You are an API. Think internally first, but DO NOT show your thinking.
+You are an API that returns ONLY valid JSON. No extra text, no markdown, no explanation outside JSON.
 
-Your ONLY task is to generate the 6 most important exam topics from this NCERT chapter.
+Class: ${className} | Subject: ${mainSubject} | Book: ${bookName}
+Chapter: ${chapter} | Stream: ${category}
 
-Class: ${className}
-Subject: ${mainSubject}
-Book: ${bookName}
-Chapter: ${chapter}
-Stream: ${category}
+STRICT LANGUAGE RULE:
+If the subject is Hindi or Sanskrit → topic names and explanations must be written ONLY in Hindi.
+Otherwise → topics and explanations ONLY in English. DO NOT USE Hindi for English or any other subject.
+If this rule is violated, regenerate the answer.
 
-GENERAL RULES:
-- Focus only on CBSE-style exam content.
-- Keep language simple, clear, and student-friendly.
-- No history, no stories, no real-life examples unless directly exam-relevant.
+TASK:
+List EXACTLY 6 most important CBSE Board exam topics from this chapter that are frequently asked and carry high marks.
 
-RULES FOR EACH TOPIC OBJECT:
-- "topic": 3–7 word subtopic name ONLY. Example: "Coulomb's Law", "Electric Field Intensity".
-- "explanation": 2–4 short lines in plain English, describing what it is and why it is important for exams.
-  • No bullet points, no headings, no numbering.
-  • You MAY include inline or block math using LaTeX, but only if really needed.
-- "formula": 
-  • If a key formula is associated with this topic, put ONLY the LaTeX formula here as a JSON string.
-  • If no formula is needed, set "formula": "".
+RULES:
+- Focus on topics that appear most in CBSE question papers
+- Include derivations, numericals, definitions, and theory-based topics as per CBSE pattern
+- Explanation must be 1-2 lines maximum — crisp and exam-focused
+- Formula field rules:
+  * Use pure LaTeX syntax only (e.g., \\frac{a}{b}, \\sqrt{x}, \\alpha, \\theta, etc.)
+  * Write formulas WITHOUT any $$ or $ symbols
+  * If no formula is needed, use empty string ""
+  * Example: "F = ma" or "v = u + at" or "\\frac{1}{2}mv^2"
 
-STRICT LATEX + JSON RULES (VERY IMPORTANT):
-- All LaTeX commands MUST start with a backslash:
-  ✔ \\frac, \\sqrt, \\theta, \\pi, \\epsilon_0, \\vec{E}
-  ✖ frac, sqrt, theta, pi, epsilon_0 (NOT allowed)
-- Formulas MUST be inside quotes because this is JSON:
-  ✔ "formula": "$$ F = k \\\\frac{q_1 q_2}{r^2} $$"
-- You may use:
-  • "$ ... $" for short inline formulas.
-  • "$$ ... $$" for display equations (each equation in its own $$ block).
-- The "formula" field must contain ONLY the mathematical expression, NO sentences, NO units, NO words.
-  Example (correct):
-    "formula": "$$ E = \\\\frac{1}{4 \\\\pi \\\\epsilon_0} \\\\frac{q}{r^2} $$"
-- NEVER output bare $$ ... $$ outside of quotes. JSON MUST stay valid.
-- NEVER escape slashes twice. Use \\\\frac inside JSON (so that the final value is \\frac).
-
-TOPIC COUNT + STRUCTURE VALIDATION:
-- You MUST return EXACTLY 6 topics — not more, not less.
-- Output must have this exact structure:
-
+OUTPUT FORMAT (strict JSON only):
 {
   "topics": [
     {
-      "topic": "...",
-      "explanation": "...",
-      "formula": "..."
+      "topic": "Topic name here",
+      "explanation": "Short exam-focused explanation in 1-2 lines",
+      "formula": "LaTeX formula without $$ wrapper or empty string"
+    },
+    {
+      "topic": "Second topic name",
+      "explanation": "Brief explanation",
+      "formula": ""
     }
   ]
 }
 
-- Do NOT add any other keys at root level or inside topic objects.
-- Do NOT output markdown, comments, prose, or any text before or after the JSON.
-
-IF ANY RULE IS BROKEN (invalid LaTeX, wrong JSON, missing fields, wrong topic count),
-you MUST internally fix and regenerate UNTIL everything satisfies all rules.
-
-OUTPUT: ONLY the final JSON object. No backticks, no markdown, no extra text.
+CRITICAL:
+- Return ONLY the JSON object
+- NO markdown code blocks
+- NO backticks
+- NO extra text before or after JSON
+- Ensure all 6 topics are CBSE exam relevant
 `;
 
   try {
-    // Call your OpenAI wrapper – NO extra escaping of backslashes
-    const output = await askOpenAI(prompt);
 
-    // Your existing JSON extractor
+    const cache = await ImpTopicsModel.findOne({
+      className,
+      subject:mainSubject,
+      chapter
+    });
+
+    if(cache){
+      return res.status(200).json(new ApiResponse(200,cache.content,"Important Topics Ready!"))
+    }
+    let output = await askOpenAI(prompt);
     const parsed = extractJSON(output);
 
-    // Runtime validation (extra safety)
     if (!parsed.topics || !Array.isArray(parsed.topics)) {
-      throw new Error("Invalid topics format: 'topics' must be an array.");
-    }
-
-    if (parsed.topics.length !== 6) {
-      throw new Error(`Invalid topics count: expected 6, got ${parsed.topics.length}.`);
+      throw new Error("Invalid topics format");
     }
 
     parsed.topics.forEach((topic, idx) => {
-      if (
-        !topic ||
-        typeof topic.topic !== "string" ||
-        typeof topic.explanation !== "string" ||
-        typeof topic.formula !== "string"
-      ) {
+      if (!topic.topic || !topic.explanation || topic.formula === undefined) {
         throw new Error(`Invalid topic structure at index ${idx}`);
       }
     });
+
+    await ImpTopicsModel.create({
+      className,
+      subject:mainSubject,
+      chapter,
+      content:parsed
+    })
 
     return res
       .status(200)
@@ -182,91 +243,66 @@ OUTPUT: ONLY the final JSON object. No backticks, no markdown, no extra text.
   }
 });
 
-const LastMinutePanelQuickShots = asyncHandler(async (req, res) => {
-  const { className, subject, chapter } = req.body;
-  const { mainSubject, bookName } = parseSubject(subject);
-  const category = detectCategory(mainSubject);
-
-  const prompt = `
-You are an API. Think first. Output ONLY valid JSON.
-
-Class ${className} | Subject: ${mainSubject} | Book: ${bookName}
-Chapter: ${chapter} | Stream: ${category}
-
-Formula Rule:
-- Use pure LaTeX.
-- "" if not needed.
-
-TASK:
-Generate 8–10 quick revision shots.
-
-JSON:
-{
-  "shots":[
-      {
-        "type":"definition|formula|diagram|law|trick",
-        "content":"..."
-      }
-  ]
-}
-`;
-
-  try {
-    let output = await askOpenAI(prompt);
-    const parsed = extractJSON(output);
-
-    const validTypes = ["definition", "formula", "diagram", "law", "trick"];
-
-    parsed.shots.forEach((shot, idx) => {
-      if (!shot.type || !shot.content)
-        throw new Error(`Invalid shot structure at index ${idx}`);
-
-      if (!validTypes.includes(shot.type))
-        throw new Error(`Invalid shot type "${shot.type}" at index ${idx}`);
-    });
-
-    return res
-      .status(200)
-      .json(new ApiResponse(200, parsed, "Quick Shots Ready"));
-  } catch (error) {
-    console.error("Quick shots generation failed:", error);
-    return res
-      .status(500)
-      .json(
-        new ApiResponse(500, null, "Failed to generate quick shots. Please try again.")
-      );
-  }
-});
-
 const LastMinutePanelPredictedQuestions = asyncHandler(async (req, res) => {
   const { className, subject, chapter } = req.body;
   const { mainSubject, bookName } = parseSubject(subject);
   const category = detectCategory(mainSubject);
 
   const prompt = `
-You are an API. Think internally first. Respond ONLY with JSON.
+You are an API that returns ONLY valid JSON. No extra text, no markdown, no explanation outside JSON.
 
-Class ${className} | Subject: ${mainSubject} | Book: ${bookName}
+Class: ${className} | Subject: ${mainSubject} | Book: ${bookName}
 Chapter: ${chapter} | Stream: ${category}
 
-- If formula is needed: provide ONLY LaTeX (pure). Otherwise formula = "".
-
 TASK:
-Generate EXACTLY 5-7 exam-style predicted Questions for CBSE boards.
-Questions must be high-probability and concept-based (This questions should be of ncert back questions or pyqs for cbse exam).
+Generate EXACTLY 6 high-probability CBSE Board exam questions for this chapter.
 
-JSON FORMAT (STRICT):
+STRICT LANGUAGE RULE:
+If the subject is Hindi → give questions ONLY in Hindi.
+If the subject is Sanskrit -> give questions ONLY in Sanskrit
+Otherwise → answer ONLY in English. DO NOT USE Hindi for English or any other subject.
+If this rule is violated, regenerate the answer.
+
+RULES:
+- Focus on NCERT back exercise questions and previous year CBSE questions (PYQs)
+- Include questions that are repeatedly asked in CBSE board exams
+- Mix of short answer (2-3 marks) and long answer (5 marks) questions
+- Questions should cover important concepts, derivations, numericals, and theory
+- Each question must be complete and exam-ready
+
+OUTPUT FORMAT (strict JSON only):
 {
-  "questions":[
+  "questions": [
     {
-      "question":"...",
-      "formula":""
+      "question": "Complete question statement here"
+    },
+    {
+      "question": "Second complete question"
     }
   ]
 }
+
+CRITICAL:
+- Return ONLY the JSON object
+- NO markdown code blocks
+- NO backticks
+- NO extra text before or after JSON
+- All questions must be CBSE exam pattern based
+- Questions should be from NCERT exercises or similar to PYQs
 `;
 
   try {
+
+    const cache = await PredictedQuestionModel.findOne({
+      className,
+      subject:mainSubject,
+      chapter,
+    })
+
+    if(cache) {
+      return res.status(200).json(new ApiResponse(200,cache.content,"Predicted Questions Ready"))
+    }
+
     let output = await askOpenAI(prompt);
     const parsed = extractJSON(output);
 
@@ -275,6 +311,13 @@ JSON FORMAT (STRICT):
         throw new Error(`Invalid question structure at index ${idx}`);
       }
     });
+
+      await PredictedQuestionModel.create({
+      className,
+      subject:mainSubject,
+      chapter,
+      content:parsed
+    })
 
     return res
       .status(200)
@@ -324,6 +367,17 @@ JSON:
 `;
 
   try {
+
+    const cache = await LastMinuteMCQModel.findOne({
+      className,
+      subject:mainSubject,
+      chapter,
+    })
+
+    if(cache) {
+      return res.status(200).json(new ApiResponse(200,cache.content,"Important MCQs Ready"))
+    }
+
     let output = await askOpenAI(prompt);
     const parsed = extractJSON(output);
 
@@ -337,6 +391,13 @@ JSON:
       if (!mcq.options.includes(mcq.correct))
         throw new Error(`Correct answer mismatch in MCQ ${idx}`);
     });
+
+     await LastMinuteMCQModel.create({
+      className,
+      subject:mainSubject,
+      chapter,
+      content:parsed
+    })
 
     return res.status(200).json(new ApiResponse(200, parsed, "MCQs Ready"));
   } catch (error) {
@@ -358,6 +419,11 @@ You are an API. Output ONLY valid JSON.
 Class ${className} | Subject: ${mainSubject} | Chapter: ${chapter}
 NCERT Book: ${bookName} | Stream: ${category}
 
+STRICT LANGUAGE RULE:
+If the subject is Hindi or Sanskrit → response ONLY in Hindi.
+Otherwise → response ONLY in English. DO NOT USE Hindi for English or any other subject.
+If this rule is violated, regenerate the answer.
+
 TASK:
 Generate EXACTLY 3 boosters:
 1) acronym
@@ -378,9 +444,26 @@ JSON:
 `;
 
   try {
+
+    const cache = await Booster.findOne({
+      className,
+      subject:mainSubject,
+      chapter,
+    })
+
+    if(cache) {
+      return res.status(200).json(new ApiResponse(200,cache.content,"Memory Booster Ready"))
+    }
+
     let output = await askOpenAI(prompt);
     const parsed = extractJSON(output);
 
+    await Booster.create({
+      className,
+      subject:mainSubject,
+      chapter,
+      content:parsed
+    })
     return res
       .status(200)
       .json(new ApiResponse(200, parsed, "Memory Booster Ready"));
@@ -388,9 +471,7 @@ JSON:
     console.error("Memory booster generation failed:", error);
     return res
       .status(500)
-      .json(
-        new ApiResponse(500, null, "Failed to generate memory boosters.")
-      );
+      .json(new ApiResponse(500, null, "Failed to generate memory boosters."));
   }
 });
 
@@ -405,6 +486,11 @@ You are an API. Output ONLY valid JSON.
 Class ${className} | Subject: ${mainSubject} | Book: ${bookName}
 Chapter: ${chapter} | Stream: ${category}
 
+STRICT LANGUAGE RULE:
+If the subject is Hindi or Sanskrit → response ONLY in Hindi.
+Otherwise → response ONLY in English. DO NOT USE Hindi for English or any other subject.
+If this rule is violated, regenerate the answer.
+
 TASK:
 Give EXACTLY 6 revision steps.
 
@@ -417,26 +503,39 @@ JSON:
 `;
 
   try {
+    const cache = await AiCoach.findOne({
+      className,
+      subject:mainSubject,
+      chapter,
+    })
+
+    if(cache) {
+      return res.status(200).json(new ApiResponse(200,cache.content,"Ai Coach Ready"))
+    }
+
     let output = await askOpenAI(prompt);
     const parsed = extractJSON(output);
 
     parsed.steps.sort((a, b) => a.priority - b.priority);
-
+    
+    await AiCoach.create({
+      className,
+      subject:mainSubject,
+      chapter,
+      content:parsed
+    })
     return res.status(200).json(new ApiResponse(200, parsed, "AI Coach Ready"));
   } catch (error) {
     console.error("AI coach generation failed:", error);
     return res
       .status(500)
-      .json(
-        new ApiResponse(500, null, "Failed to generate coaching steps.")
-      );
+      .json(new ApiResponse(500, null, "Failed to generate coaching steps."));
   }
 });
 
 export {
   LastMinutePanelSummary,
   LastMinutePanelImportantTopics,
-  LastMinutePanelQuickShots,
   LastMinutePanelPredictedQuestions,
   LastMinutePanelMCQs,
   LastMinutePanelMemoryBooster,
