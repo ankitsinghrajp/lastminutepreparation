@@ -1,7 +1,7 @@
 import { FileText, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { useAsyncMutation } from '@/hooks/hook';
 import { useTopperStyleMutation } from '@/redux/api/api';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { renderFormula } from './renderFormula';
 import AIOutput from '../AIOutput';
 
@@ -11,16 +11,52 @@ const LastNightPredictedQuestions = ({ predictedQuestion, selectedClass, selecte
   const [loadingStates, setLoadingStates] = useState({});
   const [showAnswers, setShowAnswers] = useState({});
 
+  const storageKey = `answers_${selectedClass}_${selectedSubject}_${selectedChapter}`;
+
+  // Load previous answers from localstorage
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem(storageKey)) || {};
+    setAnswers(stored);
+  }, [storageKey]);
+
   const generateAnswer = async (question, idx) => {
+    let stored = JSON.parse(localStorage.getItem(storageKey)) || {};
+
+    // If cached → use instantly
+    if (stored[question]) {
+      setAnswers(prev => ({ ...prev, [idx]: stored[question] }));
+      setShowAnswers(prev => ({ ...prev, [idx]: true }));
+      return;
+    }
+
+    // Call AI API
     setLoadingStates(prev => ({ ...prev, [idx]: true }));
     try {
       const res = await getAnswer(
         "Generating topper style answer...",
         { user_question: question, selectedClass, selectedSubject, selectedChapter }
       );
+
       if (res?.data?.data?.answer) {
-        setAnswers(prev => ({ ...prev, [idx]: res.data.data.answer }));
+        const answer = res.data.data.answer;
+
+        // update UI
+        setAnswers(prev => ({ ...prev, [idx]: answer }));
         setShowAnswers(prev => ({ ...prev, [idx]: true }));
+
+        // ---- Save to LocalStorage with limit 10 ----
+        stored = JSON.parse(localStorage.getItem(storageKey)) || {};
+        if (!Array.isArray(stored.order)) stored.order = [];
+
+        stored[question] = answer;
+        if (!stored.order.includes(question)) stored.order.push(question);
+
+        while (stored.order.length > 10) {
+          const oldestQuestion = stored.order.shift();
+          delete stored[oldestQuestion];
+        }
+
+        localStorage.setItem(storageKey, JSON.stringify(stored));
       }
     } catch (error) {
       console.error(error);
@@ -148,7 +184,6 @@ const LastNightPredictedQuestions = ({ predictedQuestion, selectedClass, selecte
                         </p>
                       </div>
 
-                      {/* AI Output Renderer */}
                       <AIOutput content={answers[idx]} />
                     </div>
                   )}
@@ -163,3 +198,4 @@ const LastNightPredictedQuestions = ({ predictedQuestion, selectedClass, selecte
 };
 
 export default LastNightPredictedQuestions;
+

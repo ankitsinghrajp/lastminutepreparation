@@ -214,6 +214,7 @@ chapter: ${selectedChapter}
 
   const safePrompt = prompt.replace(/\\/g, "\\\\");
   const apiData = await askOpenAI(safePrompt, "gpt-5.1");
+
   return res.status(200).json(
     new ApiResponse(200, { answer: apiData }, "Answer generated successfully!")
   );

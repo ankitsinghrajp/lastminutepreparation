@@ -419,6 +419,14 @@ You are an API. Output ONLY valid JSON.
 Class ${className} | Subject: ${mainSubject} | Chapter: ${chapter}
 NCERT Book: ${bookName} | Stream: ${category}
 
+Formula Rule (non-negotiable):
+✔ Formula MUST be PURE LaTeX only (e.g., \\frac{a}{b}, \\sin \\theta, E = mc^2)
+❌ NO square brackets around formula
+❌ NO text before or after the formula
+❌ Formula value must NOT include explanation, only math expression
+If no formula is required, return an empty string "".
+
+
 STRICT LANGUAGE RULE:
 If the subject is Hindi or Sanskrit → response ONLY in Hindi.
 Otherwise → response ONLY in English. DO NOT USE Hindi for English or any other subject.

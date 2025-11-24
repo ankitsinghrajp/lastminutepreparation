@@ -36,8 +36,6 @@ export default function LastNightBeforeExam() {
   const [memoryBooster, setMemoryBooster] = useState([]);
   const [aiCoach, setAiCoach] = useState([]);
 
-  // Current loading message (like chatbot typing)
-  const [currentLoadingMessage, setCurrentLoadingMessage] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
@@ -56,12 +54,12 @@ export default function LastNightBeforeExam() {
     { isLoading: isChapterLoading, isError: isChapterError, error: chapterError, data: ChapterData },
   ] = useLazyGetChaptersQuery();
 
-  const [getSummary] = useAsyncMutation(useGetLastNightSummaryMutation);
-  const [getImportantTopics] = useAsyncMutation(useGetLastNightImportantTopicsMutation);
-  const [getPredictedQuestion] = useAsyncMutation(useGetLastNightPredictedQuestionsMutation);
-  const [getMcqs] = useAsyncMutation(useGetLastNightMcqsMutation);
-  const [getMemoryBooster] = useAsyncMutation(useGetLastNightMemoryBoosterMutation);
-  const [getAiCoach] = useAsyncMutation(useGetLastNightAiCoachMutation);
+  const [getSummary, getSummaryLoading] = useAsyncMutation(useGetLastNightSummaryMutation);
+  const [getImportantTopics, getImportantTopicsLoading] = useAsyncMutation(useGetLastNightImportantTopicsMutation);
+  const [getPredictedQuestion, getPredictedQuestionLoading] = useAsyncMutation(useGetLastNightPredictedQuestionsMutation);
+  const [getMcqs, getMcqsLoading] = useAsyncMutation(useGetLastNightMcqsMutation);
+  const [getMemoryBooster, getMemoryBoosterLoading] = useAsyncMutation(useGetLastNightMemoryBoosterMutation);
+  const [getAiCoach, getAiCoachLoading] = useAsyncMutation(useGetLastNightAiCoachMutation);
 
   useErrors([
     { isError: isSubjectError, error: subjectError },
@@ -160,53 +158,38 @@ export default function LastNightBeforeExam() {
     };
 
     try {
-      // 1. Get Summary
-      setCurrentLoadingMessage("Analyzing CBSE patterns and extracting key points...");
+
       const summaryRes = await getSummary("Analyzing CBSE patterns...", params);
       if (summaryRes?.data?.data) {
         setSummary(summaryRes.data.data?.summary);
       }
 
-      // 2. Get Important Topics
-      setCurrentLoadingMessage("Extracting important topics...");
       const topicsRes = await getImportantTopics("Extracting important topics...", params);
       if (topicsRes?.data?.data) {
         setImportantTopics(topicsRes.data.data?.topics);
       }
 
-      // 3. Get Predicted Questions
-      setCurrentLoadingMessage("Generating predicted questions...");
       const questionsRes = await getPredictedQuestion("Generating predicted questions...", params);
       if (questionsRes?.data?.data) {
         setPredictedQuestion(questionsRes.data.data?.questions);
       }
 
-      // 4. Get MCQs
-      setCurrentLoadingMessage("Creating practice MCQs...");
       const mcqsRes = await getMcqs("Creating practice MCQs...", params);
       if (mcqsRes?.data?.data) {
         setMcqs(mcqsRes.data.data?.mcqs);
       }
 
-      // 5. Get Memory Booster
-      setCurrentLoadingMessage("Creating memory boosters...");
       const memoryBoosterRes = await getMemoryBooster("Creating memory boosters...", params);
       if (memoryBoosterRes?.data?.data) {
         setMemoryBooster(memoryBoosterRes.data.data?.boosters);
       }
 
-      // 6. Get AI Coach
-      setCurrentLoadingMessage("Generating study plan...");
       const aiCoachRes = await getAiCoach("Generating study plan...", params);
       if (aiCoachRes?.data?.data) {
         setAiCoach(aiCoachRes.data.data?.steps);
       }
 
-      setCurrentLoadingMessage("");
-      toast.success("Revision materials generated successfully!");
-
     } catch (error) {
-      setCurrentLoadingMessage("");
       toast.error("Failed to generate revision materials");
     } finally {
       setLoading(false);
@@ -235,7 +218,6 @@ export default function LastNightBeforeExam() {
     setMcqs([]);
     setMemoryBooster([]);
     setAiCoach([]);
-    setCurrentLoadingMessage("");
     setHasGenerated(false);
     setTimerActive(false);
     setTimeLeft(timerMinutes * 60);
@@ -361,17 +343,6 @@ export default function LastNightBeforeExam() {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Focus Timer (minutes)</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="120"
-                      value={timerMinutes}
-                      onChange={(e) => setTimerMinutes(parseInt(e.target.value) || 30)}
-                      className="w-full h-11 px-4 rounded-lg bg-background border border-input focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                  </div>
 
                   <Button
                     onClick={handleGenerate}
@@ -445,7 +416,7 @@ export default function LastNightBeforeExam() {
             )}
 
             {/* Chatbot-style loading indicator at the bottom */}
-            {currentLoadingMessage && (
+            {(getSummaryLoading || getImportantTopicsLoading || getPredictedQuestionLoading || getMcqsLoading || getAiCoachLoading || getMemoryBoosterLoading) && (
               <div className="flex items-start gap-3 p-4">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
                   <img className="h-8 w-8" src={logo} alt="" />
@@ -453,7 +424,7 @@ export default function LastNightBeforeExam() {
                 <div className="flex-1">
                   <div className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl rounded-tl-sm bg-muted/50 border border-border/50">
                     <Loader2 className="w-4 h-4 text-orange-500 animate-spin" />
-                    <span className="text-sm text-muted-foreground">{currentLoadingMessage}</span>
+                    <span className="text-sm text-muted-foreground">Getting CBSE most important chapter notes...</span>
                   </div>
                 </div>
               </div>
