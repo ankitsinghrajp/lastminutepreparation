@@ -5,9 +5,7 @@ import {
   Loader2, 
   Brain, 
   Sparkles, 
-  Calculator,
   Layers,
-  Zap,
   Clock
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
@@ -15,19 +13,13 @@ import { Navbar } from "@/components/Navbar";
 import {
   useLazyGetChaptersQuery,
   useLazyGetSubjectsQuery,
-  useChapterWiseStudyMutation,
+
 } from "@/redux/api/api";
 import { useAsyncMutation, useErrors } from "@/hooks/hook";
 import { toast } from "sonner";
-import ProgressBar from "@/components/specifics/chapterWiseStudy/ProgressBar";
-import ContentArea from "@/components/specifics/chapterWiseStudy/ContentArea";
 
 const classes = ["9th", "10th", "11th", "12th"];
 
-const learningModes = [
-  { id: "concept", name: "Concept Mode", icon: Brain, color: "blue", desc: "Key ideas & visuals" },
-  { id: "formula", name: "Formula Mode", icon: Calculator, color: "purple", desc: "Formulas & definitions" },
-];
 
 export default function ChapterWiseStudy() {
   const [subjects, setSubjects] = useState([]);
@@ -36,22 +28,10 @@ export default function ChapterWiseStudy() {
   const [selectedClass, setSelectedClass] = useState("12th");
   const [selectedSubject, setSelectedSubject] = useState("");
   const [selectedChapter, setSelectedChapter] = useState("");
-  const [selectedIndex, setSelectedIndex] = useState([]);
-  const [selectedMode, setSelectedMode] = useState("concept");
+
   const [loading, setLoading] = useState(false);
   const [hasContent, setHasContent] = useState(false);
-  const [aiContent, setAIContent] = useState({});
-  
-  // Add state for tracking current section
-  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
 
-  const [chapterWiseStudyTrigger, chapterWiseStudyLoading, chapterWiseStudyData] = useAsyncMutation(useChapterWiseStudyMutation);
-
-  // Study content state
-  const [chapterStructure, setChapterStructure] = useState(null);
-  const [currentSection, setCurrentSection] = useState(0);
-  const [progress, setProgress] = useState(0);
-  
   const [
     fetchSubject,
     {
@@ -87,7 +67,6 @@ export default function ChapterWiseStudy() {
         setChapters([]);
         setSelectedSubject("");
         setSelectedChapter("");
-        setSelectedIndex([]);
         try {
           await fetchSubject({ selectedClass });
         } catch (error) {
@@ -118,7 +97,6 @@ export default function ChapterWiseStudy() {
       if (selectedSubject && selectedClass) {
         setChapters([]);
         setSelectedChapter("");
-        setSelectedIndex([]);
         try {
           await fetchChapter({ selectedClass, selectedSubject });
         } catch (error) {
@@ -138,26 +116,14 @@ export default function ChapterWiseStudy() {
       if (chapters.length > 0 && !isChapterLoading) {
         const firstChapter = chapters[0].chapter;
         setSelectedChapter(firstChapter);
-        
-        // Find index for the first chapter
-        const indexArray = chapters[0]?.index || [];
-        setSelectedIndex(indexArray);
       }
+
     } else if (!isChapterLoading && ChapterData) {
       setChapters([]);
       setSelectedChapter("");
-      setSelectedIndex([]);
     }
   }, [ChapterData, isChapterLoading]);
 
-  // Update progress when section changes
-  useEffect(() => {
-    if (hasContent && aiContent?.sections) {
-      const totalSections = aiContent.sections.length;
-      const newProgress = totalSections > 0 ? ((currentSectionIndex + 1) / totalSections) * 100 : 0;
-      setProgress(newProgress);
-    }
-  }, [currentSectionIndex, hasContent, aiContent]);
 
   const handleGenerate = async () => {
     if (!selectedClass || !selectedSubject || !selectedChapter) {
@@ -165,53 +131,6 @@ export default function ChapterWiseStudy() {
       return;
     }
     
-    const res = await chapterWiseStudyTrigger("Wait for 30 seconds! We're generating...",{className:selectedClass, subject:selectedSubject, chapter:selectedChapter, index:selectedIndex});
-    if(res?.data?.data?.data) {
-      
-      setHasContent(true);
-      setAIContent(res?.data?.data?.data);
-      setCurrentSectionIndex(0); // Reset to first section
-      setProgress(0); // Reset progress
-    }
-  };
-
-  const handleStartNewChapter = () => {
-    setHasContent(false);
-    setAIContent({});
-    setCurrentSectionIndex(0);
-    setProgress(0);
-    setSelectedMode("concept");
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const ModeCard = ({ mode }) => {
-    const Icon = mode.icon;
-    const isActive = selectedMode === mode.id;
-    
-    return (
-      <button
-        onClick={() => setSelectedMode(mode.id)}
-        className={`p-4 rounded-xl border-2 transition-all text-left w-full ${
-          isActive 
-            ? `border-${mode.color}-500 bg-${mode.color}-500/10` 
-            : 'border-border/50 hover:border-border bg-card/50'
-        }`}
-      >
-        <div className="flex items-start gap-3">
-          <div className={`p-2 rounded-lg ${
-            isActive ? `bg-${mode.color}-500/20` : 'bg-muted'
-          }`}>
-            <Icon className={`h-5 w-5 ${
-              isActive ? `text-${mode.color}-500` : 'text-muted-foreground'
-            }`} />
-          </div>
-          <div className="flex-1">
-            <h4 className="font-semibold text-sm mb-1">{mode.name}</h4>
-            <p className="text-xs text-muted-foreground">{mode.desc}</p>
-          </div>
-        </div>
-      </button>
-    );
   };
 
   return (
@@ -237,9 +156,6 @@ export default function ChapterWiseStudy() {
             Learn with LastMinutePreparation like never before...
           </p>
         </div>
-
-        {/* Progress Bar - Show when content exists */}
-        <ProgressBar hasContent={hasContent} progress={progress}/>
 
         {/* Input Section - Hide when content exists */}
         {!hasContent && (
@@ -390,29 +306,6 @@ export default function ChapterWiseStudy() {
           </div>
         )}
 
-        {/* Learning Mode Selection - Show when content exists */}
-        {hasContent && (
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Zap className="h-5 w-5 text-blue-500" />
-              Choose Your Learning Mode
-            </h3>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {learningModes.map((mode) => (
-                <ModeCard key={mode.id} mode={mode} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Content Area - Show based on selected mode */}
-        <ContentArea 
-          hasContent={hasContent} 
-          selectedMode={selectedMode} 
-          aiContent={aiContent}
-          currentSectionIndex={currentSectionIndex}
-          setCurrentSectionIndex={setCurrentSectionIndex}
-        />
 
         {/* Empty State */}
         {!hasContent && !loading && (
