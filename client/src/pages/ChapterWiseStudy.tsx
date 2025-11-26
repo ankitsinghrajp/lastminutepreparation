@@ -6,20 +6,24 @@ import {
   Brain, 
   Sparkles, 
   Layers,
-  Clock
+  Clock,
 } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import {
+  useGetChapterWiseImportantQuestionMutation,
+  useGetChapterWiseKeySheetMutation,
+  useGetChapterWiseMindMapMutation,
+  useGetChapterWiseShortNotesMutation,
+  useGetChapterWiseSummaryMutation,
   useLazyGetChaptersQuery,
   useLazyGetSubjectsQuery,
-
 } from "@/redux/api/api";
 import { useAsyncMutation, useErrors } from "@/hooks/hook";
 import { toast } from "sonner";
+import ContentArea from "@/components/specifics/chapterWiseStudy/contentArea";
 
 const classes = ["9th", "10th", "11th", "12th"];
-
 
 export default function ChapterWiseStudy() {
   const [subjects, setSubjects] = useState([]);
@@ -31,6 +35,18 @@ export default function ChapterWiseStudy() {
 
   const [loading, setLoading] = useState(false);
   const [hasContent, setHasContent] = useState(false);
+
+  // Content State
+  const [summary, setSummary] = useState("");
+  const [shortNotes, setShortNotes] = useState([]);
+  const [mindMap, setMindMap] = useState({});
+  const [importantQuestions, setImportantQuestions] = useState({});
+  const [keySheet, setKeySheet] = useState({});
+  const [doubtSolver, setDoubtSolver] = useState({});
+
+  // Progress tracking state
+  const [progressMessages, setProgressMessages] = useState([]);
+  const [currentStep, setCurrentStep] = useState("");
 
   const [
     fetchSubject,
@@ -52,6 +68,11 @@ export default function ChapterWiseStudy() {
     },
   ] = useLazyGetChaptersQuery();
 
+  const [getSummary, getSummaryLoading] = useAsyncMutation(useGetChapterWiseSummaryMutation);
+  const [getShortNotes, getShortNotesLoading] = useAsyncMutation(useGetChapterWiseShortNotesMutation);
+  const [getMindMap, getMindMapLoading] = useAsyncMutation(useGetChapterWiseMindMapMutation);
+  const [getImportantQuestion, getImportantQuestionLoading] = useAsyncMutation(useGetChapterWiseImportantQuestionMutation);
+  const [getKeySheet, getKeySheetLoading] = useAsyncMutation(useGetChapterWiseKeySheetMutation);
 
   // Handle errors
   useErrors([
@@ -117,37 +138,149 @@ export default function ChapterWiseStudy() {
         const firstChapter = chapters[0].chapter;
         setSelectedChapter(firstChapter);
       }
-
     } else if (!isChapterLoading && ChapterData) {
       setChapters([]);
       setSelectedChapter("");
     }
   }, [ChapterData, isChapterLoading]);
 
+  const addProgressMessage = (message, status = "loading") => {
+    setProgressMessages(prev => [...prev, { message, status, timestamp: Date.now() }]);
+  };
+
+  const updateLastMessageStatus = (status) => {
+    setProgressMessages(prev => {
+      const updated = [...prev];
+      if (updated.length > 0) {
+        updated[updated.length - 1].status = status;
+      }
+      return updated;
+    });
+  };
 
   const handleGenerate = async () => {
     if (!selectedClass || !selectedSubject || !selectedChapter) {
       toast.error("Please select class, subject, and chapter");
       return;
     }
+
+    setLoading(true);
+    setHasContent(true);
+    setProgressMessages([]);
     
+    // Reset all content
+    setSummary("");
+    setShortNotes([]);
+    setMindMap({});
+    setImportantQuestions({});
+    setKeySheet({});
+
+    try {
+      // 1. Getting Summary
+      addProgressMessage("📝 Generating comprehensive chapter summary...");
+      setCurrentStep("summary");
+      const summaryRes = await getSummary("Generating Summary...", {
+        className: selectedClass,
+        subject: selectedSubject,
+        chapter: selectedChapter
+      });
+      
+      if (summaryRes?.data?.data) {
+        setSummary(summaryRes.data.data.summary);
+        updateLastMessageStatus("success");
+        await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for better UX
+      } else {
+        updateLastMessageStatus("error");
+      }
+
+      // 2. Getting Short Notes
+      addProgressMessage("📚 Creating concise short notes...");
+      setCurrentStep("shortNotes");
+      const notesRes = await getShortNotes("Generating Short Notes...", {
+        className: selectedClass,
+        subject: selectedSubject,
+        chapter: selectedChapter
+      });
+      
+      if (notesRes?.data?.data) {
+        setShortNotes(notesRes.data.data.shortNotes);
+        updateLastMessageStatus("success");
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } else {
+        updateLastMessageStatus("error");
+      }
+
+      // 3. Getting Mind Map
+      addProgressMessage("🗺️ Building visual mind map...");
+      setCurrentStep("mindMap");
+      const mindMapRes = await getMindMap("Generating Mind Map...", {
+        className: selectedClass,
+        subject: selectedSubject,
+        chapter: selectedChapter
+      });
+      if (mindMapRes?.data?.data) {
+        setMindMap(mindMapRes.data.data);
+        updateLastMessageStatus("success");
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } else {
+        updateLastMessageStatus("error");
+      }
+
+      // 4. Important Questions
+      addProgressMessage("❓ Preparing important questions...");
+      setCurrentStep("questions");
+      const questionsRes = await getImportantQuestion("Generating Important Questions...", {
+        className: selectedClass,
+        subject: selectedSubject,
+        chapter: selectedChapter
+      });
+      
+      if (questionsRes?.data?.data) {
+        setImportantQuestions(questionsRes.data.data.questions);
+        updateLastMessageStatus("success");
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } else {
+        updateLastMessageStatus("error");
+      }
+
+      // 5. Key Sheet
+      addProgressMessage("🔑 Generating key concepts sheet...");
+      setCurrentStep("keySheet");
+      const keySheetRes = await getKeySheet("Generating Key Sheet...", {
+        className: selectedClass,
+        subject: selectedSubject,
+        chapter: selectedChapter
+      });
+      
+      if (keySheetRes?.data?.data) {
+        setKeySheet(keySheetRes.data.data);
+        updateLastMessageStatus("success");
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } else {
+        updateLastMessageStatus("error");
+      }
+    } catch (error) {
+      console.error("Error generating content:", error);
+      updateLastMessageStatus("error");
+      toast.error("Failed to generate some content");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <Navbar/>
 
-      <div className="container mt-16 md:mt-24 mx-auto px-3 sm:px-4 py-6 max-w-7xl">
-
-        <div className="text-center mb-8 sm:mb-12 space-y-3 sm:space-y-4">
+      <div className={`mt-16 md:mt-24 ${hasContent ? '' : 'container mx-auto px-3 sm:px-4 max-w-7xl'} py-6`}>
+        <div className={`text-center mb-8 sm:mb-12 space-y-3 sm:space-y-4 ${hasContent ? 'px-3 sm:px-4' : ''}`}>
           <div className="flex items-center justify-center gap-3 mb-3 sm:mb-4">
             <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center">
               <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
             </div>
           </div>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold px-4">
-            Chapter Wise {" "}
+            Chapter Wise{" "}
             <span className="bg-gradient-to-r from-blue-500 to-violet-500 bg-clip-text text-transparent">
               Study
             </span>
@@ -160,7 +293,6 @@ export default function ChapterWiseStudy() {
         {/* Input Section - Hide when content exists */}
         {!hasContent && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-8">
-            {/* Left Column - Inputs */}
             <div>
               <Card className="p-4 sm:p-6 bg-card/50 border-border/50 backdrop-blur-sm">
                 <div className="space-y-5">
@@ -214,19 +346,7 @@ export default function ChapterWiseStudy() {
                     </label>
                     <select
                       value={selectedChapter}
-                      onChange={(e) => {
-                        const newChapter = e.target.value;
-                        setSelectedChapter(newChapter);
-                        
-                        // Find the index for the newly selected chapter
-                        const chapterObj = chapters.find(
-                          (item) =>
-                            item.chapter.trim().toLowerCase() ===
-                            newChapter.trim().toLowerCase()
-                        );
-                        const indexArray = chapterObj?.index || [];
-                        setSelectedIndex(indexArray);
-                      }}
+                      onChange={(e) => setSelectedChapter(e.target.value)}
                       disabled={isChapterLoading || chapters.length === 0}
                       className="w-full px-4 py-3 rounded-lg bg-background border border-border focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-base"
                     >
@@ -306,6 +426,18 @@ export default function ChapterWiseStudy() {
           </div>
         )}
 
+        {/* Content Area - Full width on mobile, no padding */}
+        {hasContent && !loading && (
+          <div className="w-full">
+            <ContentArea 
+              summary={summary} 
+              shortNotes={shortNotes} 
+              mindMap={mindMap} 
+              keySheet={keySheet} 
+              importantQuestions={importantQuestions}
+            />
+          </div>
+        )}
 
         {/* Empty State */}
         {!hasContent && !loading && (
@@ -321,7 +453,6 @@ export default function ChapterWiseStudy() {
         )}
       </div>
 
-      {/* Footer */}
       <Footer/>
     </div>
   );

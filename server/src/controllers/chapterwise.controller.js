@@ -55,11 +55,11 @@ IMPORTANT:
 If the chapter/poem name contains "/", it means there are TWO different poems/chapters. They must be summarized SEPARATELY — never together, never merged.
 
 Your task:
-✔ If there is ONE poem/chapter → write its summary in 2–3 paragraphs (each paragraph 10–12 simple lines).
+✔ If there is ONE poem/chapter → write its summary in 2–3 paragraphs (each paragraph 5–6 simple lines).
 ✔ If there are TWO poems/chapters (detected using "/"):
-     → First poem/chapter only → 2–3 paragraphs (10–12 simple lines each)
+     → First poem/chapter only → 2–3 paragraphs (5-6 simple lines each)
      → Leave ONE real blank line (ENTER twice)
-     → Second poem/chapter only → 2–3 paragraphs (10–12 simple lines each)
+     → Second poem/chapter only → 2–3 paragraphs (5-6 simple lines each)
 
 HARD RULES (non-negotiable):
 ✔ NO combining or comparing both poems/chapters
@@ -86,16 +86,16 @@ Stream: ${category}
     prompt = `
 You are an API. Think silently but DO NOT show your internal thinking.
 
-Write a short NCERT-style chapter summary in **10–12 simple lines** only.
+Write a short NCERT-style chapter summary in **5-6 simple lines** only.
 It must be crisp, student-friendly, and useful for last-minute revision.
 
 ❌ Do NOT include formulas, numericals, derivations, diagrams, definitions, tables, or headings.
 ❌ Do NOT use bullet points, lists, or line breaks after every sentence.
-✔ The summary must be a **single flowing paragraph of 10–12 lines** only.
+✔ The summary must be a **single flowing paragraph of 5-6 lines** only.
 
 Return output in JSON format ONLY:
 {
-  "summary": "10–12 line paragraph here"
+  "summary": "5-6 line paragraph here"
 }
 
 Class: ${className}
@@ -117,82 +117,126 @@ const chapterWiseShortNotes = asyncHandler(async (req, res) => {
   const { className, subject, chapter } = req.body;
   const { mainSubject, bookName } = parseSubject(subject);
 
-  const prompt = `
-You are a CBSE Board exam expert. Think internally first, but DO NOT show your thinking.
+ const prompt = `You are a CBSE Board exam expert. Think internally first but DO NOT show your thinking.
 
-Your ONLY task is to generate SHORT NOTES for revision, exactly the way toppers write during exam preparation — sharp, concise and scoring.
-
-INPUT will contain only: Class, Subject, Chapter, BookName (optional)
-You must generate short notes of that chapter WITHOUT asking for any question.
+Your ONLY task is to generate SHORT NOTES for the given chapter exactly like toppers write: clean, crisp, scoring, and technically perfect.
 
 STRICT LANGUAGE RULE:
-If the subject is Hindi → then deeply understand the chapter first and generate short notes ONLY in Hindi.
-If the subject is Sanskrit → then deeply understand the chapter first and generate short notes ONLY in Sanskrit and strictly in 2–3 lines only.
-Otherwise → generate short notes ONLY in English.
-If this rule is violated, regenerate the short notes.
+• If subject is Hindi → Write ONLY in Hindi.
+• If subject is Sanskrit → Write ONLY in Sanskrit (STRICTLY 2–3 lines only).
+• Otherwise → Write ONLY in English.
 
-SHORT NOTES RULES (MOST IMPORTANT):
-- Output MUST be only in bullet points (• or – allowed)
-- No paragraphs at all — short notes only.
-- Every line must give an exam-oriented scoring point for revision.
-- Notes must fully cover the entire chapter — no missing concepts.
-- Keep each bullet short, crisp, and memory-friendly.
-- Use **bold** only to highlight 2–4 very important keywords.
-- Do NOT add conclusion or summary.
+====================================================
+ABSOLUTE OUTPUT RULES (DO NOT BREAK THESE)
+====================================================
 
-General Rules:
-- Do NOT write introductions or explanations.
-- No extra theory — only marks-oriented points.
-- Maintain natural flow like toppers’ handwritten revision notes.
-- No storytelling, no heavy textbook vocabulary.
+1) BULLET RULE:
+• Every line MUST start with: "• "
+• NO paragraphs, NO headings, NO intros, NO conclusions.
 
-Formula Rules (if applicable for that chapter):
-- Every mathematical symbol MUST be written ONLY inside LaTeX $$ ... $$ format.
-- No words or units inside the $$ formula $$.
-- Each formula MUST be in its own $$ block (no multiple formulas in one block).
-- Do NOT write formulas inside normal brackets like (V), (Phi), (E).
+2) FORMULA APPEARANCE RULE (CRITICAL):
+• ANY mathematical expression (like F = …, E = …, V = …, Q/r^2, fractions, integrals)
+  MUST ALWAYS appear ONLY inside its own $$ ... $$ block.
+• NEVER write formulas as plain text inside bullets.
+• If ANY formula appears outside $$ → REGENERATE immediately.
+
+3) DISPLAY MATH FORMAT (MANDATORY):
+Every formula MUST look EXACTLY like this:
+
+(blank line)
+$$
+F = k \frac{q_1 q_2}{r^2}
+$$
+(blank line)
+
+4) INSIDE $$ RULES:
+ALLOWED:
+• \frac
+• \sqrt
+• \int
+• \cdot
+• \epsilon_0
+• Greek letters: \alpha, \beta, \gamma, \phi, \theta
+• Proper subscripts: q_1, Q_{enc}, r^2, A_{net}
+• Superscripts using ^{ }
 
 NOT ALLOWED:
-- No markdown headings (#), no backticks, no code block, no JSON, no table.
-- No phrases like “Final Notes”, “Revision Notes”, “Explanation”, etc.
+• frac (without \)
+• sqrt (without \)
+• epsilon0, eps, epsilon
+• text or \text inside formulas
+• ANY English words inside formulas
+• ^2 without braces
+• Multiple equations in one $$ block
+• Equations inside (parentheses) like (E), (V), (Phi)
 
-STRICT FORMAT RULE ⚠️:
-You MUST return ONLY valid JSON. No extra text, no markdown, no explanation.
+5) AFTER $$ RULE:
+• The VERY NEXT line MUST be a bullet starting with "• "
+• NO normal text is allowed directly under $$
 
-JSON format:
-{
-  "shortNotes": [
-    "• point 1",
-    "• point 2",
-    "• point 3"
-  ]
-}
+6) BRACES / BACKSLASH RULE:
+• Every { must have matching }
+• EVERY LaTeX command MUST begin with \
+• Phi → ❌ WRONG
+• \Phi → ✅ CORRECT
 
-Do not add any other fields. Do not prepend or append text.
+7) VALIDATION BEFORE OUTPUT (MANDATORY):
+Before sending final answer, you MUST self-check:
 
-BEFORE SENDING FINAL OUTPUT — VALIDATION CHECK:
-🟢 Notes MUST be bullets only.
-🟢 Language must strictly follow the language rule (Hindi / Sanskrit / English).
-🟢 Entire chapter MUST be covered — no main topic should be missing.
-🟢 No paragraphs — only bullets.
+✔ Every formula is inside its own $$ block  
+✔ No formulas appear as plain text  
+✔ No inline math ($...$) exists  
+✔ No forbidden tokens (frac, sqrt, eps, epsilon0, text)  
+✔ All commands start with "\"  
+✔ Braces balanced  
+✔ Blank line above AND below every formula  
+✔ Bullet immediately after each $$ block  
+✔ No English words inside $$ blocks
 
-OUTPUT: Only the short notes. Nothing else.
 
-Now generate short notes for revision:
+
+ADDITIONAL INLINE MATH AND SANITIZATION VALIDATIONS (MANDATORY):
+
+A. Parentheses to inline math:
+1. You must never output Greek letters or variables inside plain parentheses such as (Phi), (phi), (p), (E), (V), (Phi_E).
+2. Any such pattern must be converted into inline math using single-dollar delimiters. Example:
+   (Phi) becomes $ \\Phi $
+   (Phi_E) becomes $ \\Phi_E $
+   (p) becomes $ p $
+
+B. Subscript and superscript rules:
+1. Variables followed by digits must always use subscript or exponent:
+   q1 must be q_1
+   q2 must be q_2
+   r2 must be r^{2}
+   r3 must be r^{3}
+2. The token Qenc must always be written as Q_{enc}.
+
+C. Greek letter normalization:
+1. Greek names must always begin with a backslash:
+   Phi
+
+
+If ANY rule fails → REGENERATE until all pass.
+
+====================================================
+
+Now generate the topper-style SHORT NOTES for:
 Class: ${className}
 Subject: ${mainSubject}
 Book: ${bookName}
 Chapter: ${chapter}
-`;
+`
 
   try {
-    let output = await askOpenAI(prompt);
-    const parsed = extractJSON(output);
+    // Escape backslashes so GPT outputs correct LaTeX
+    const safePrompt = prompt.replace(/\\/g, "\\\\");
+    const output = await askOpenAI(safePrompt);
 
-   
+    // OUTPUT is already a valid formatted string (NO JSON)
     return res
       .status(200)
-      .json(new ApiResponse(200, parsed, "Short Notes Ready"));
+      .json(new ApiResponse(200, { shortNotes: output }, "Short Notes Ready"));
   } catch (error) {
     console.error("Short Notes Generation Failed:", error);
     return res
@@ -207,75 +251,78 @@ Chapter: ${chapter}
   }
 });
 
-const chapterWiseMindMap = asyncHandler(async (req, res)=>{
-    const { className, subject, chapter } = req.body;
-    const { mainSubject, bookName } = parseSubject(subject);
 
-      const prompt = `You are a CBSE Board exam expert. Think internally first, but DO NOT show your thinking.
+const chapterWiseMindMap = asyncHandler(async (req, res) => {
+  const { className, subject, chapter } = req.body;
+  const { mainSubject, bookName } = parseSubject(subject);
 
-Your ONLY task is to generate a **Mind Map / Flowchart** of the entire chapter for revision.  
-The output MUST be in valid JSON format so that it can be parsed by code.
+  const prompt = `
+You are a CBSE Board expert. Your ONLY task:
 
-STRICT FORMAT RULE ⚠️:
-Return ONLY valid JSON. No text outside JSON. No markdown. No backticks.
+➡ Generate React-Flow compatible JSON mindmap for the chapter.
 
-JSON format:
+⚠ STRICT RULES:
+Return ONLY valid JSON with EXACTLY:
+
 {
-  "diagramType": "mindmap" or "flowchart",
-  "mermaid": "MERMAID_CODE_HERE"
+  "nodes": [
+    { "id": "1", "label": "Main Topic", "x": 0, "y": 0 }
+  ],
+  "edges": [
+    { "id": "e1-2", "source": "1", "target": "2" }
+  ]
 }
 
-Where:
-- Mind Map format → mindmap
-- Flowchart format → flowchart TD or flowchart LR (whichever fits best)
+RULES FOR MINDMAP:
+- "nodes" must be an array of objects:
+    { id, label, x, y }
+- "edges" must be an array of:
+    { id, source, target }
+- Node IDs MUST be unique numbers as strings: "1", "2", "3"...
+- Parent node connects to child with edges.
+- x/y coordinates must be auto-generated but simple layout:
+    root → x:0,y:0
+    children: x:300,y:(index*150)
+    grandchildren: x:600,y:(index*150)
 
-Choose the diagram type automatically based on chapter structure:
-- If the chapter contains hierarchical topics → use mindmap
-- If the chapter contains step-by-step process / sequence → use flowchart
+DATA RULES:
+- Convert the entire chapter into:
+    Root → Main topics → Subtopics
+- Keep labels short and exam-friendly
+- NO markdown
+- NO backticks
+- NO paragraphs
+- NO extra explanation before or after JSON
 
-DIAGRAM RULES:
-- MUST use Mermaid syntax only.
-- FULL chapter coverage — all main topics & subtopics included.
-- NO extra lorem text — only meaningful chapter keywords.
-- Node labels must be short, easy to revise, and exam-oriented.
-- If any formula exists, include them only in simple LaTeX inside nodes (no $$ blocks).
-
-STRICT OUTPUT RULES:
-❌ Do NOT add explanations, heading, description, or summary.
-❌ Do NOT add backticks or markdown.
-❌ Do NOT add code comments.
-❌ Do NOT add JSON fields other than diagramType and mermaid.
-
-OUTPUT: Only valid JSON. Nothing else.
-
-Now generate the JSON mind map / flowchart for:
+Generate for:
 Class: ${className}
 Subject: ${mainSubject}
 Book: ${bookName}
 Chapter: ${chapter}
-`
-  try {
-    let output = await askOpenAI(prompt);
-    const parsed = extractJSON(output);
+`;
 
-   
-    return res
-      .status(200)
-      .json(new ApiResponse(200, parsed, "Mind Map Ready"));
-  } catch (error) {
-    console.error("Mind Map Generation Failed:", error);
+  try {
+    const raw = await askOpenAI(prompt);
+    const parsed = extractJSON(raw);
+
+    // Validate structure
+    if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) {
+      throw new Error("Invalid JSON from OpenAI");
+    }
+
+    return res.status(200).json(
+      new ApiResponse(200, parsed, "React Flow Mindmap Ready")
+    );
+
+  } catch (err) {
+    console.error("Mindmap Generation Error:", err.message);
     return res
       .status(500)
-      .json(
-        new ApiResponse(
-          500,
-          null,
-          "Failed to generate Mind Map. Please try again."
-        )
-      );
+      .json(new ApiResponse(500, null, "Failed to generate mindmap"));
   }
+});
 
-})
+
 
 const chapterWiseStudyQuestions = asyncHandler(async (req, res) => {
   const { className, subject, chapter } = req.body;

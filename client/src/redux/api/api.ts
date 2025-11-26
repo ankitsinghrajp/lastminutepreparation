@@ -158,7 +158,6 @@ const api = createApi({
           })  
         }),
 
-
         //Topper style answer api
         topperStyle: builder.mutation({
           query:({user_question})=>({
@@ -169,17 +168,56 @@ const api = createApi({
           })  
         }),
 
-
-
-
-        chapterWiseStudy: builder.mutation({
+        // Chapter Wise Study
+        getChapterWiseSummary: builder.mutation({
           query:({className,subject, chapter, index})=>({
-            url:"ai/chapter-wise-study",
+            url:"ai/chapter-wise-study/summary",
             method:"post",
             credentials:"include",
             body:{className,subject,chapter,index}
-          })  
+          }) 
         }),
+        
+        getChapterWiseShortNotes: builder.mutation({
+          query:({className,subject, chapter, index})=>({
+            url:"ai/chapter-wise-study/short-notes",
+            method:"post",
+            credentials:"include",
+            body:{className,subject,chapter,index}
+          }) 
+        }),
+
+        getChapterWiseMindMap: builder.mutation({
+          query:({className,subject, chapter, index})=>({
+            url:"ai/chapter-wise-study/mind-map",
+            method:"post",
+            credentials:"include",
+            body:{className,subject,chapter,index}
+          }) 
+        }),
+
+        getChapterWiseImportantQuestion: builder.mutation({
+          query:({className,subject, chapter, index})=>({
+            url:"ai/chapter-wise-study/important-questions",
+            method:"post",
+            credentials:"include",
+            body:{className,subject,chapter,index}
+          }) 
+        }),
+
+        getChapterWiseKeySheet: builder.mutation({
+          query:({className,subject, chapter, index})=>({
+            url:"ai/chapter-wise-study/key-sheet",
+            method:"post",
+            credentials:"include",
+            body:{className,subject,chapter,index}
+          }) 
+        }),
+
+
+
+
+
         importantQuestionGenerator: builder.mutation({
             query:({className,subject, chapter, index})=>({
                 url:"ai/important-question-generator",
@@ -222,7 +260,6 @@ export const {
    useGetClassNameQuery,
    useLazyGetSubjectsQuery,
    useLazyGetChaptersQuery,
-   useChapterWiseStudyMutation,
    useImportantQuestionGeneratorMutation,
    useQuizGeneratorMutation,
    useAskAnyMutation,
@@ -238,6 +275,15 @@ export const {
    useGetLastNightQuickShotsMutation,
 
    // Topper
-   useTopperStyleMutation
+   useTopperStyleMutation,
+
+   // Chapter Wise Study Apis
+  useGetChapterWiseSummaryMutation,
+  useGetChapterWiseShortNotesMutation,
+  useGetChapterWiseMindMapMutation,
+  useGetChapterWiseImportantQuestionMutation,
+  useGetChapterWiseKeySheetMutation,
+
+
 } = api;
 
