@@ -26,8 +26,10 @@ const extractJSON = (text) => {
 
   let jsonString = text.substring(first, last + 1);
 
-  jsonString = jsonString.replace(/\\/g, "\\\\");
+  // ❌ REMOVE THIS (breaking newlines)
+  // jsonString = jsonString.replace(/\\/g, "\\\\");
 
+  // Keep only this to clean invisible control chars
   jsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
 
   return JSON.parse(jsonString);
@@ -41,7 +43,8 @@ const smartChapterSummary = asyncHandler(async (req, res)=>{
   let prompt = "";
 
 if (category === "language") {
-    prompt = `
+
+ prompt = `
 You are an API. Think silently but DO NOT show your internal thinking.
 
 First, internally understand the content of the given NCERT chapter(s) or poem(s) as if you have fully read them. Do NOT mention this step in the output.
@@ -58,7 +61,7 @@ Your task:
 ✔ If there is ONE poem/chapter → write its summary in 2–3 paragraphs (each paragraph 5–6 simple lines).
 ✔ If there are TWO poems/chapters (detected using "/"):
      → First poem/chapter only → 2–3 paragraphs (5-6 simple lines each)
-     → Leave ONE real blank line (ENTER twice)
+     → Leave ONE real blank line (press ENTER twice so there is a real empty line)
      → Second poem/chapter only → 2–3 paragraphs (5-6 simple lines each)
 
 HARD RULES (non-negotiable):
@@ -66,13 +69,20 @@ HARD RULES (non-negotiable):
 ✔ Do NOT mention that there are two poems/chapters
 ✔ Do NOT include titles, headings, names, or section labels such as "First poem", "Second poem", etc.
 ✔ Just write the first summary → blank line → second summary
-✔ REAL blank lines only + NO \\n or \\n\\n text
+
+✔ USE REAL BLANK LINES ONLY:
+  - The summary text INSIDE the JSON value MUST include actual newline characters (U+000A).
+  - Do NOT output the two-character sequence backslash + n (that is, do NOT output "\\n" or "\\n\\n" anywhere).
+  - Do NOT escape newlines as literal backslash sequences. Use real Enter key line breaks.
+  - Do NOT include backslash characters immediately before the letter n (no \\n anywhere).
+  - The blank line between summaries must be produced by pressing ENTER twice (one empty line between paragraphs).
+
 ✔ No bullet points, no numbering, no bold/italics, no emojis, no formulas, no quotes, no author names
 ✔ Only clean plain text in paragraphs
 
 Return output ONLY in this JSON format:
 {
-  "summary": "Final summaries with real blank lines"
+  "summary": "Final summaries with real blank lines (use actual newlines; do not use backslash-n sequences)"
 }
 
 Class: ${className}
@@ -81,6 +91,7 @@ Book: ${bookName}
 Chapter: ${chapter}
 Stream: ${category}
 `;
+
 
   } else {
     prompt = `
@@ -117,13 +128,16 @@ const chapterWiseShortNotes = asyncHandler(async (req, res) => {
   const { className, subject, chapter } = req.body;
   const { mainSubject, bookName } = parseSubject(subject);
 
- const prompt = `You are a CBSE Board exam expert. Think internally first but DO NOT show your thinking.
+const prompt = `You are a CBSE Board exam expert. Think internally first but DO NOT show your thinking.
 
 Your ONLY task is to generate SHORT NOTES for the given chapter exactly like toppers write: clean, crisp, scoring, and technically perfect.
 
+MOST IMPORTANT THING:
+Ensure that all important topics should be covered in short notes.
+
 STRICT LANGUAGE RULE:
 • If subject is Hindi → Write ONLY in Hindi.
-• If subject is Sanskrit → Write ONLY in Sanskrit (STRICTLY 2–3 lines only).
+• If subject is Sanskrit → Write ONLY in Sanskrit.
 • Otherwise → Write ONLY in English.
 
 ====================================================
@@ -131,13 +145,15 @@ ABSOLUTE OUTPUT RULES (DO NOT BREAK THESE)
 ====================================================
 
 1) BULLET RULE:
-• Every line MUST start with: "• "
+• You MUST NOT use "• " or "- " at the beginning of any line.
+• Instead, write clean short-note style points WITHOUT any symbols. Just simple lines.
 • NO paragraphs, NO headings, NO intros, NO conclusions.
+• No long paragraphs — only crisp, concise points.
 
 2) FORMULA APPEARANCE RULE (CRITICAL):
 • ANY mathematical expression (like F = …, E = …, V = …, Q/r^2, fractions, integrals)
   MUST ALWAYS appear ONLY inside its own $$ ... $$ block.
-• NEVER write formulas as plain text inside bullets.
+• NEVER write formulas as plain text inside points.
 • If ANY formula appears outside $$ → REGENERATE immediately.
 
 3) DISPLAY MATH FORMAT (MANDATORY):
@@ -156,7 +172,7 @@ ALLOWED:
 • \int
 • \cdot
 • \epsilon_0
-• Greek letters: \alpha, \beta, \gamma, \phi, \theta
+• Greek letters: \alpha, \beta, \gamma, \phi, \theta, \Phi
 • Proper subscripts: q_1, Q_{enc}, r^2, A_{net}
 • Superscripts using ^{ }
 
@@ -171,8 +187,8 @@ NOT ALLOWED:
 • Equations inside (parentheses) like (E), (V), (Phi)
 
 5) AFTER $$ RULE:
-• The VERY NEXT line MUST be a bullet starting with "• "
-• NO normal text is allowed directly under $$
+• The VERY NEXT line MUST be a new short-note point (but WITHOUT "• " or "- ").
+• NO normal text is allowed directly under $$ unless it is a point.
 
 6) BRACES / BACKSLASH RULE:
 • Every { must have matching }
@@ -187,22 +203,23 @@ Before sending final answer, you MUST self-check:
 ✔ No formulas appear as plain text  
 ✔ No inline math ($...$) exists  
 ✔ No forbidden tokens (frac, sqrt, eps, epsilon0, text)  
-✔ All commands start with "\"  
+✔ All commands start with "\\"  
 ✔ Braces balanced  
 ✔ Blank line above AND below every formula  
-✔ Bullet immediately after each $$ block  
+✔ Proper point immediately after each $$ block  
 ✔ No English words inside $$ blocks
-
-
 
 ADDITIONAL INLINE MATH AND SANITIZATION VALIDATIONS (MANDATORY):
 
 A. Parentheses to inline math:
 1. You must never output Greek letters or variables inside plain parentheses such as (Phi), (phi), (p), (E), (V), (Phi_E).
-2. Any such pattern must be converted into inline math using single-dollar delimiters. Example:
-   (Phi) becomes $ \\Phi $
-   (Phi_E) becomes $ \\Phi_E $
-   (p) becomes $ p $
+   Instead convert these patterns to inline LaTeX (single-dollar) and use correct LaTeX names:
+   Example conversions you MUST perform:
+     (Phi)   -> $ \\Phi $
+     (phi)   -> $ \\phi $
+     (Phi_E) -> $ \\Phi_E $
+     (p)     -> $ p $
+   NOTE: After conversion the content must follow the INSIDE $$ RULES when moved into display math.
 
 B. Subscript and superscript rules:
 1. Variables followed by digits must always use subscript or exponent:
@@ -214,8 +231,8 @@ B. Subscript and superscript rules:
 
 C. Greek letter normalization:
 1. Greek names must always begin with a backslash:
-   Phi
-
+   Phi → \\Phi
+   phi → \\phi
 
 If ANY rule fails → REGENERATE until all pass.
 
@@ -226,12 +243,13 @@ Class: ${className}
 Subject: ${mainSubject}
 Book: ${bookName}
 Chapter: ${chapter}
-`
+`;
+
 
   try {
     // Escape backslashes so GPT outputs correct LaTeX
     const safePrompt = prompt.replace(/\\/g, "\\\\");
-    const output = await askOpenAI(safePrompt);
+    const output = await askOpenAI(safePrompt,"gpt-5.1");
 
     // OUTPUT is already a valid formatted string (NO JSON)
     return res
@@ -323,7 +341,6 @@ Chapter: ${chapter}
 });
 
 
-
 const chapterWiseStudyQuestions = asyncHandler(async (req, res) => {
   const { className, subject, chapter } = req.body;
   const { mainSubject, bookName } = parseSubject(subject);
@@ -399,72 +416,7 @@ CRITICAL:
   }
 });
 
-const chapterWiseFormulaKeyPointsSheet = asyncHandler(async (req, res) => {
-  const { className, subject, chapter } = req.body;
-  const { mainSubject, bookName } = parseSubject(subject);
-  const category = detectCategory(mainSubject);
 
-  const prompt = `You are a CBSE Board exam expert. Think internally first, but DO NOT show your thinking.
-
-Your ONLY task is to generate a Formula Sheet / Key Terms Sheet of the chapter.
-
-STRICT FORMAT RULE:
-Return ONLY valid JSON. No text before JSON, no text after JSON, no explanations.
-
-JSON structure to return:
-{
-  "formulas": [],
-  "keyTerms": [],
-  "theoremsOrLaws": [],
-  "importantDates": [],
-  "characterSketches": []
-}
-
-RULES:
-- Populate only the fields that apply to the given chapter, empty array for others.
-- Every formula must be written only inside LaTeX $$ ... $$, one formula per $$ block.
-- Key terms must be short and exam-oriented.
-- Theorems and laws must be one-line statements.
-- Historical dates must be "date - event".
-- Character sketches must be "name - short description".
-
-LANGUAGE RULE:
-If subject is Hindi → JSON values must be in Hindi.
-If subject is Sanskrit → JSON values must be in Sanskrit and strictly 2–3 lines per item.
-Otherwise → JSON values must be in English only.
-
-BEFORE RESPONDING:
-Check that output is valid JSON.
-
-Now generate the JSON:
-Class: ${className}
-Subject: ${mainSubject}
-Book: ${bookName}
-Chapter: ${chapter}
-
-`
-
-  try {
-    let output = await askOpenAI(prompt);
-    const parsed = extractJSON(output);
-
-
-    return res
-      .status(200)
-      .json(new ApiResponse(200, parsed, "Key Sheet Ready"));
-  } catch (error) {
-    console.error("Key Sheet generation failed:", error);
-    return res
-      .status(500)
-      .json(
-        new ApiResponse(
-          500,
-          null,
-          "Failed to generate Key Sheet. Please try again."
-        )
-      );
-  }
-});
 
 const chapterWiseDoubtSolver = asyncHandler(async (req, res) => {
   const { className, subject, chapter, user_doubt} = req.body;
@@ -554,4 +506,4 @@ BookName: ${bookName}
 
 
 
-export {smartChapterSummary, chapterWiseStudyQuestions, chapterWiseShortNotes, chapterWiseMindMap, chapterWiseFormulaKeyPointsSheet, chapterWiseDoubtSolver}
+export {smartChapterSummary, chapterWiseStudyQuestions, chapterWiseShortNotes, chapterWiseMindMap, chapterWiseDoubtSolver}

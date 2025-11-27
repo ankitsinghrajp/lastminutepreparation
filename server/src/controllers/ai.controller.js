@@ -220,7 +220,6 @@ chapter: ${selectedChapter}
   );
 });
 
-
 const importantQuestionGenerator = asyncHandler(async (req, res) => {
     const { className, subject, chapter, index } = req.body;
 

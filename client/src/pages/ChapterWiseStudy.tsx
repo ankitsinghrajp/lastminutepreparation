@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { 
@@ -12,7 +12,6 @@ import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import {
   useGetChapterWiseImportantQuestionMutation,
-  useGetChapterWiseKeySheetMutation,
   useGetChapterWiseMindMapMutation,
   useGetChapterWiseShortNotesMutation,
   useGetChapterWiseSummaryMutation,
@@ -22,6 +21,7 @@ import {
 import { useAsyncMutation, useErrors } from "@/hooks/hook";
 import { toast } from "sonner";
 import ContentArea from "@/components/specifics/chapterWiseStudy/contentArea";
+import logo from "../assets/logo.png"
 
 const classes = ["9th", "10th", "11th", "12th"];
 
@@ -41,12 +41,20 @@ export default function ChapterWiseStudy() {
   const [shortNotes, setShortNotes] = useState([]);
   const [mindMap, setMindMap] = useState({});
   const [importantQuestions, setImportantQuestions] = useState({});
-  const [keySheet, setKeySheet] = useState({});
-  const [doubtSolver, setDoubtSolver] = useState({});
+
+  // Individual loading and completion states
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryComplete, setSummaryComplete] = useState(false);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesComplete, setNotesComplete] = useState(false);
+  const [mindMapLoading, setMindMapLoading] = useState(false);
+  const [mindMapComplete, setMindMapComplete] = useState(false);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
+  const [questionsComplete, setQuestionsComplete] = useState(false);
 
   // Progress tracking state
-  const [progressMessages, setProgressMessages] = useState([]);
-  const [currentStep, setCurrentStep] = useState("");
+  const [currentLoadingMessage, setCurrentLoadingMessage] = useState("");
+  const contentEndRef = useRef(null);
 
   const [
     fetchSubject,
@@ -68,17 +76,17 @@ export default function ChapterWiseStudy() {
     },
   ] = useLazyGetChaptersQuery();
 
-  const [getSummary, getSummaryLoading] = useAsyncMutation(useGetChapterWiseSummaryMutation);
-  const [getShortNotes, getShortNotesLoading] = useAsyncMutation(useGetChapterWiseShortNotesMutation);
-  const [getMindMap, getMindMapLoading] = useAsyncMutation(useGetChapterWiseMindMapMutation);
-  const [getImportantQuestion, getImportantQuestionLoading] = useAsyncMutation(useGetChapterWiseImportantQuestionMutation);
-  const [getKeySheet, getKeySheetLoading] = useAsyncMutation(useGetChapterWiseKeySheetMutation);
-
+  const [getSummary] = useAsyncMutation(useGetChapterWiseSummaryMutation);
+  const [getShortNotes] = useAsyncMutation(useGetChapterWiseShortNotesMutation);
+  const [getMindMap] = useAsyncMutation(useGetChapterWiseMindMapMutation);
+  const [getImportantQuestion] = useAsyncMutation(useGetChapterWiseImportantQuestionMutation);
+ 
   // Handle errors
   useErrors([
     { isError: isSubjectError, error: subjectError },
     { isError: isChapterError, error: chapterError },
   ]);
+
 
   // Fetch subjects when class changes
   useEffect(() => {
@@ -144,20 +152,6 @@ export default function ChapterWiseStudy() {
     }
   }, [ChapterData, isChapterLoading]);
 
-  const addProgressMessage = (message, status = "loading") => {
-    setProgressMessages(prev => [...prev, { message, status, timestamp: Date.now() }]);
-  };
-
-  const updateLastMessageStatus = (status) => {
-    setProgressMessages(prev => {
-      const updated = [...prev];
-      if (updated.length > 0) {
-        updated[updated.length - 1].status = status;
-      }
-      return updated;
-    });
-  };
-
   const handleGenerate = async () => {
     if (!selectedClass || !selectedSubject || !selectedChapter) {
       toast.error("Please select class, subject, and chapter");
@@ -166,107 +160,112 @@ export default function ChapterWiseStudy() {
 
     setLoading(true);
     setHasContent(true);
-    setProgressMessages([]);
+    setCurrentLoadingMessage("");
     
     // Reset all content
     setSummary("");
     setShortNotes([]);
     setMindMap({});
     setImportantQuestions({});
-    setKeySheet({});
+
+    // Reset all states
+    setSummaryLoading(false);
+    setSummaryComplete(false);
+    setNotesLoading(false);
+    setNotesComplete(false);
+    setMindMapLoading(false);
+    setMindMapComplete(false);
+    setQuestionsLoading(false);
+    setQuestionsComplete(false);
+
+    const params = {
+      className: selectedClass,
+      subject: selectedSubject,
+      chapter: selectedChapter
+    };
 
     try {
-      // 1. Getting Summary
-      addProgressMessage("📝 Generating comprehensive chapter summary...");
-      setCurrentStep("summary");
-      const summaryRes = await getSummary("Generating Summary...", {
-        className: selectedClass,
-        subject: selectedSubject,
-        chapter: selectedChapter
-      });
-      
-      if (summaryRes?.data?.data) {
-        setSummary(summaryRes.data.data.summary);
-        updateLastMessageStatus("success");
-        await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for better UX
-      } else {
-        updateLastMessageStatus("error");
+      // Step 1: Generate Summary
+      setSummaryLoading(true);
+      try {
+        const summaryRes = await getSummary("Generating Summary...", params);
+        if (summaryRes?.data?.data) {
+          setSummary(summaryRes.data.data.summary);
+          setSummaryComplete(true);
+        }
+      } catch (error) {
+        console.error("Error generating summary:", error);
+        setSummaryComplete(false);
+      } finally {
+        setSummaryLoading(false);
       }
 
-      // 2. Getting Short Notes
-      addProgressMessage("📚 Creating concise short notes...");
-      setCurrentStep("shortNotes");
-      const notesRes = await getShortNotes("Generating Short Notes...", {
-        className: selectedClass,
-        subject: selectedSubject,
-        chapter: selectedChapter
-      });
-      
-      if (notesRes?.data?.data) {
-        setShortNotes(notesRes.data.data.shortNotes);
-        updateLastMessageStatus("success");
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } else {
-        updateLastMessageStatus("error");
+      // Step 2: Generate Short Notes (only after summary completes)
+      setNotesLoading(true);
+      try {
+        const notesRes = await getShortNotes("Generating Short Notes...", params);
+        if (notesRes?.data?.data) {
+          setShortNotes(notesRes.data.data.shortNotes);
+          setNotesComplete(true);
+        }
+      } catch (error) {
+        console.error("Error generating short notes:", error);
+        setNotesComplete(false);
+      } finally {
+        setNotesLoading(false);
       }
 
-      // 3. Getting Mind Map
-      addProgressMessage("🗺️ Building visual mind map...");
-      setCurrentStep("mindMap");
-      const mindMapRes = await getMindMap("Generating Mind Map...", {
-        className: selectedClass,
-        subject: selectedSubject,
-        chapter: selectedChapter
-      });
-      if (mindMapRes?.data?.data) {
-        setMindMap(mindMapRes.data.data);
-        updateLastMessageStatus("success");
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } else {
-        updateLastMessageStatus("error");
+      // Step 3: Generate Mind Map (only after short notes completes)
+      setMindMapLoading(true);
+      try {
+        const mindMapRes = await getMindMap("Generating Mind Map...", params);
+        if (mindMapRes?.data?.data) {
+          setMindMap(mindMapRes.data.data);
+          setMindMapComplete(true);
+        }
+      } catch (error) {
+        console.error("Error generating mind map:", error);
+        setMindMapComplete(false);
+      } finally {
+        setMindMapLoading(false);
       }
 
-      // 4. Important Questions
-      addProgressMessage("❓ Preparing important questions...");
-      setCurrentStep("questions");
-      const questionsRes = await getImportantQuestion("Generating Important Questions...", {
-        className: selectedClass,
-        subject: selectedSubject,
-        chapter: selectedChapter
-      });
-      
-      if (questionsRes?.data?.data) {
-        setImportantQuestions(questionsRes.data.data.questions);
-        updateLastMessageStatus("success");
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } else {
-        updateLastMessageStatus("error");
+      // Step 4: Generate Important Questions (only after mind map completes)
+      setQuestionsLoading(true);
+      try {
+        const questionsRes = await getImportantQuestion("Generating Important Questions...", params);
+        if (questionsRes?.data?.data) {
+          setImportantQuestions(questionsRes.data.data.questions);
+          setQuestionsComplete(true);
+        }
+      } catch (error) {
+        console.error("Error generating questions:", error);
+        setQuestionsComplete(false);
+      } finally {
+        setQuestionsLoading(false);
       }
 
-      // 5. Key Sheet
-      addProgressMessage("🔑 Generating key concepts sheet...");
-      setCurrentStep("keySheet");
-      const keySheetRes = await getKeySheet("Generating Key Sheet...", {
-        className: selectedClass,
-        subject: selectedSubject,
-        chapter: selectedChapter
-      });
-      
-      if (keySheetRes?.data?.data) {
-        setKeySheet(keySheetRes.data.data);
-        updateLastMessageStatus("success");
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } else {
-        updateLastMessageStatus("error");
-      }
     } catch (error) {
       console.error("Error generating content:", error);
-      updateLastMessageStatus("error");
       toast.error("Failed to generate some content");
     } finally {
       setLoading(false);
     }
   };
+
+  // Check if any content is still loading
+  const isAnyContentLoading = summaryLoading || notesLoading || mindMapLoading || questionsLoading;
+
+  // Determine which content to show based on completion
+  const shouldShowSummary = summaryComplete || summaryLoading;
+  const shouldShowShortNotes = (notesComplete || notesLoading) && summaryComplete;
+  const shouldShowMindMap = (mindMapComplete || mindMapLoading) && notesComplete;
+  const shouldShowImportantQuestions = (questionsComplete || questionsLoading) && mindMapComplete;
+
+  // Check if any content has been loaded
+  const hasContentData = summary || shortNotes.length > 0 || 
+                         Object.keys(mindMap).length > 0 || 
+                         Object.keys(importantQuestions).length > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -426,18 +425,42 @@ export default function ChapterWiseStudy() {
           </div>
         )}
 
-        {/* Content Area - Full width on mobile, no padding */}
-        {hasContent && !loading && (
+        {/* Content Area - Shows content in order as they complete */}
+        {hasContent && (
           <div className="w-full">
             <ContentArea 
-              summary={summary} 
-              shortNotes={shortNotes} 
-              mindMap={mindMap} 
-              keySheet={keySheet} 
-              importantQuestions={importantQuestions}
+              summary={shouldShowSummary ? summary : ""} 
+              shortNotes={shouldShowShortNotes ? shortNotes : []} 
+              mindMap={shouldShowMindMap ? mindMap : {}} 
+              importantQuestions={shouldShowImportantQuestions ? importantQuestions : {}}
             />
           </div>
         )}
+
+        {/* Chatbot-style loading indicator - shows current loading step */}
+        {hasContent && isAnyContentLoading && (
+          <div className="max-w-6xl mx-auto mb-8">
+            <div className="flex items-start gap-3 p-4">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                <img className="h-8 w-8" src={logo} alt="" />
+              </div>
+              <div className="flex-1">
+                <div className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl rounded-tl-sm bg-muted/50 border border-border/50">
+                  <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+                  <span className="text-sm text-muted-foreground">
+                    {summaryLoading && "📝 Generating comprehensive chapter summary..."}
+                    {!summaryLoading && notesLoading && "📚 Creating concise short notes..."}
+                    {!summaryLoading && !notesLoading && mindMapLoading && "🗺️ Building visual mind map..."}
+                    {!summaryLoading && !notesLoading && !mindMapLoading && questionsLoading && "❓ Preparing important questions..."}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Scroll anchor */}
+        <div ref={contentEndRef} />
 
         {/* Empty State */}
         {!hasContent && !loading && (

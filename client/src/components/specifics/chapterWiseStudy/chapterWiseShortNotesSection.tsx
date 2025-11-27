@@ -1,13 +1,12 @@
 import AIOutput from "../AIOutput";
 
-
 const ChapterWiseShortNotesSection = ({ shortNotes }) => {
   if (!shortNotes) return null;
 
   return (
     <div
       className="
-        rounded-2xl p-4 sm:p-5
+        p-4 sm:p-5
         bg-[#12151c]
         border border-white/10
         shadow-md shadow-black/20
@@ -20,7 +19,7 @@ const ChapterWiseShortNotesSection = ({ shortNotes }) => {
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-white/50 tracking-wide">
-          Chapter Short Notes
+          Everything important about this chapter is here...
         </span>
 
         <span

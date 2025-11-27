@@ -3,7 +3,6 @@ import {
   BookOpen,
   FileText,
   Network,
-  Key,
   HelpCircle,
   ChevronDown,
   ChevronUp,
@@ -12,7 +11,6 @@ import {
 import DiagramViewer from "./diagramViewer";
 import ChapterWiseSummarySection from "./chapterWiseSummarySection";
 import ChapterWiseShortNotesSection from "./chapterWiseShortNotesSection";
-import ChapterWiseKeySheetSection from "./chapterWiseKeySheetSection";
 import ChapterWiseImportantQuestionSection from "./chapterWiseImportantQuestionSection";
 
 
@@ -21,7 +19,7 @@ const CollapsibleSection = ({ title, icon: Icon, children, defaultOpen = false, 
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="rounded-none sm:rounded-2xl shadow-sm border-y sm:border border-border overflow-hidden bg-card">
+    <div className="rounded-none shadow-sm border-y sm:border border-border overflow-hidden bg-card">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full ${gradient} p-4 flex items-center justify-between`}
@@ -42,7 +40,7 @@ const CollapsibleSection = ({ title, icon: Icon, children, defaultOpen = false, 
       </button>
       
       {isOpen && (
-        <div className="p-4">
+        <div className="">
           {children}
         </div>
       )}
@@ -54,22 +52,45 @@ const ContentArea = ({
   summary,
   shortNotes,
   mindMap,
-  keySheet,
   importantQuestions,
 }) => {
+  const [visibleSections, setVisibleSections] = useState({
+    summary: false,
+    shortNotes: false,
+    mindMap: false,
+    importantQuestions: false,
+  });
+
+  // Show sections as soon as data becomes available
   useEffect(() => {
-    if (summary) console.log("Summary:", summary);
-    if (shortNotes) console.log("Short Notes:", shortNotes);
-    if (mindMap) console.log("Mind Map:", mindMap);
-    if (keySheet) console.log("Key Sheet:", keySheet);
-    if (importantQuestions) console.log("Important Questions:", importantQuestions);
-  }, [summary, shortNotes, mindMap, keySheet, importantQuestions]);
+    if (summary && !visibleSections.summary) {
+      setVisibleSections(prev => ({ ...prev, summary: true }));
+    }
+  }, [summary]);
+
+  useEffect(() => {
+    if (shortNotes && shortNotes.length > 0 && !visibleSections.shortNotes) {
+      setVisibleSections(prev => ({ ...prev, shortNotes: true }));
+    }
+  }, [shortNotes]);
+
+  useEffect(() => {
+    if (mindMap?.edges && mindMap?.nodes && !visibleSections.mindMap) {
+      setVisibleSections(prev => ({ ...prev, mindMap: true }));
+    }
+  }, [mindMap]);
+
+  useEffect(() => {
+    if (importantQuestions && Object.keys(importantQuestions).length > 0 && !visibleSections.importantQuestions) {
+      setVisibleSections(prev => ({ ...prev, importantQuestions: true }));
+    }
+  }, [importantQuestions]);
 
   return (
     <div className="bg-background overflow-y-auto h-full">
       <div className="space-y-4 px-0">
         {/* Summary Section */}
-        {summary && (
+        {visibleSections.summary && (
           <CollapsibleSection
             title="Chapter Summary"
             icon={BookOpen}
@@ -81,7 +102,7 @@ const ContentArea = ({
         )}
 
         {/* Short Notes Section */}
-        {shortNotes && shortNotes.length > 0 && (
+        {visibleSections.shortNotes && (
           <CollapsibleSection
             title="Short Notes"
             icon={FileText}
@@ -93,7 +114,7 @@ const ContentArea = ({
         )}
 
         {/* Mind Map Section */}
-        {mindMap && mindMap?.edges && mindMap?.nodes && (
+        {visibleSections.mindMap && (
           <CollapsibleSection
             title="Complete Mind Map Of Chapter"
             icon={Network}
@@ -109,20 +130,8 @@ const ContentArea = ({
           </CollapsibleSection>
         )}
 
-        {/* Key Sheet Section */}
-        {keySheet && Object.keys(keySheet).length > 0 && (
-          <CollapsibleSection
-            title="Key Concepts & Reference"
-            icon={Key}
-            gradient="bg-gradient-to-r from-amber-500 to-orange-600"
-            defaultOpen={true}
-          >
-            <ChapterWiseKeySheetSection keySheet={keySheet}/>
-          </CollapsibleSection>
-        )}
-
         {/* Important Questions Section */}
-        {importantQuestions && Object.keys(importantQuestions).length > 0 && (
+        {visibleSections.importantQuestions && (
           <CollapsibleSection
             title="Important Questions"
             icon={HelpCircle}

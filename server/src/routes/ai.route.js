@@ -5,7 +5,7 @@ import { verifyEmailMiddleware } from "../middlewares/mailVerify.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { rateLimitByPlan } from "../rateLimiter.js";
 import { LastMinutePanelAICoach, LastMinutePanelImportantTopics, LastMinutePanelMCQs, LastMinutePanelMemoryBooster, LastMinutePanelPredictedQuestions, LastMinutePanelSummary } from "../controllers/lastminute.controller.js";
-import { chapterWiseDoubtSolver, chapterWiseFormulaKeyPointsSheet, chapterWiseMindMap, chapterWiseShortNotes, chapterWiseStudyQuestions, smartChapterSummary } from "../controllers/chapterwise.controller.js";
+import { chapterWiseDoubtSolver, chapterWiseMindMap, chapterWiseShortNotes, chapterWiseStudyQuestions, smartChapterSummary } from "../controllers/chapterwise.controller.js";
 
 const router = express.Router();
 router.use(verifyJWT);
@@ -20,7 +20,6 @@ router.post("/summarizer",upload.fields([
 ]),summarizer);
 
 // Last Night Before Exam Routes
-
 router.post("/last-night-before-exam/summary",LastMinutePanelSummary);
 router.post("/last-night-before-exam/important-topics",LastMinutePanelImportantTopics);
 router.post("/last-night-before-exam/predicted-questions",LastMinutePanelPredictedQuestions);
@@ -38,7 +37,6 @@ router.post("/chapter-wise-study/summary",smartChapterSummary);
 router.post("/chapter-wise-study/short-notes",chapterWiseShortNotes);
 router.post("/chapter-wise-study/important-questions",chapterWiseStudyQuestions);
 router.post("/chapter-wise-study/mind-map",chapterWiseMindMap);
-router.post("/chapter-wise-study/key-sheet",chapterWiseFormulaKeyPointsSheet);
 router.post("/chapter-wise-study/doubt-solver",chapterWiseDoubtSolver);
 
 
