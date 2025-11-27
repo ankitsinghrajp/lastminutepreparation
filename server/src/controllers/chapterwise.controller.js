@@ -6,6 +6,10 @@
 // Formula Sheet / Key Terms -	All formulas, definitions, theorems, dates, character sketches in one place.
 // Doubt Solver - Ask ANY doubt from that chapter → AI answers with step-by-step explanation.
 
+import { ChapterWiseImportantQuestionModel } from "../models/chapterWiseStudy/chapterWiseImportantQuestion.model.js";
+import { ChapterWiseMindMapModel } from "../models/chapterWiseStudy/chapterWiseMindMap.model.js";
+import { ChapterWiseShortNotesModel } from "../models/chapterWiseStudy/chapterWiseShortNotes.model.js";
+import { ChapterWiseSummaryModel } from "../models/chapterWiseStudy/chapterWiseSummary.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { detectCategory, parseSubject } from "../utils/helper.js";
@@ -117,9 +121,30 @@ Stream: ${category}
 `;
   }
 
+  const summary = await ChapterWiseSummaryModel.findOne({
+    className,
+    subject:mainSubject,
+    chapter
+  });
+
+  if(summary){
+    return res.status(200).json(
+      new ApiResponse(200, summary.content, "Summary Ready")
+    )
+  }
+
+
+
   let output = await askOpenAI(prompt);
   
   const parsed = extractJSON(output);
+
+  await ChapterWiseSummaryModel.create({
+    className,
+    subject:mainSubject,
+    chapter,
+    content:parsed
+  });
   
 return res.status(200).json(new ApiResponse(200, parsed, "Summary Ready"));
 });
@@ -167,24 +192,25 @@ $$
 
 4) INSIDE $$ RULES:
 ALLOWED:
-• \frac
-• \sqrt
-• \int
-• \cdot
-• \epsilon_0
-• Greek letters: \alpha, \beta, \gamma, \phi, \theta, \Phi
+• \\frac
+• \\sqrt
+• \\int
+• \\cdot
+• \\epsilon_0
+• Greek letters: \\alpha, \\beta, \\gamma, \\phi, \\theta, \\Phi
 • Proper subscripts: q_1, Q_{enc}, r^2, A_{net}
 • Superscripts using ^{ }
 
 NOT ALLOWED:
-• frac (without \)
-• sqrt (without \)
+• frac (without \\)
+• sqrt (without \\)
 • epsilon0, eps, epsilon
-• text or \text inside formulas
 • ANY English words inside formulas
 • ^2 without braces
 • Multiple equations in one $$ block
 • Equations inside (parentheses) like (E), (V), (Phi)
+• **NEW RULE:** \\text{...} or ANY usage of \\text is strictly forbidden inside $$ blocks
+• **NEW RULE:** Units (C, N, m, J, etc.) MUST NOT appear inside $$ blocks — they must be written outside the formula as plain text
 
 5) AFTER $$ RULE:
 • The VERY NEXT line MUST be a new short-note point (but WITHOUT "• " or "- ").
@@ -192,9 +218,9 @@ NOT ALLOWED:
 
 6) BRACES / BACKSLASH RULE:
 • Every { must have matching }
-• EVERY LaTeX command MUST begin with \
+• EVERY LaTeX command MUST begin with \\
 • Phi → ❌ WRONG
-• \Phi → ✅ CORRECT
+• \\Phi → ✅ CORRECT
 
 7) VALIDATION BEFORE OUTPUT (MANDATORY):
 Before sending final answer, you MUST self-check:
@@ -203,36 +229,75 @@ Before sending final answer, you MUST self-check:
 ✔ No formulas appear as plain text  
 ✔ No inline math ($...$) exists  
 ✔ No forbidden tokens (frac, sqrt, eps, epsilon0, text)  
+✔ **NO \\text{...} inside formulas**  
+✔ **NO units inside formulas**  
 ✔ All commands start with "\\"  
 ✔ Braces balanced  
+✔ No trailing backslashes or incomplete commands  
 ✔ Blank line above AND below every formula  
 ✔ Proper point immediately after each $$ block  
 ✔ No English words inside $$ blocks
 
+====================================================
+FORMULA COMPLETENESS RULES (NEW — FIXES HALF / TRUNCATED FORMULAE)
+====================================================
+
+The model MUST perform these checks for each $$ ... $$ block and REGENERATE if any check fails:
+
+1) Balanced $$ pairs:
+   • The number of $$ tokens in the whole output must be even.
+   • Each $$ must appear on its own line.
+
+2) Single-equation per block:
+   • Each $$ block MUST contain exactly one equation/expression.
+   • No extra text or commentary inside.
+
+3) Braces & parentheses completeness:
+   • Count of '{' equals count of '}' inside each formula.
+   • Count of '(' equals count of ')'.
+   • If mismatch → REGENERATE.
+
+4) No trailing backslash or incomplete command:
+   • Formula MUST NOT end with a single "\\".
+   • No "\\" followed only by whitespace or end-of-block.
+
+5) No truncated LaTeX tokens:
+   • Commands like \\fra, \\sq, \\epsil are forbidden.
+   • \\frac must contain both numerator and denominator braces.
+
+6) No stray backslash sequences:
+   • "\\n", "\\t", etc. are forbidden inside $$.
+
+7) Minimum content sanity:
+   • A formula must contain at least one operator (=, \\frac, ^, _, \\cdot, etc.).
+
+8) Blank-line placement:
+   • One blank line above and one blank line below each formula.
+   • Then a short-note point immediately (without bullets).
+
+====================================================
 ADDITIONAL INLINE MATH AND SANITIZATION VALIDATIONS (MANDATORY):
 
 A. Parentheses to inline math:
 1. You must never output Greek letters or variables inside plain parentheses such as (Phi), (phi), (p), (E), (V), (Phi_E).
-   Instead convert these patterns to inline LaTeX (single-dollar) and use correct LaTeX names:
-   Example conversions you MUST perform:
-     (Phi)   -> $ \\Phi $
-     (phi)   -> $ \\phi $
-     (Phi_E) -> $ \\Phi_E $
+   Convert them to inline math:
+     (Phi)   -> $ \\\\Phi $
+     (phi)   -> $ \\\\phi $
+     (Phi_E) -> $ \\\\Phi_E $
      (p)     -> $ p $
-   NOTE: After conversion the content must follow the INSIDE $$ RULES when moved into display math.
 
 B. Subscript and superscript rules:
-1. Variables followed by digits must always use subscript or exponent:
-   q1 must be q_1
-   q2 must be q_2
-   r2 must be r^{2}
-   r3 must be r^{3}
-2. The token Qenc must always be written as Q_{enc}.
+1. Variables followed by digits must always use subscripts or exponents:
+   q1 → q_1  
+   q2 → q_2  
+   r2 → r^{2}  
+   r3 → r^{3}
+2. Qenc → Q_{enc}
 
 C. Greek letter normalization:
-1. Greek names must always begin with a backslash:
-   Phi → \\Phi
-   phi → \\phi
+1. Greek names must start with backslash:
+   Phi → \\\\Phi  
+   phi → \\\\phi
 
 If ANY rule fails → REGENERATE until all pass.
 
@@ -246,10 +311,31 @@ Chapter: ${chapter}
 `;
 
 
+
   try {
+
+    const shortNotes = await ChapterWiseShortNotesModel.findOne({
+      className,
+      subject:mainSubject,
+      chapter,
+    });
+
+    if(shortNotes){
+      return res.status(200).json(
+        new ApiResponse(200,{shortNotes:shortNotes.content},"Short Notes Ready")
+      )
+    }
+
     // Escape backslashes so GPT outputs correct LaTeX
     const safePrompt = prompt.replace(/\\/g, "\\\\");
     const output = await askOpenAI(safePrompt,"gpt-5.1");
+
+    await ChapterWiseShortNotesModel.create({
+      className,
+      subject:mainSubject,
+      chapter,
+      content:output
+    });
 
     // OUTPUT is already a valid formatted string (NO JSON)
     return res
@@ -320,6 +406,19 @@ Chapter: ${chapter}
 `;
 
   try {
+
+    const mindMap = await ChapterWiseMindMapModel.findOne({
+      className,
+      subject:mainSubject,
+      chapter
+    });
+
+    if(mindMap){
+      return res.status(200).json(
+        new ApiResponse(200, mindMap.content,"MindMap Ready")
+      )
+    }
+
     const raw = await askOpenAI(prompt);
     const parsed = extractJSON(raw);
 
@@ -327,6 +426,13 @@ Chapter: ${chapter}
     if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) {
       throw new Error("Invalid JSON from OpenAI");
     }
+
+    await ChapterWiseMindMapModel.create({
+       className,
+       subject:mainSubject,
+       chapter,
+       content: parsed
+    })
 
     return res.status(200).json(
       new ApiResponse(200, parsed, "React Flow Mindmap Ready")
@@ -390,6 +496,19 @@ CRITICAL:
 `;
 
   try {
+
+    const importantQuestion = await ChapterWiseImportantQuestionModel.findOne({
+      className,
+      subject:mainSubject,
+      chapter
+    });
+
+    if(importantQuestion){
+       return res
+      .status(200)
+      .json(new ApiResponse(200, importantQuestion.content, "Important Questions Ready"));
+    }
+
     let output = await askOpenAI(prompt);
     const parsed = extractJSON(output);
 
@@ -399,9 +518,16 @@ CRITICAL:
       }
     });
 
+    await ChapterWiseImportantQuestionModel.create({
+      className,
+      subject:mainSubject,
+      chapter,
+      content:parsed,
+    })
+
     return res
       .status(200)
-      .json(new ApiResponse(200, parsed, "Predicted Questions Ready"));
+      .json(new ApiResponse(200, parsed, "Important Questions Ready"));
   } catch (error) {
     console.error("Predicted questions generation failed:", error);
     return res
