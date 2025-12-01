@@ -1,5 +1,5 @@
 import express from "express";
-import { askAnyQuestion, diagramImageAnalysis, importantQuestionGenerator, quizMcqFillupTrueFalse, summarizer, topperStyleAnswer } from "../controllers/ai.controller.js";
+import { askAnyQuestion, diagramImageAnalysis, generatePYQs, importantQuestionGenerator, quizMcqFillupTrueFalse, summarizer, topperStyleAnswer } from "../controllers/ai.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { verifyEmailMiddleware } from "../middlewares/mailVerify.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
@@ -40,7 +40,7 @@ router.post("/chapter-wise-study/mind-map",chapterWiseMindMap);
 router.post("/chapter-wise-study/doubt-solver",chapterWiseDoubtSolver);
 
 
-
+router.post("/get-pyqs",generatePYQs);
 router.post("/important-question-generator",importantQuestionGenerator);
 router.post("/quiz-fillups",quizMcqFillupTrueFalse);
 router.post("/ask-any",askAnyQuestion);

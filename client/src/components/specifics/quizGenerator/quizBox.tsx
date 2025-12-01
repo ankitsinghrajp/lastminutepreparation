@@ -3,8 +3,6 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
   BookOpen, 
-  Target, 
-  Copy, 
   ChevronDown, 
   ChevronUp,
   CheckCircle2,
@@ -32,30 +30,6 @@ const QuizBox = ({ response }) => {
       ...prev,
       [section]: !prev[section]
     }));
-  };
-
-  const handleCopyQuestion = (question) => {
-    navigator.clipboard.writeText(question);
-  };
-
-  const handleCopyAll = () => {
-    let text = `${response?.subject || ''} - ${response?.chapter || ''} (Class ${response?.class || ''})\n\n`;
-    
-    response?.questions?.forEach((q, idx) => {
-      text += `Q${idx + 1}. ${q.question}\n`;
-      if (q.type === 'mcq') {
-        q.options?.forEach((opt, i) => {
-          text += `${String.fromCharCode(65 + i)}) ${opt}\n`;
-        });
-        text += `Answer: ${q.answer}\n\n`;
-      } else if (q.type === 'true_false') {
-        text += `Answer: ${q.answer}\n\n`;
-      } else if (q.type === 'fillup') {
-        text += `Answer: ${q.answer || '_______'}\n\n`;
-      }
-    });
-    
-    navigator.clipboard.writeText(text);
   };
 
   if (!response || !response?.questions || response.questions.length === 0) {
@@ -94,15 +68,7 @@ const QuizBox = ({ response }) => {
               </div>
             </div>
           </div>
-          <Button
-            onClick={handleCopyAll}
-            variant="outline"
-            size="sm"
-            className="h-8 sm:h-9 flex-shrink-0"
-          >
-            <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            <span className="hidden sm:inline sm:ml-2">Copy All</span>
-          </Button>
+         
         </div>
       </Card>
 
@@ -135,14 +101,6 @@ const QuizBox = ({ response }) => {
                       </span>
                       <p className="text-sm font-medium flex-1">{q.question}</p>
                     </div>
-                    <Button
-                      onClick={() => handleCopyQuestion(q.question)}
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 flex-shrink-0"
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
                   </div>
 
                   <div className="space-y-2 mb-3">
@@ -220,14 +178,6 @@ const QuizBox = ({ response }) => {
                       </span>
                       <p className="text-sm font-medium flex-1">{q.question}</p>
                     </div>
-                    <Button
-                      onClick={() => handleCopyQuestion(q.question)}
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 flex-shrink-0"
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
                   </div>
 
                   <Button
@@ -293,14 +243,6 @@ const QuizBox = ({ response }) => {
                       </span>
                       <p className="text-sm font-medium flex-1">{q.question}</p>
                     </div>
-                    <Button
-                      onClick={() => handleCopyQuestion(q.question)}
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 flex-shrink-0"
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
                   </div>
 
                   <Button

@@ -129,7 +129,7 @@ export default function ImportantQuestions() {
     <div className="min-h-screen bg-background">
       <Navbar />
       
-      <div className="container mx-auto px-4 py-20 sm:py-24 max-w-7xl">
+      <div className="container mx-auto px-2 py-20 sm:py-24 max-w-7xl">
         {/* Header */}
         <div className="text-center mb-8 sm:mb-12 space-y-3 sm:space-y-4">
           <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-violet-500 to-purple-500 mb-3 sm:mb-4">
@@ -261,7 +261,7 @@ export default function ImportantQuestions() {
         </Card>
 
         {/* Results */}
-        <QuestionBox response={response} />
+        <QuestionBox response={response} selectedClass={selectedClass} selectedSubject={selectedSubject} selectedChapter={selectedChapter}/>
       </div>
       
       <Footer />

@@ -7,12 +7,13 @@ import { MessageCircle, Loader2, Bot, Award, BookOpen, Copy, Trash2, Sparkles } 
 import { toast } from "sonner";
 import { Footer } from "@/components/Footer";
 import { useAsyncMutation } from "@/hooks/hook";
-import { useAskAnyMutation } from "@/redux/api/api";
+import { useAskAnyMutation, useTopperStyleMutation } from "@/redux/api/api";
+import AIOutput from "@/components/specifics/AIOutput";
 
 export default function AskAnyQuestion() {
   const [question, setQuestion] = useState("");
   const [response, setResponse] = useState(null);
-  const [askAny, askAnyLoading] = useAsyncMutation(useAskAnyMutation);
+  const [askAny, askAnyLoading] = useAsyncMutation(useTopperStyleMutation);
   
   const handleAsk = async () => {
     if (!question.trim()) {
@@ -20,9 +21,9 @@ export default function AskAnyQuestion() {
       return;
     }
    
-    const res = await askAny("Generating best answer...", {question});
-    if(res?.data?.data?.data){
-      setResponse(res?.data?.data?.data);
+    const res = await askAny("Generating best answer...", {user_question:question});
+    if(res?.data?.data){
+      setResponse(res?.data?.data);
     }
   };
 
@@ -162,43 +163,10 @@ export default function AskAnyQuestion() {
                 <h3 className="font-semibold text-lg">Answer</h3>
               </div>
               <div className="text-base leading-relaxed text-foreground/90 whitespace-pre-wrap">
-                {renderTextWithBold(response.answer)}
+                  <AIOutput content={response.answer}/>
               </div>
             </Card>
 
-            {/* Formula Card (Conditional) */}
-            {response.formula && (
-              <Card className="p-5 sm:p-6 bg-blue-500/5 border-blue-500/20">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                    <BookOpen className="w-4 h-4 text-blue-500" />
-                  </div>
-                  <h3 className="font-semibold">Formula</h3>
-                </div>
-                <div className="bg-background/50 rounded-lg p-4 border border-blue-500/20">
-                  <code className="text-base font-mono text-blue-600 dark:text-blue-400 block overflow-x-auto">
-                    {response.formula}
-                  </code>
-                </div>
-              </Card>
-            )}
-
-            {/* Marks Card */}
-            <Card className="p-5 sm:p-6 bg-amber-500/5 border-amber-500/20">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                    <Award className="w-5 h-5 text-amber-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Difficulty Level</p>
-                    <p className="text-xl font-bold text-amber-600 dark:text-amber-400">
-                      {response.marks} Marks
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </Card>
           </div>
         )}
 

@@ -14,7 +14,7 @@ const AIOutput = ({ content }) => {
         prose max-w-none text-[18px] leading-[1.85]
 
         /* ⇢ Paragraph spacing (clean 2-line look) */
-        [&>p]:mt-6 [&>p]:mb-6
+        [&>p]:mt-1 [&>p]:mb-1
 
         /* ⇢ List spacing */
         [&>ul]:mt-6 [&>ul]:mb-6

@@ -234,6 +234,15 @@ const api = createApi({
                 body:{className, subject, chapter, index}
             })
         }),
+        
+        PyqsGenerator: builder.mutation({
+            query:({className,subject, chapter, year})=>({
+                url:"ai/get-pyqs",
+                method:"post",
+                credentials:"include",
+                body:{className, subject, chapter, year}
+            })
+        }),
 
         askAny: builder.mutation({
             query:({question})=>({
@@ -283,6 +292,9 @@ export const {
   useGetChapterWiseMindMapMutation,
   useGetChapterWiseImportantQuestionMutation,
   useGetChapterWiseKeySheetMutation,
+
+  // Year wise pyqs generator
+  usePyqsGeneratorMutation,
 
 
 } = api;

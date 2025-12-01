@@ -123,7 +123,7 @@ export default function QuizGenerator() {
     <div className="min-h-screen bg-background">
       <Navbar />
       
-      <div className="container mx-auto px-4 py-20 md:py-24 lg:py-28 max-w-7xl">
+      <div className="container mx-auto px-2 py-20 md:py-24 lg:py-28 max-w-7xl">
         {/* Header */}
         <div className="text-center mb-8 md:mb-10 lg:mb-12 space-y-3 md:space-y-4">
           <div className="flex items-center justify-center gap-2 md:gap-3 mb-3 md:mb-4">
