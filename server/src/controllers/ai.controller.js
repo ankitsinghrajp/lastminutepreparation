@@ -8,6 +8,7 @@ import { configDotenv } from "dotenv";
 import { PyqModel } from "../models/PreviousYearQuestions/pyq.model.js";
 import { parseSubject } from "../utils/helper.js";
 import { McqModel } from "../models/ImportantMcqsTrueFalse/mcq.model.js";
+import { ImpQuestionModel } from "../models/ImportantQuestionsPage/impquestions.model.js";
 configDotenv();
 
 const summarizer = asyncHandler(async (req, res) => {
@@ -153,6 +154,7 @@ chapter: ${selectedChapter}
 
 const importantQuestionGenerator = asyncHandler(async (req, res) => {
     const { className, subject, chapter, index } = req.body;
+    const {mainSubject, bookName} = parseSubject(subject);
 
     if ([className, subject, chapter].some((f) => !f || f.trim() === "")) {
         throw new ApiError(400, "className, subject, chapter are required!");
@@ -170,6 +172,8 @@ Class: ${className}
 Subject: ${subject}
 Chapter: ${chapter}
 Topics: ${topics}
+
+NCERT BOOK NAME: ${bookName}
 
 OUTPUT JSON STRUCTURE:
 {
@@ -228,6 +232,16 @@ Requirements:
 - All JSON must be strictly valid.
 `;
 
+     const cache = await ImpQuestionModel.findOne({
+      className,
+      subject:mainSubject,
+      chapter
+    })
+
+    if(cache) {
+      return res.status(200).json(new ApiResponse(200,{data:cache.content},"Important Questions Generated Successfully"))
+    }
+    
     // CALL OPENAI
     const apiData = await askOpenAI(prompt);
 
@@ -252,6 +266,13 @@ Requirements:
     } catch (err) {
         throw new ApiError(500, "Failed to parse AI response: " + err.message);
     }
+
+      await ImpQuestionModel.create({
+      className,
+      subject:mainSubject,
+      chapter,
+      content:finalQuestions,
+    })
 
     return res.status(200).json(
         new ApiResponse(
