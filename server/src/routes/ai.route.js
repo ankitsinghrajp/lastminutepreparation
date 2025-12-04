@@ -15,7 +15,7 @@ router.use(rateLimitByPlan);
 
 router.post("/summarizer",upload.fields([
     {
-        name:"pdf",
+        name:"image",
         maxCount:1
     }
 ]),summarizer);

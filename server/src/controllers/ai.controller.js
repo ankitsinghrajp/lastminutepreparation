@@ -1,7 +1,7 @@
 import { ApiError } from "../utils/APIError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { askOpenAI } from "../utils/OpenAI.js";
+import { askOpenAI ,openai } from "../utils/OpenAI.js";
 import { configDotenv } from "dotenv";
 import { PyqModel } from "../models/PreviousYearQuestions/pyq.model.js";
 import { parseSubject } from "../utils/helper.js";
@@ -10,64 +10,211 @@ import { ImpQuestionModel } from "../models/ImportantQuestionsPage/impquestions.
 
 configDotenv();
 
+import vision from "@google-cloud/vision";
+import path from "path";
+import { fileURLToPath } from "url";
+import sharp from "sharp";
+
+// __dirname fix
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Vision client
+const client = new vision.ImageAnnotatorClient({
+  keyFilename: path.join(__dirname, "../../ocr-key.json"),
+});
+
+
 const summarizer = asyncHandler(async (req, res) => {
   const { topic, level } = req.body;
 
-  const prompt = `
-You are a CBSE Board expert teacher. Think internally but DO NOT show your thinking.
+  // ✅ NEW VALIDATION ADDED
+  if (
+    (!topic || !topic.trim()) &&
+    (!req.files || !req.files.image)
+  ) {
+    throw new ApiError(400, "Either topic or image is required!");
+  }
 
-Your ONLY task is to generate a TOPIC EXPLANATION in perfect teacher-style.
+  let extractedText = "";
+  let labels = [];
+  let mode = "no_image";
 
-The user provides:
-Topic: ${topic}
-Length type: ${level}
+  // ✅ REAL IMAGE (OPTIONAL)
+  if (req.files && req.files.image) {
+    let fileBuffer = req.files.image[0].buffer;
 
-LENGTH RULES (EXTREMELY STRICT):
-- If length is "Short" → EXACTLY 4 lines (NOT more than 4).
-- If length is "Medium" → 10–12 lines.
-- If length is "Long" → detailed, clean, structured explanation.
+    try {
+      fileBuffer = await sharp(fileBuffer).png().toBuffer();
+    } catch (e) {
+      throw new ApiError(400, "Invalid image file");
+    }
 
-STRICT LANGUAGE RULE:
-If topic belongs to Hindi → answer ONLY in Hindi.
-If topic belongs to Sanskrit → answer ONLY in Sanskrit (max 2–3 lines).
+    const [textResult] = await client.textDetection({
+      image: { content: fileBuffer },
+    });
+
+    extractedText = textResult.fullTextAnnotation?.text || "";
+
+    const [labelResult] = await client.labelDetection({
+      image: { content: fileBuffer },
+    });
+
+    labels = (labelResult.labelAnnotations || [])
+      .map((x) => x.description)
+      .slice(0, 5);
+
+    if (extractedText.trim()) mode = "text";
+    else if (!extractedText.trim() && labels.length) mode = "label_only";
+    else mode = "fallback";
+  }
+
+const prompt = `
+You are a CBSE Board expert teacher and examiner. Think internally but DO NOT show your thinking.
+
+Your task depends on whether an IMAGE is uploaded or only a TOPIC is given.
+
+----------------------------------
+IF IMAGE IS PRESENT:
+----------------------------------
+Your PRIMARY task is to:
+1. First understand what the image contains:
+   - Diagram
+   - Numerical problem
+   - Theory question
+   - Graph / Map
+   - Flowchart / Process
+2. Then explain EVERYTHING shown in the image clearly and fully.
+3. If the image contains a QUESTION:
+   - You MUST solve it step-by-step exactly how a CBSE topper writes in the exam.
+   - Show proper steps, formulas (inside $$ only), reasoning and final answer.
+4. If the image contains a DIAGRAM:
+   - Explain each labelled part clearly.
+   - Explain the concept behind it.
+   - Add 1 short memory trick.
+5. If the image contains THEORY:
+   - Explain it in clean, easy and exam-perfect language.
+
+Use the Level rule:
+- Short → crisp exam-ready explanation.
+- Medium → clear concept + small examples if needed.
+- Long → full detailed CBSE topper-level explanation.
+
+The student must understand the topic PERFECTLY after reading.
+They must NOT need YouTube or any other source after this.
+
+----------------------------------
+IF ONLY TOPIC IS PRESENT:
+----------------------------------
+Generate a perfect CBSE-oriented topic explanation.
+
+Start directly with the concept.
+Explain in a teacher’s clean classroom style.
+Concept → key points → formulas (if any) → 1 short example (if needed).
+
+----------------------------------
+INPUT DATA:
+----------------------------------
+Topic: ${topic || "From Image"}
+Length Type: ${level}
+
+Image Analysis Mode: ${mode}
+
+Extracted Image Text:
+${extractedText || "(none)"}
+
+Detected Image Labels:
+${labels.join(", ") || "(none)"}
+
+----------------------------------
+LENGTH RULES (STRICT):
+----------------------------------
+- Short → EXACT 4–5 short exam lines.
+- Medium → 10–12 clear lines.
+- Long → Full detailed CBSE exam-ready answer.
+
+----------------------------------
+LANGUAGE RULE:
+----------------------------------
+If subject is Hindi → answer ONLY in Hindi.
+If subject is Sanskrit → answer ONLY in Sanskrit (2–3 lines).
 Otherwise → answer ONLY in English.
 
-FORMULA VALIDATION RULES (MUST FOLLOW EXACTLY):
-- ALL formulas MUST be written ONLY inside $$ ... $$ LaTeX.
-- NO text, NO units, NO sentences inside $$ math $$ block.
-- NEVER write formulas inside normal brackets like (V), (Phi), (I), (N).
-- Use ONLY proper LaTeX commands: \phi, \theta, \oint, \vec{E}, \frac, \sqrt{}.
-- NEVER write /phi or /theta.
-- NEVER escape slashes like \\\vec.
-- EACH formula must be in its own separate $$ block.
-- NEVER put two formulas inside one $$ block.
+----------------------------------
+FORMULA RULES (VERY STRICT):
+----------------------------------
+- ALL formulas must be inside $$ ... $$ only.
+- NO text or units inside $$.
+- No (V), (I), (Phi), etc.
+- Use \\phi, \\theta, \\vec{E}, \\frac, \\sqrt, etc.
+- Never escape slashes like \\\\vec.
+- Never put two formulas in one $$ block.
 
-CONTENT RULES:
-- Start directly with the concept.
-- Teacher-style explanation only.
-- Clean, simple, conceptual.
-- No unnecessary theory.
-- No headings like “Explanation:” or “Final Answer:”.
-- No markdown, no code blocks, no JSON.
+----------------------------------
+EXAM WRITING STYLE:
+----------------------------------
+- Step-by-step where required.
+- Clean points.
+- No extra theory.
+- No storytelling.
+- No filler lines.
+- Exactly how a CBSE topper writes to score full marks.
 
-FINAL CHECK BEFORE OUTPUT:
-- Language rule followed.
-- STRICT formula rules followed.
-- Length rule followed.
-- No invalid brackets.
-- No escaped slashes.
-- No text inside $$ math $$.
+----------------------------------
+HARD FORMATTING RULE (VERY STRICT):
+----------------------------------
+- You MUST write the answer in MULTIPLE clear lines.
+- NEVER write the full answer in a single paragraph.
+- Each important step / point MUST be on a new line.
+- For:
+  • Short → Minimum 4 separate lines.
+  • Medium → Minimum 8 separate lines.
+  • Long → Many structured lines.
+- If this rule is violated, the answer is considered WRONG and must be regenerated.
 
-OUTPUT: Only the teacher-style explanation. Nothing else.
+----------------------------------
+STRICT OUTPUT RULES:
+----------------------------------
+- No headings like “Explanation”.
+- No markdown.
+- No code blocks.
+- No JSON.
+- Only the final explanation / solution.
+
+FINAL CHECK:
+✔ Topic or Image fully covered.
+✔ Student can understand without any external help.
+✔ CBSE exam-ready.
+✔ Formulas formatted correctly.
+✔ Length rule followed.
+
+OUTPUT: Only the final explanation or solved answer. Nothing else.
 `;
 
+
   const safePrompt = prompt.replace(/\\/g, "\\\\");
-  const aiData = await askOpenAI(safePrompt, "gpt-5.1");
+
+  const aiData = await openai.responses.create({
+    model: "gpt-4o",
+    input: safePrompt,
+    max_output_tokens: 800,
+  });
+
+  let cleanedOutput = aiData.output_text
+    .replace(/\r/g, "")
+    .replace(/[\u200B-\u200F\uFEFF]/g, "")
+    .replace(/^[ \t]+$/gm, "")
+    .replace(/^\s*\n/gm, "\n")
+    .replace(/\n{3,}/g, "\n")
+    .replace(/\n{2,}/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
 
   return res.status(200).json(
-    new ApiResponse(200, aiData, "Summary generated successfully!")
+    new ApiResponse(200, cleanedOutput, "Summary generated successfully!")
   );
 });
+
 
 
 const topperStyleAnswer = asyncHandler(async (req, res) => {
