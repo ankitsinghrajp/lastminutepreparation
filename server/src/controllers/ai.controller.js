@@ -580,7 +580,7 @@ const askAnyQuestion = asyncHandler(async (req, res) => {
     labels.join(", ");
 
   // ✅ ✅ ✅ PROMPT IS 100% INTACT BELOW — NOT MODIFIED
-  const prompt = `
+const prompt = `
 You are a CBSE Board exam expert. Think internally first, but DO NOT show your thinking. Your ONLY task is to write full-mark answers exactly the way toppers write in their exam notebooks — clean, simple, direct, and only what is required to score full marks.
 
 ----------------------------------
@@ -610,43 +610,84 @@ ${labels.join(", ") || "(none)"}
 
 ----------------------------------
 STRICT LANGUAGE RULE:
-If the subject is Hindi  → then deep read the chapter first then answer the question ONLY in Hindi.
-If the subject is Sanskrit  → then deep read the chapter first then answer the question ONLY in Sanskrit and must strictly answer in 3 lines only, it can less then 3 but not more than 3 strictly.
-Otherwise → answer ONLY in English. DO NOT USE Hindi for English or any other subject.
-If this rule is violated, regenerate the answer.
+If the subject is Hindi  → answer ONLY in Hindi.
+If the subject is Sanskrit  → answer ONLY in Sanskrit in 2–3 lines.
+Otherwise → answer ONLY in English.
 
-Language Subject Rules: 
-- If subject is hindi then deep read the chapter then answer the question in hindi only
-- If subject is Sanskrit then first read the chapter then answer 2-3 lines if possible not more than this. It should be simple and concise 
+----------------------------------
+ABSOLUTE FORMULA & SYMBOL LAW (CRITICAL — NO EXCEPTIONS)
+----------------------------------
+❗ EVERY mathematical variable, vector, subscript, superscript, Greek letter, or symbol MUST appear ONLY inside LaTeX.
 
-Rules:
-- Start the answer directly using the main concept asked in the question — no introduction.
-- Keep the language simple and crisp.
-- Include formulas ONLY when needed.
-- Do NOT add unnecessary theory.
-- Bold only very important keywords.
+✅ Correct:
+$ q_1 $, $ q_2 $, $ r $, $ r_1 $, $ r^2 $, $ \\hat{r} $, $ F $, $ V $, $ I $
 
-Special case — derivation / numerical:
-- Only write required steps.
-- ALL formulas must be inside $$ ... $$ only.
-- Each formula on a separate $$ block.
+❌ FORBIDDEN:
+(q_1), (q_2), r_1, F ∝ 1/r² in plain text
 
-ADDITIONAL VALIDATIONS:
-✔️ Answer ALL parts.
-✔️ Every heading must have explanation.
-✔️ Minimum 4 points if properties/advantages asked.
+✅ If unit vector appears → write only $\\hat{r}$
+✅ Subscripts must be only like $q_1$, $r_2$
 
-OUTPUT: Only the topper-style answer. Nothing else.
+----------------------------------
+RULES:
+- Start answer directly.
+- Simple, crisp language.
+- No unnecessary theory.
+- Bold only key words.
 
-Now answer:
+----------------------------------
+SPECIAL CASE — NUMERICAL / DERIVATION:
+- Only required steps.
+- ALL formulas inside $$ ... $$
+- Each formula in its OWN $$ block.
+
+----------------------------------
+✅ ✅ ✅ SPECIAL CASE — COMPARISON / DIFFERENCE QUESTIONS
+----------------------------------
+IF the question contains any of these words:
+"compare", "difference", "distinguish", "vs", "versus", "table"
+
+THEN YOU MUST:
+- Output a **PROPER MARKDOWN TABLE**
+- Use **| | format**
+- First column must be **"Basis"**
+- Minimum **6 rows**
+- Use **bold headings**
+- Use LaTeX $...$ inside table ONLY where required
+- NO text before or after the table
+
+----------------------------------
+OUTPUT FORMAT — MACHINE SAFE
+----------------------------------
+- Output ONLY the final answer.
+- NO explanations about rules.
+- NO code blocks.
+- Markdown tables are ALLOWED ONLY for comparison questions.
+- If ANY math symbol appears outside $...$ or $$...$$ then REWRITE.
+
+
+SPECIAL CASE — DIAGRAM QUESTIONS:
+If the question asks to "draw", "sketch", or "show diagram",
+YOU MUST:
+- Draw a neat TEXT / ASCII diagram suitable for exam use.
+- Clearly label all forces, angles, and important parts.
+- Do NOT mention that it is an ASCII diagram.
+- Do NOT use any image links or markdown images.
+
+
+----------------------------------
+FINAL COMMAND:
+----------------------------------
+Now answer this question in FULL compliance with ALL rules above:
 ${finalQuestion}
 `;
+
 
   // ✅ SAME ESCAPING LOGIC AS BEFORE
   const safePrompt = prompt.replace(/\\/g, "\\\\");
 
   const apiData = await askOpenAI(safePrompt, "gpt-5.1");
-
+  
   return res.status(200).json(
     new ApiResponse(
       200,
