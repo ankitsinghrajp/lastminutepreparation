@@ -44,7 +44,12 @@ router.post("/chapter-wise-study/doubt-solver",chapterWiseDoubtSolver);
 router.post("/get-pyqs",generatePYQs);
 router.post("/important-question-generator",importantQuestionGenerator);
 router.post("/quiz-fillups",quizMcqFillupTrueFalse);
-router.post("/ask-any",askAnyQuestion);
+router.post("/ask-any",upload.fields([
+    {
+        name:"image",
+        maxCount:1
+    }
+]),askAnyQuestion);
 
 
 
