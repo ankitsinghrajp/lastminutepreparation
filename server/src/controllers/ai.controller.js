@@ -2,13 +2,12 @@ import { ApiError } from "../utils/APIError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { askOpenAI } from "../utils/OpenAI.js";
-import vision from "@google-cloud/vision";
-import { openai } from "../utils/OpenAI.js";
 import { configDotenv } from "dotenv";
 import { PyqModel } from "../models/PreviousYearQuestions/pyq.model.js";
 import { parseSubject } from "../utils/helper.js";
 import { McqModel } from "../models/ImportantMcqsTrueFalse/mcq.model.js";
 import { ImpQuestionModel } from "../models/ImportantQuestionsPage/impquestions.model.js";
+
 configDotenv();
 
 const summarizer = asyncHandler(async (req, res) => {
@@ -505,53 +504,6 @@ Question: ${question}
     );
 });
 
-const client = new vision.ImageAnnotatorClient({
-    keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-});
-
-const diagramImageAnalysis = asyncHandler(async (req, res) => {
-  if (!req.files || !req.files.image) {
-    throw new ApiError(400, "Please upload image first!");
-  }
-
-  const prompt = "Analyze the following text extracted from the image:";
-  const fileBuffer = req.files.image[0].buffer;
-
-  try {
-    const [result] = await client.documentTextDetection({ image: { content: fileBuffer } });
-    const extractedText = result.fullTextAnnotation?.text || "";
-
-    if (!extractedText) {
-      throw new ApiError(400, "No text found in the image.");
-    }
-
-    const aiResponse = await openai.responses.create({
-      model: "gpt-4o",
-      input: [
-        {
-          role: "user",
-          content: [
-            { type: "input_text", text: `${prompt}\n${extractedText}` },
-          ],
-        },
-      ],
-      max_output_tokens: 800,
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Image analyzed successfully",
-      extractedText,
-      aiResponse: aiResponse.output[0].content,
-    });
-
-  } catch (error) {
-    console.error("Image analysis error:", error);
-    throw new ApiError(500, error.message);
-  }
-});
-
-
 // Generate PYQS
 const generatePYQs = asyncHandler(async (req, res) => {
     const { className, subject, chapter, year } = req.body;
@@ -661,5 +613,4 @@ RETURN STRICT JSON ONLY.
 });
 
 
-
-export { summarizer, topperStyleAnswer, importantQuestionGenerator, quizMcqFillupTrueFalse,askAnyQuestion, diagramImageAnalysis, generatePYQs};
+export { summarizer, topperStyleAnswer, importantQuestionGenerator, quizMcqFillupTrueFalse,askAnyQuestion, generatePYQs};

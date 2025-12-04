@@ -1,11 +1,12 @@
 import express from "express";
-import { askAnyQuestion, diagramImageAnalysis, generatePYQs, importantQuestionGenerator, quizMcqFillupTrueFalse, summarizer, topperStyleAnswer } from "../controllers/ai.controller.js";
+import { askAnyQuestion, generatePYQs, importantQuestionGenerator, quizMcqFillupTrueFalse, summarizer, topperStyleAnswer } from "../controllers/ai.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { verifyEmailMiddleware } from "../middlewares/mailVerify.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { rateLimitByPlan } from "../rateLimiter.js";
 import { LastMinutePanelAICoach, LastMinutePanelImportantTopics, LastMinutePanelMCQs, LastMinutePanelMemoryBooster, LastMinutePanelPredictedQuestions, LastMinutePanelSummary } from "../controllers/lastminute.controller.js";
 import { chapterWiseDoubtSolver, chapterWiseMindMap, chapterWiseShortNotes, chapterWiseStudyQuestions, smartChapterSummary } from "../controllers/chapterwise.controller.js";
+import { diagramImageAnalysis } from "../controllers/image.controller.js";
 
 const router = express.Router();
 router.use(verifyJWT);
@@ -44,11 +45,20 @@ router.post("/get-pyqs",generatePYQs);
 router.post("/important-question-generator",importantQuestionGenerator);
 router.post("/quiz-fillups",quizMcqFillupTrueFalse);
 router.post("/ask-any",askAnyQuestion);
+
+
+
+// Image & Pdf Routes
+
+
+// - Diagram Analysis
+
 router.post("/image-analysis",upload.fields([
     {
         name:"image",
         maxCount:1
     }
 ]),diagramImageAnalysis);
+
 
 export default router;
