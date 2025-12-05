@@ -3,10 +3,14 @@ import { askAnyQuestion, generatePYQs, importantQuestionGenerator, quizMcqFillup
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { verifyEmailMiddleware } from "../middlewares/mailVerify.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
+import { upload as pdfUpload } from "../middlewares/upload.middleware.js";
+
 import { rateLimitByPlan } from "../rateLimiter.js";
 import { LastMinutePanelAICoach, LastMinutePanelImportantTopics, LastMinutePanelMCQs, LastMinutePanelMemoryBooster, LastMinutePanelPredictedQuestions, LastMinutePanelSummary } from "../controllers/lastminute.controller.js";
 import { chapterWiseDoubtSolver, chapterWiseMindMap, chapterWiseShortNotes, chapterWiseStudyQuestions, smartChapterSummary } from "../controllers/chapterwise.controller.js";
 import { diagramImageAnalysis } from "../controllers/image.controller.js";
+import { chatWithPdf } from "../controllers/chatWithPdf.controller.js";
+import { uploadPdfAndProcess } from "../controllers/uploadPdfAndProcess.controller.js";
 
 const router = express.Router();
 router.use(verifyJWT);
@@ -55,9 +59,6 @@ router.post("/ask-any",upload.fields([
 
 // Image & Pdf Routes
 
-
-// - Diagram Analysis
-
 router.post("/image-analysis",upload.fields([
     {
         name:"image",
@@ -65,5 +66,12 @@ router.post("/image-analysis",upload.fields([
     }
 ]),diagramImageAnalysis);
 
+
+// Chat with pdf routes
+
+router.post("/upload-pdf", pdfUpload.single("pdf"), uploadPdfAndProcess);
+
+// STEP 2: Ask unlimited questions
+router.post("/chat-with-pdf", chatWithPdf);
 
 export default router;

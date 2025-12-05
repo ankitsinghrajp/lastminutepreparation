@@ -1,20 +1,24 @@
 import multer from "multer";
 
-// ----------------------------
-// Memory Storage Multer Setup
-// ----------------------------
-const storage = multer.memoryStorage(); // store files in RAM, not on disk
+const storage = multer.memoryStorage();
 
 export const upload = multer({
   storage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // max 5 MB per file
+    fileSize: 5 * 1024 * 1024,
   },
   fileFilter: (req, file, cb) => {
-    // Only allow image files
-    if (!file.mimetype.startsWith("image/")) {
-      return cb(new Error("Only image files are allowed!"), false);
+    // ✅ Allow image files
+    if (file.mimetype.startsWith("image/")) {
+      return cb(null, true);
     }
-    cb(null, true);
+
+    // ✅ Allow PDF files
+    if (file.mimetype === "application/pdf") {
+      return cb(null, true);
+    }
+
+    // ❌ Reject everything else
+    return cb(new Error("Only image and PDF files are allowed!"), false);
   },
 });

@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
+
 const corsOptions = {
     origin:["http://localhost:5173",
         process.env.FRONTEND_URL

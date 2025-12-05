@@ -69,6 +69,16 @@ const api = createApi({
                 body:data
             })
         }),
+
+        chatWithPDF: builder.mutation({
+            query: (data)=>({
+                url:"ai/chat-with-pdf",
+                method:"post",
+                credentials:"include",
+                body:data
+            })
+        }),
+
         // Last minute preparation apis
         getClassName: builder.query({
             query:()=>({
@@ -275,6 +285,7 @@ export const {
    useQuizGeneratorMutation,
    useAskAnyMutation,
    useCheckExpiryMutation,
+   useChatWithPDFMutation,
 
    // Last Night Before Exam Apis
    useGetLastNightSummaryMutation,
@@ -297,6 +308,7 @@ export const {
 
   // Year wise pyqs generator
   usePyqsGeneratorMutation,
+
 
 
 } = api;

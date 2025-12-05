@@ -24,6 +24,7 @@ const ChapterWiseStudy = lazy(()=>import("./pages/ChapterWiseStudy"));
 const AISummarizer = lazy(()=>import("./pages/AISummarizerPage"));
 const AskAnyQuestion = lazy(()=>import("./pages/AskAny"));
 const DiagramAnalysis = lazy(()=>import("./pages/DiagramAnalysis"));
+const ChatWithPDF = lazy(()=>import("./pages/ChatWithPDF"));
 const QuizGenerator = lazy(()=>import("./pages/QuizGeneratorPage"));
 const PreviousYearQuestions = lazy(()=>import("./pages/PreviousYearQuestions"));
 const PrivacyPolicyPage = lazy(()=>import("./pages/PrivacyPolicy"));
@@ -81,6 +82,7 @@ const App = () => {
             <Route path="/question-generator" element={<ImportantQuestions />} />
             <Route path="/ask-any" element={<AskAnyQuestion />} />
             <Route path="/diagram-analysis" element={<DiagramAnalysis />} />
+            <Route path="/chat-with-pdf" element={<ChatWithPDF />} />
             <Route path="/quiz-generator" element={<QuizGenerator />} />
             <Route path="/pyqs" element={<PreviousYearQuestions />} />
             <Route path="/payment-success" element={<PaymentSuccess/>}/>
