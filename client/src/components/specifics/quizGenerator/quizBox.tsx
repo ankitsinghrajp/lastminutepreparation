@@ -53,7 +53,7 @@ const QuizBox = ({ response }) => {
   return (
     <div className="space-y-3 sm:space-y-4">
       {/* Chapter Info Header */}
-      <Card className="p-4 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border-emerald-500/20">
+      <Card className="px-2 py-4 md:p-4 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border-emerald-500/20">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-2.5 flex-1 min-w-0">
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center flex-shrink-0">
@@ -74,7 +74,7 @@ const QuizBox = ({ response }) => {
 
       {/* Multiple Choice Questions */}
       {mcqQuestions.length > 0 && (
-        <Card className="p-4 bg-card/50 border-border/50">
+        <Card className="px-2 py-4 md:p-4 bg-card/50 border-border/50">
           <button
             onClick={() => toggleSection('mcq')}
             className="flex items-center justify-between w-full mb-3 sm:mb-4"
@@ -93,7 +93,7 @@ const QuizBox = ({ response }) => {
           {expandedSections.mcq && (
             <div className="space-y-3 sm:space-y-4">
               {mcqQuestions.map((q, idx) => (
-                <div key={q.id || idx} className="p-3 sm:p-4 bg-background/50 rounded-lg border border-border/30">
+                <div key={q.id || idx} className="px-2 py-4 md:p-4 bg-background/50 rounded-lg border border-border/30">
                   <div className="flex items-start justify-between gap-2 mb-3">
                     <div className="flex items-start gap-2 flex-1 min-w-0">
                       <span className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -151,7 +151,7 @@ const QuizBox = ({ response }) => {
 
       {/* Fill in the Blanks */}
       {fillupQuestions.length > 0 && (
-        <Card className="p-4 bg-gradient-to-br from-purple-500/5 to-pink-500/5 border-purple-500/20">
+        <Card className="px-2 py-4 md:p-4 bg-gradient-to-br from-purple-500/5 to-pink-500/5 border-purple-500/20">
           <button
             onClick={() => toggleSection('fillup')}
             className="flex items-center justify-between w-full mb-3 sm:mb-4"
@@ -216,7 +216,7 @@ const QuizBox = ({ response }) => {
 
       {/* True/False Questions */}
       {trueFalseQuestions.length > 0 && (
-        <Card className="p-4 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 border-blue-500/20">
+        <Card className="px-2 py-4 md:p-4 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 border-blue-500/20">
           <button
             onClick={() => toggleSection('trueFalse')}
             className="flex items-center justify-between w-full mb-3 sm:mb-4"
@@ -235,7 +235,7 @@ const QuizBox = ({ response }) => {
           {expandedSections.trueFalse && (
             <div className="space-y-3">
               {trueFalseQuestions.map((q, idx) => (
-                <div key={q.id || idx} className="p-3 sm:p-4 bg-background/50 rounded-lg border border-border/30">
+                <div key={q.id || idx} className="px-2 py-4 md:p-4 bg-background/50 rounded-lg border border-border/30">
                   <div className="flex items-start justify-between gap-2 mb-3">
                     <div className="flex items-start gap-2 flex-1 min-w-0">
                       <span className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0 mt-0.5">

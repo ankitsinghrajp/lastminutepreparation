@@ -248,6 +248,15 @@ DOUBLE-CHECK formula formatting before generating the final answer.
 ✔️ Each equation in a derivation must be on a separate line using its own $$ block.
 ✔️ Never write multiple formulas in one $$ block.
 
+
+SPECIAL CASE — DIAGRAM QUESTIONS:
+If the question asks to "draw", "sketch", or "show diagram",
+YOU MUST:
+- Draw a neat TEXT / ASCII diagram suitable for exam use.
+- Clearly label all forces, angles, and important parts.
+- Do NOT mention that it is an ASCII diagram.
+- Do NOT use any image links or markdown images.
+
 BEFORE sending the final answer:
 🟢 Double-check that every part of the question is answered completely.
 🟢 Double-check that no heading is without its explanation.

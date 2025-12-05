@@ -44,8 +44,11 @@ export const Hero = () => {
                   Explore Features <ArrowRight className="ml-2 h-5 w-5" />
                 </a>
               </Button>
+              {
+                
+              }
               <Button size="lg" variant="outline" className="text-lg h-14 px-8 border-primary/30 hover:bg-primary/10" asChild>
-                <Link to="/auth">
+                <Link to="#pricing">
                   Start Free Trial
                 </Link>
               </Button>

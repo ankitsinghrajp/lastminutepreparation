@@ -38,7 +38,6 @@ export default function PreviousYearQuestions() {
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
-  const [expandedQuestion, setExpandedQuestion] = useState<number | null>(null);
   const [pyqGenerator, pyqGeneratorLoading] = useAsyncMutation(usePyqsGeneratorMutation);
   const [pyqs, setPyqs] = useState({});
 
@@ -153,7 +152,7 @@ export default function PreviousYearQuestions() {
             </span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Access 10 years of board exam questions (2014 - 2025) with AI-powered hints and solutions
+            Access 10+ years of board exam questions (2014 - 2025) with AI-powered hints and solutions
           </p>
         </div>
 

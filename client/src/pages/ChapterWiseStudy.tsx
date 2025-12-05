@@ -285,7 +285,7 @@ export default function ChapterWiseStudy() {
             </span>
           </h1>
           <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto px-4">
-            Learn with LastMinutePreparation like never before...
+            This guide covers each chapter fully, so you walk into the exam with zero doubt.
           </p>
         </div>
 

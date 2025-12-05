@@ -82,7 +82,7 @@ export default function AISummarizer() {
             </span>
           </h1>
           <p className="text-muted-foreground text-base sm:text-lg px-2">
-            Your quick learning companion for clean, simple and high-quality topic explanations.
+            Perfect for quick understanding, fast revision, and concept clarity.
           </p>
         </div>
 

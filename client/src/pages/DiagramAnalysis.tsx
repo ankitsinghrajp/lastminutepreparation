@@ -134,7 +134,7 @@ export default function DiagramAnalysis() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="container mx-auto px-4 py-20 max-w-7xl">
+      <div className="container mx-auto px-2 py-20 max-w-7xl">
 
         {/* Header Section */}
         <div className="text-center mb-8 space-y-3">
@@ -150,12 +150,12 @@ export default function DiagramAnalysis() {
             </span>
           </h1>
           <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-            Upload any diagram or question image for instant AI-powered explanation
+            Upload any diagram and learn how to remember, understand, and redraw it perfectly in the exam.
           </p>
         </div>
 
         {/* Upload Section */}
-        <Card className="p-6 bg-card/50 border-border/50 backdrop-blur-sm mb-6">
+        <Card className="px-2 py-5 bg-card/50 border-border/50 backdrop-blur-sm mb-6">
           <input
             ref={fileInputRef}
             type="file"
@@ -186,7 +186,7 @@ export default function DiagramAnalysis() {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-background/80 rounded-lg border border-border">
+              <div className="flex items-center justify-between p-2 bg-background/80 rounded-lg border border-border">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center">
                     <FileImage className="h-6 w-6 text-white" />

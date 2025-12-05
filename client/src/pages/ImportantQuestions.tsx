@@ -144,7 +144,7 @@ export default function ImportantQuestions() {
           </h1>
           
           <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto px-4">
-            Generate exam-style questions for any topic, chapter, or PDF
+            AI-predicted high-probability questions trained on 20 years of previous board exam papers, with up to 95% relevance.
           </p>
         </div>
 

@@ -244,7 +244,7 @@ export default function LastNightBeforeExam() {
             </span>
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto">
-            Focused revision with key points and high-yield questions
+            Even if you haven’t studied the chapter at all, this one-night revision material is enough to build full exam-ready understanding and aim for 90%+.
           </p>
         </div>
 

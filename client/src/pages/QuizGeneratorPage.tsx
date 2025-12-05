@@ -135,13 +135,13 @@ export default function QuizGenerator() {
             Important MCQs Fill Ups & True False
           </h1>
           <p className="text-sm md:text-base lg:text-lg xl:text-xl text-muted-foreground max-w-2xl mx-auto px-2">
-            Generate interactive practice questions with instant AI-powered answers
+              Objective questions created by AI after deep analysis of 20 years of previous board exam patterns.
           </p>
         </div>
 
         {/* Selection Form */}
         <div className="w-full">
-          <Card className="p-4 md:p-5 lg:p-6 bg-card/50 border-border/50 backdrop-blur-sm shadow-md">
+          <Card className="px-2 py-4 md:p-5 lg:p-6 bg-card/50 border-border/50 backdrop-blur-sm shadow-md">
             <div className="flex items-center gap-2 mb-5 md:mb-6">
               <Zap className="h-5 w-5 md:h-6 md:w-6 text-amber-500" />
               <h2 className="text-lg md:text-xl lg:text-2xl font-semibold">Question Settings</h2>

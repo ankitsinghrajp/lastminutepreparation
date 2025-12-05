@@ -159,7 +159,7 @@ export default function AskAnyQuestion() {
             <MessageCircle className="text-emerald-500" size={32} />
           </div>
           <h1 className="text-4xl font-bold mb-2">Ask Any Question</h1>
-          <p className="text-muted-foreground text-lg">Get instant AI-powered answers to your questions</p>
+          <p className="text-muted-foreground text-lg">Your personal AI that converts any question into a full-mark, board-format answer.</p>
         </div>
 
         {/* INPUT */}

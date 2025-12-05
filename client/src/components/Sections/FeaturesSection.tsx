@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { FileText, Brain, BookOpen, Clock, FileQuestion, MessageSquare, Book } from "lucide-react";
+import { FileText, Brain, BookOpen, Clock, FileQuestion, MessageSquare, Book, File } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 
@@ -7,56 +7,64 @@ const features = [
   {
     icon: Clock,
     title: "Last Night Before Exam",
-    description: "Quick revision mode with key points and important questions.",
+    description: "The Final Revision That Decides Your Marks.",
     path: "/ai-chat",
     color: "from-orange-500 to-red-500",
   },
   {
+    icon: File,
+    title: "Chat With PDF",
+    description: "Turn Your Notes into a Talking Teacher.",
+    path: "/chat-with-pdf",
+    color: "from-pink-500 to-red-500",
+  },
+
+  {
     icon: BookOpen,
     title: "Chapter Wise Study Guide",
-    description: "Select your class, select subject and chapter.",
+    description: "Turn Every Chapter into Your Strength.",
     path: "/chapter-wise-study",
     color: "from-blue-500 to-cyan-500",
   },
   {
     icon: Brain,
     title: "AI Topic Summarizer",
-    description: "Get concise, intelligent summaries of your study materials in seconds.",
+    description: "Your Fastest Way to Understand Any Topic.",
     path: "/ai-summary",
     color: "from-blue-500 to-cyan-500",
   },
   {
     icon: FileQuestion,
-    title: "Important Question Generator",
-    description: "Generate exam-style questions from your study topics and notes.",
+    title: "Predicted Important Question",
+    description: "Questions with a 95% Chance of Coming in the Exam.",
     path: "/question-generator",
     color: "from-violet-500 to-purple-500",
   },
   {
     icon: Brain,
     title: "Quiz, Fill Ups and True False",
-    description: "Get Important Quizes, Fill in the blanks and True False on your subject.",
+    description: "Fill-Ups & True/False That Really Matter.",
     path: "/quiz-generator",
     color: "from-orange-500 to-amber-500",
   },
     {
     icon: MessageSquare,
     title: "Ask Any Question",
-    description: "Get best explanation of question and answer so that you can never forget it.",
+    description: "Type It or Click It — Get the Perfect Answer.",
     path: "/ask-any",
     color: "from-indigo-500 to-blue-500",
   },
   {
     icon: MessageSquare,
     title: "Diagram & Image Analysis",
-    description: "Stuck on any topic, Click Image and Upload AI will explain you everything.",
+    description: "Your Diagram Explained Like a Topper.",
     path: "/diagram-analysis",
     color: "from-indigo-500 to-blue-500",
   },
   {
     icon: FileText,
-    title: "PYQs (2014 - 2024)",
-    description: "Extract text from images and get AI analysis of diagrams and charts.",
+    title: "PYQs (2014 - 2025)",
+    description: "Past Questions. Present Preparation. Future Topper.",
     path: "/pyqs",
     color: "from-green-500 to-emerald-500",
   },
@@ -80,13 +88,13 @@ export default function FeaturesSection() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
           {features.map((feature, index) => (
             <Link 
               key={index} 
               to={feature.path} 
               state={{ feature: feature.title }}
-              className={index >= 6 ? "md:col-span-2 lg:col-span-3" : ""}
+              className={ ""}
             >
               <Card className="p-6 bg-card/50 border-border/50 backdrop-blur-sm hover:bg-card/80 transition-all duration-300 hover:shadow-[0_0_30px_rgba(168,85,247,0.2)] hover:border-primary/50 group cursor-pointer h-full">
                 <div className="space-y-4">
