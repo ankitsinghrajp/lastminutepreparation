@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { MessageCircle, Loader2, Bot, User, Upload, X, FileText, Send, Sparkles } from "lucide-react";
+import { MessageCircle, Loader2, Bot, Upload, X, FileText, Send, Sparkles, CheckCircle2 } from "lucide-react";
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -12,7 +12,6 @@ import rehypeKatex from "rehype-katex";
 import rehypeHighlight from "rehype-highlight";
 import "katex/dist/katex.min.css";
 import "highlight.js/styles/github.css";
-import { Navbar } from "@/components/Navbar";
 import { server } from "@/constants";
 
 /* ===================== AI OUTPUT ===================== */
@@ -20,7 +19,7 @@ const AIOutput = ({ content }) => {
   if (!content) return null;
 
   return (
-    <div className="prose prose-sm sm:prose-base max-w-none">
+    <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:font-semibold prose-p:leading-relaxed prose-pre:bg-slate-900 prose-pre:text-slate-100">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
@@ -30,17 +29,6 @@ const AIOutput = ({ content }) => {
     </div>
   );
 };
-
-/* ===================== FOOTER ===================== */
-const Footer = () => (
-  <footer className="border-t py-4 bg-background">
-    <div className="container mx-auto px-4 text-center">
-      <p className="text-xs text-muted-foreground">
-        Powered by AI • Upload responsibly • Keep documents private
-      </p>
-    </div>
-  </footer>
-);
 
 /* ===================== MAIN COMPONENT ===================== */
 export default function ChatWithPDF() {
@@ -185,224 +173,249 @@ export default function ChatWithPDF() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex flex-col">
-      <Navbar/>
+    <div className="h-screen w-full bg-background flex flex-col overflow-hidden">
+   
 
-      <div className="flex-1 container pt-16 mx-auto px-3 sm:px-4 max-w-6xl flex flex-col overflow-hidden">
-        {!pdf ? (
-          /* ===================== UPLOAD SCREEN ===================== */
-          <div className="flex-1 flex flex-col justify-center max-w-4xl mx-auto w-full py-8">
-            <div className="text-center mb-6 sm:mb-8 lg:mb-10 px-4">
-              <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 lg:w-20 lg:h-20 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-green-500/10 mb-4 sm:mb-5">
-                <MessageCircle className="text-emerald-600" size={28} />
-              </div>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 sm:mb-3 text-foreground">
-                Chat With PDF
-              </h1>
-              <p className="text-sm sm:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-                Upload any PDF document and have an intelligent conversation with it. Ask questions and get instant answers.
-              </p>
-            </div>
-
-            <Card className="p-4 sm:p-6 lg:p-8 shadow-sm border">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,application/pdf"
-                onChange={handlePdfUpload}
-                className="hidden"
-                disabled={uploading}
-              />
-
-              <div
-                onClick={() => !uploading && fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-xl p-8 sm:p-10 lg:p-14 text-center cursor-pointer transition-all duration-200 ${
-                  uploading 
-                    ? "opacity-50 cursor-not-allowed border-muted" 
-                    : "hover:border-emerald-500 hover:bg-emerald-50/30 border-muted-foreground/20"
-                }`}
-              >
-                {uploading ? (
-                  <div className="space-y-3">
-                    <Loader2 className="mx-auto text-emerald-600 animate-spin" size={36} />
-                    <div>
-                      <p className="text-base sm:text-lg font-semibold mb-1">Uploading PDF...</p>
-                      <p className="text-xs sm:text-sm text-muted-foreground">Please wait while we process your file</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 mx-auto rounded-full bg-emerald-500/10 flex items-center justify-center">
-                      <Upload className="text-emerald-600" size={24} />
-                    </div>
-                    <div>
-                      <p className="text-base sm:text-lg font-semibold mb-1 text-foreground">
-                        Click to upload PDF
-                      </p>
-                      <p className="text-xs sm:text-sm text-muted-foreground">
-                        Maximum file size: 15MB
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {/* Features */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-6 sm:mt-8 lg:mt-10">
-              {[
-                { icon: MessageCircle, title: "Natural Chat", desc: "Conversational interface" },
-                { icon: Sparkles, title: "AI Powered", desc: "Accurate responses" },
-                { icon: FileText, title: "Unlimited", desc: "Ask anything" },
-              ].map((feature, i) => (
-                <Card key={i} className="p-4 sm:p-5 text-center hover:shadow-md transition-shadow border bg-card">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto rounded-xl bg-emerald-500/10 flex items-center justify-center mb-3">
-                    <feature.icon className="text-emerald-600" size={20} />
-                  </div>
-                  <h4 className="font-semibold mb-1 text-sm sm:text-base text-foreground">
-                    {feature.title}
-                  </h4>
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    {feature.desc}
-                  </p>
-                </Card>
-              ))}
-            </div>
-          </div>
-        ) : (
-          /* ===================== CHAT SCREEN ===================== */
-          <div className="flex-1 flex flex-col h-full overflow-hidden py-4">
-            {/* PDF Info Header - Fixed */}
-            <Card className="p-3 sm:p-4 mb-3 sm:mb-4 shadow-sm border flex-shrink-0">
-              <div className="flex items-center justify-between gap-2 sm:gap-3">
-                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center flex-shrink-0">
-                    <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-xs sm:text-sm truncate text-foreground">
-                      {pdf.name}
-                    </p>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground">
-                      {(pdf.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                  </div>
+      {!pdf ? (
+        /* ===================== UPLOAD SCREEN ===================== */
+        <div className="flex-1 overflow-y-scroll no-scrollbar">
+          <div className="min-h-full flex flex-col justify-center px-4 py-12 pt-24">
+            <div className="max-w-2xl mx-auto w-full space-y-10">
+              {/* Header */}
+              <div className="text-center space-y-4">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-orange-500 to-red-500 shadow-2xl shadow-orange-500/30 mb-2">
+                  <FileText className="text-white" size={40} />
                 </div>
-                <Button
-                  onClick={handleRemovePdf}
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 sm:h-9 sm:w-9 hover:bg-red-50 hover:text-red-600 flex-shrink-0 rounded-lg"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                <div>
+                  <h1 className="text-4xl sm:text-5xl font-bold mb-3">
+                    AI-Powered PDF Assistant
+                  </h1>
+                  <p className="text-lg text-muted-foreground max-w-xl mx-auto">
+                    Upload your document and get instant, intelligent answers to any question
+                  </p>
+                </div>
               </div>
-            </Card>
 
-            {/* Messages Container - Scrollable */}
-            <Card className="flex-1 p-3 sm:p-4 lg:p-6 mb-3 sm:mb-4 overflow-y-auto shadow-sm border bg-card flex flex-col">
-              <div className="flex-1 overflow-y-auto">
-                {messages.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-center px-4">
-                    <div className="space-y-3">
-                      <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto rounded-full bg-emerald-500/10 flex items-center justify-center">
-                        <Sparkles className="text-emerald-600" size={24} />
+              {/* Upload Area */}
+              <Card className="border shadow-xl bg-card backdrop-blur-sm">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={handlePdfUpload}
+                  className="hidden"
+                  disabled={uploading}
+                />
+
+                <div
+                  onClick={() => !uploading && fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-2xl p-12 m-6 text-center transition-all ${
+                    uploading 
+                      ? "opacity-50 cursor-not-allowed border-border" 
+                      : "cursor-pointer hover:border-orange-500 hover:bg-orange-500/5 border-border hover:shadow-lg"
+                  }`}
+                >
+                  {uploading ? (
+                    <div className="space-y-4">
+                      <Loader2 className="mx-auto text-orange-500 animate-spin" size={48} />
+                      <div>
+                        <p className="text-lg font-semibold">Uploading your PDF...</p>
+                        <p className="text-sm text-muted-foreground mt-2">This may take a moment</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg">
+                        <Upload className="text-white" size={28} />
                       </div>
                       <div>
-                        <p className="font-medium text-sm sm:text-base mb-1 text-foreground">
-                          Ready to chat
+                        <p className="text-lg font-semibold mb-2">
+                          Drop your PDF here or click to browse
                         </p>
-                        <p className="text-xs sm:text-sm text-muted-foreground">
-                          Ask me anything about your document
+                        <p className="text-sm text-muted-foreground">
+                          Supports files up to 15MB • Secure and private
                         </p>
                       </div>
                     </div>
+                  )}
+                </div>
+              </Card>
+
+              {/* Features */}
+              <div className="grid sm:grid-cols-3 gap-6">
+                {[
+                  { icon: Sparkles, title: "AI-Powered", desc: "Advanced natural language understanding" },
+                  { icon: CheckCircle2, title: "Accurate", desc: "Context-aware responses" },
+                  { icon: MessageCircle, title: "Interactive", desc: "Conversational interface" },
+                ].map((feature, i) => (
+                  <Card key={i} className="p-6 text-center border shadow-lg bg-card backdrop-blur-sm hover:shadow-xl transition-all hover:-translate-y-1">
+                    <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center mb-3 shadow-md">
+                      <feature.icon className="text-white" size={20} />
+                    </div>
+                    <h4 className="font-semibold mb-2">
+                      {feature.title}
+                    </h4>
+                    <p className="text-sm text-muted-foreground">
+                      {feature.desc}
+                    </p>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ===================== CHAT SCREEN ===================== */
+        <>
+          {/* Fixed Header with PDF Info */}
+          <div className="flex-shrink-0 bg-background backdrop-blur-md border-b border-border px-4 py-4 shadow-sm">
+            <div className="flex items-center justify-between max-w-5xl mx-auto">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center flex-shrink-0 shadow-md">
+                  <FileText className="h-6 w-6 text-white" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-semibold truncate">
+                    {pdf.name}
+                  </h2>
+                  <p className="text-xs text-muted-foreground flex items-center gap-2">
+                    <span>{(pdf.size / 1024 / 1024).toFixed(2)} MB</span>
+                    <span className="w-1 h-1 rounded-full bg-muted-foreground"></span>
+                    <span className="flex items-center gap-1">
+                      <CheckCircle2 size={12} className="text-green-600" />
+                      Ready
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={handleRemovePdf}
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 hover:bg-red-50 dark:hover:bg-red-950 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0 rounded-xl transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Scrollable Messages Container */}
+          <div className="flex-1 overflow-y-scroll no-scrollbar px-4 py-8 ">
+            <div className="max-w-6xl mx-auto space-y-6">
+              {messages.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-center py-20">
+                  <div className="space-y-6 max-w-md">
+                    <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-orange-500/10 to-red-500/10 flex items-center justify-center">
+                      <MessageCircle className="text-orange-500" size={32} />
+                    </div>
+                    <div>
+                      <p className="text-xl font-semibold mb-3">
+                        Start a conversation
+                      </p>
+                      <p className="text-muted-foreground">
+                        Ask any question about your PDF document and receive detailed, accurate answers powered by AI
+                      </p>
+                    </div>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {messages.map((message, index) => (
+                </div>
+              ) : (
+                <>
+                  {messages.map((message, index) => (
+                    <div
+                      key={index}
+                      className={`flex gap-3 ${
+                        message.type === "user" ? "justify-end" : "justify-start"
+                      }`}
+                    >
+                   
+                      
                       <div
-                        key={index}
-                        className={`flex gap-2 sm:gap-3 ${
-                          message.type === "user" ? "justify-end" : "justify-start"
+                        className={`max-w-[85%] rounded-2xl px-5 py-4 shadow-md ${
+                          message.type === "user"
+                            ? "bg-gradient-to-br from-orange-500 to-red-500 text-white rounded-tr-sm"
+                            : "bg-card border border-border rounded-tl-sm"
                         }`}
                       >
-                      
-                        
-                        <div
-                          className={`max-w-[85%] sm:max-w-[80%] lg:max-w-[75%] rounded-2xl px-3 py-2 sm:px-4 sm:py-3 ${
-                            message.type === "user"
-                              ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white"
-                              : "bg-muted border"
-                          }`}
-                        >
-                          {message.type === "user" ? (
-                            <p className="text-xs sm:text-sm leading-relaxed break-words">
-                              {message.content}
-                            </p>
-                          ) : (
-                            <div className="text-xs sm:text-sm">
-                              <AIOutput content={message.content} />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-
-                    {loading && (
-                      <div className="flex gap-2 sm:gap-3 justify-start">
-                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-1">
-                          <Bot className="text-emerald-600" size={16} />
-                        </div>
-                        <div className="bg-muted border rounded-2xl px-3 py-2 sm:px-4 sm:py-3">
-                          <div className="flex gap-2 items-center">
-                            <Loader2 className="animate-spin text-emerald-600" size={16} />
-                            <span className="text-xs sm:text-sm text-muted-foreground">
-                              Analyzing...
-                            </span>
+                        {message.type === "user" ? (
+                          <p className="text-sm leading-relaxed break-words">
+                            {message.content}
+                          </p>
+                        ) : (
+                          <div className="text-sm">
+                            <AIOutput content={message.content} />
                           </div>
+                        )}
+                       
+                      </div>
+
+                    </div>
+                  ))}
+
+                  {loading && (
+                    <div className="flex gap-3 justify-start">
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center flex-shrink-0 shadow-md">
+                        <Bot className="text-white" size={18} />
+                      </div>
+                      <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-5 py-4 shadow-md">
+                        <div className="flex gap-3 items-center">
+                          <Loader2 className="animate-spin text-orange-500" size={18} />
+                          <span className="text-sm text-muted-foreground">
+                            Analyzing your document...
+                          </span>
                         </div>
                       </div>
-                    )}
+                    </div>
+                  )}
+                </>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          </div>
 
-                    <div ref={messagesEndRef} />
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {/* Input Area - Fixed */}
-            <Card className="p-3 sm:p-4 shadow-sm border flex-shrink-0">
-              <div className="flex gap-2">
-                <Textarea
-                  ref={textareaRef}
-                  placeholder="Ask a question..."
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  rows={1}
-                  disabled={loading}
-                  className="resize-none min-h-[40px] sm:min-h-[44px] max-h-[100px] text-xs sm:text-sm"
-                />
+          {/* Fixed Input Bar at Bottom */}
+          <div className="flex-shrink-0 bg-background backdrop-blur-md border-t border-border px-4 py-5 shadow-lg">
+            <div className="max-w-4xl mx-auto">
+              <div className="flex gap-3 items-end">
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  variant="outline"
+                  size="icon"
+                  disabled={uploading}
+                  className="h-12 w-12 flex-shrink-0 rounded-xl hover:bg-muted border-input"
+                >
+                  <Upload className="h-5 w-5" />
+                </Button>
+                
+                <div className="flex-1 relative">
+                  <Textarea
+                    ref={textareaRef}
+                    placeholder="Ask a question about your PDF..."
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    rows={1}
+                    disabled={loading}
+                    className="resize-none min-h-[48px] max-h-[120px] text-sm rounded-xl px-4 py-3 border-2 border-input focus:border-orange-500 focus:ring-0 bg-background shadow-sm"
+                  />
+                </div>
+                
                 <Button
                   onClick={handleAsk}
                   disabled={loading || !question.trim()}
                   size="icon"
-                  className="h-10 w-10 sm:h-11 sm:w-11 flex-shrink-0 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 disabled:opacity-50"
+                  className="h-12 w-12 flex-shrink-0 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all"
                 >
                   {loading ? (
-                    <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                    <Loader2 className="h-5 w-5 animate-spin text-white" />
                   ) : (
-                    <Send className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <Send className="h-5 w-5 text-white" />
                   )}
                 </Button>
               </div>
-            </Card>
+            </div>
           </div>
-        )}
-      </div>
-
-      <Footer />
+        </>
+      )}
     </div>
   );
 }
