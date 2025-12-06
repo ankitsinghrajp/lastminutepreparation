@@ -41,9 +41,9 @@ const createMongoLimiter = (maxRequests) =>
     legacyHeaders: false,
   });
 
-export const freeLimiter = createMongoLimiter(10);
-export const basicLimiter = createMongoLimiter(200);
-export const proLimiter = createMongoLimiter(500);
+export const freeLimiter = createMongoLimiter(20);
+export const basicLimiter = createMongoLimiter(500);
+export const proLimiter = createMongoLimiter(800);
 
 // LOGIN LIMITER 
 export const loginLimiter = rateLimit({

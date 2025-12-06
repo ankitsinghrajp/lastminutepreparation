@@ -49,7 +49,7 @@ export default function AISummarizer() {
         response?.data;
 
       if (aiText) setResult(aiText);
-      else toast.error("No valid response from AI");
+      else toast.error(response?.error?.data?.message || "No valid response from AI");
     } catch (error) {
       toast.error("Something went wrong");
     }

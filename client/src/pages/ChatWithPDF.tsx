@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
 import {
   MessageCircle,
   Loader2,
@@ -25,6 +24,7 @@ import rehypeHighlight from "rehype-highlight";
 import "katex/dist/katex.min.css";
 import "highlight.js/styles/github-dark.css";
 import { server } from "@/constants";
+import { toast } from "sonner";
 
 /* ===================== AI OUTPUT ===================== */
 const AIOutput = ({ content }) => {
@@ -73,12 +73,12 @@ export default function ChatWithPDF() {
   const handlePdfUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file || file.type !== "application/pdf") {
-      alert("Please upload a valid PDF file");
+      toast.error("Please upload a valid PDF file");
       return;
     }
 
     if (file.size > 15 * 1024 * 1024) {
-      alert("File size must be less than 15MB");
+      toast.error("File size must be less than 15MB");
       return;
     }
 
@@ -95,17 +95,19 @@ export default function ChatWithPDF() {
       });
 
       const response = await res.json();
-
+  
       if (response?.data?.pdfId) {
         setPdf(file);
         setPdfId(response.data.pdfId);
         setMessages([]);
-      } else {
-        alert("Failed to upload PDF. Please try again.");
+      }
+      else{
+        toast.error(response?.message || "Error in extracting text!");
+                fileInputRef.current.value = "";
       }
     } catch (error) {
       console.error("Upload error:", error);
-      alert("An error occurred while uploading the PDF. Please try again.");
+      toast.error("An error occurred while uploading the PDF. Please try again.");
     } finally {
       setUploading(false);
     }

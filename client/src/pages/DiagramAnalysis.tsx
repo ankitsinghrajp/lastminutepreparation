@@ -159,7 +159,7 @@ export default function DiagramAnalysis() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*,application/pdf"
+            accept="image/*"
             onChange={handleFileUpload}
             className="hidden"
           />
