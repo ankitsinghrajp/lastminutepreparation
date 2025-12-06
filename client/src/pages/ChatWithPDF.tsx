@@ -2,7 +2,19 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { MessageCircle, Loader2, Bot, Upload, X, FileText, Send, Sparkles, CheckCircle2 } from "lucide-react";
+import {
+  MessageCircle,
+  Loader2,
+  Bot,
+  Upload,
+  X,
+  FileText,
+  Send,
+  Sparkles,
+  CheckCircle2,
+  User,
+  ArrowUp,
+} from "lucide-react";
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -11,7 +23,7 @@ import rehypeRaw from "rehype-raw";
 import rehypeKatex from "rehype-katex";
 import rehypeHighlight from "rehype-highlight";
 import "katex/dist/katex.min.css";
-import "highlight.js/styles/github.css";
+import "highlight.js/styles/github-dark.css";
 import { server } from "@/constants";
 
 /* ===================== AI OUTPUT ===================== */
@@ -19,37 +31,7 @@ const AIOutput = ({ content }) => {
   if (!content) return null;
 
   return (
-    <div
-      className="
-        max-w-none 
-        text-sm 
-        leading-relaxed 
-        text-slate-100
-
-        [&>*]:mb-4
-        [&>ul]:mb-5
-        [&>ol]:mb-5
-        [&>li]:mb-2
-        [&>p]:mb-4
-        [&>h1]:mt-6 [&>h1]:mb-3
-        [&>h2]:mt-6 [&>h2]:mb-3
-        [&>h3]:mt-5 [&>h3]:mb-2
-
-        [&>hr]:my-6
-
-        [&>pre]:my-5
-        [&>pre]:p-4
-        [&>pre]:rounded-xl
-        [&>pre]:bg-slate-900
-
-        [&>code]:px-1
-        [&>code]:py-0.5
-        [&>code]:rounded-md
-        [&>code]:bg-slate-800
-
-        dark:text-slate-100
-      "
-    >
+    <div className="prose prose-sm max-w-none dark:prose-invert prose-slate [&>*]:mb-3 [&>ul]:mb-4 [&>ol]:mb-4 [&>li]:mb-1.5 [&>p]:mb-3 [&>h1]:mt-5 [&>h1]:mb-3 [&>h1]:text-xl [&>h1]:font-bold [&>h2]:mt-4 [&>h2]:mb-2.5 [&>h2]:text-lg [&>h2]:font-semibold [&>h3]:mt-3 [&>h3]:mb-2 [&>h3]:text-base [&>h3]:font-semibold [&>hr]:my-4 [&>pre]:my-4 [&>pre]:p-4 [&>pre]:rounded-lg [&>pre]:bg-slate-900 [&>pre]:border [&>pre]:border-slate-800 [&>code]:px-1.5 [&>code]:py-0.5 [&>code]:rounded [&>code]:bg-slate-800/50 [&>code]:text-orange-400 [&>code]:text-sm [&>pre>code]:p-0 [&>pre>code]:bg-transparent">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
@@ -79,6 +61,14 @@ export default function ChatWithPDF() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+    }
+  }, [question]);
 
   const handlePdfUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -166,7 +156,7 @@ export default function ChatWithPDF() {
       });
 
       const response = await res.json();
-      
+
       if (response?.data?.answer) {
         const aiMessage = {
           type: "ai",
@@ -177,7 +167,8 @@ export default function ChatWithPDF() {
       } else {
         const errorMessage = {
           type: "ai",
-          content: "Sorry, I couldn't process your question. Please try again.",
+          content:
+            "Sorry, I couldn't process your question. Please try again.",
           timestamp: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, errorMessage]);
@@ -186,7 +177,8 @@ export default function ChatWithPDF() {
       console.error("Error:", error);
       const errorMessage = {
         type: "ai",
-        content: "An error occurred while processing your request. Please try again.",
+        content:
+          "An error occurred while processing your request. Please try again.",
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -203,31 +195,29 @@ export default function ChatWithPDF() {
   };
 
   return (
-    <div className="h-screen w-full bg-background flex flex-col overflow-hidden">
-   
-
+    <div className="flex flex-col h-screen w-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100">
       {!pdf ? (
         /* ===================== UPLOAD SCREEN ===================== */
-        <div className="flex-1 overflow-y-scroll no-scrollbar">
-          <div className="min-h-full flex flex-col justify-center px-4 py-12 pt-24">
-            <div className="max-w-2xl mx-auto w-full space-y-10">
+        <div className="flex-1 overflow-y-auto">
+          <div className="min-h-full flex items-center justify-center px-4 py-8 sm:py-12">
+            <div className="w-full max-w-2xl space-y-8 sm:space-y-10">
               {/* Header */}
-              <div className="text-center space-y-4">
-                <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-orange-500 to-red-500 shadow-2xl shadow-orange-500/30 mb-2">
-                  <FileText className="text-white" size={40} />
+              <div className="text-center space-y-4 sm:space-y-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-orange-500 to-red-600 shadow-2xl shadow-orange-500/20">
+                  <FileText className="text-white" size={36} />
                 </div>
-                <div>
-                  <h1 className="text-4xl sm:text-5xl font-bold mb-3">
-                    AI-Powered PDF Assistant
+                <div className="space-y-2 sm:space-y-3">
+                  <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">
+                     AI PDF Assistant
                   </h1>
-                  <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-                    Upload your document and get instant, intelligent answers to any question
+                  <p className="text-base sm:text-lg text-slate-400 max-w-lg mx-auto px-4">
+                    Upload your document and chat with it using advanced AI
                   </p>
                 </div>
               </div>
 
               {/* Upload Area */}
-              <Card className="border shadow-xl bg-card backdrop-blur-sm">
+              <div className="px-4 sm:px-0">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -239,56 +229,84 @@ export default function ChatWithPDF() {
 
                 <div
                   onClick={() => !uploading && fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-2xl p-12 m-6 text-center transition-all ${
-                    uploading 
-                      ? "opacity-50 cursor-not-allowed border-border" 
-                      : "cursor-pointer hover:border-orange-500 hover:bg-orange-500/5 border-border hover:shadow-lg"
+                  className={`relative overflow-hidden border-2 border-dashed rounded-2xl sm:rounded-3xl p-8 sm:p-12 text-center transition-all backdrop-blur-sm ${
+                    uploading
+                      ? "opacity-60 cursor-not-allowed border-slate-700 bg-slate-900/40"
+                      : "cursor-pointer hover:border-orange-500 border-slate-700 bg-slate-900/40 hover:bg-slate-900/60 hover:shadow-xl hover:shadow-orange-500/10 active:scale-[0.99]"
                   }`}
                 >
                   {uploading ? (
-                    <div className="space-y-4">
-                      <Loader2 className="mx-auto text-orange-500 animate-spin" size={48} />
+                    <div className="space-y-4 sm:space-y-5">
+                      <div className="relative">
+                        <Loader2
+                          className="mx-auto text-orange-500 animate-spin"
+                          size={48}
+                        />
+                        <div className="absolute inset-0 blur-xl bg-orange-500/20 animate-pulse" />
+                      </div>
                       <div>
-                        <p className="text-lg font-semibold">Uploading your PDF...</p>
-                        <p className="text-sm text-muted-foreground mt-2">This may take a moment</p>
+                        <p className="text-lg sm:text-xl font-semibold text-white mb-2">
+                          Processing your PDF
+                        </p>
+                        <p className="text-sm text-slate-400">
+                          This will only take a moment...
+                        </p>
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg">
-                        <Upload className="text-white" size={28} />
+                    <div className="space-y-4 sm:space-y-5">
+                      <div className="relative inline-block">
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto rounded-xl sm:rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-lg">
+                          <Upload className="text-white" size={28} />
+                        </div>
+                        <div className="absolute -inset-2 bg-gradient-to-br from-orange-500/20 to-red-600/20 rounded-2xl blur-xl -z-10" />
                       </div>
-                      <div>
-                        <p className="text-lg font-semibold mb-2">
-                          Drop your PDF here or click to browse
+                      <div className="space-y-2">
+                        <p className="text-base sm:text-lg font-semibold text-white">
+                          Drop your PDF here or tap to browse
                         </p>
-                        <p className="text-sm text-muted-foreground">
-                          Supports files up to 15MB • Secure and private
+                        <p className="text-sm text-slate-400">
+                          Max 15MB • Secure & Private
                         </p>
                       </div>
                     </div>
                   )}
                 </div>
-              </Card>
+              </div>
 
               {/* Features */}
-              <div className="grid sm:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 px-4 sm:px-0">
                 {[
-                  { icon: Sparkles, title: "AI-Powered", desc: "Advanced natural language understanding" },
-                  { icon: CheckCircle2, title: "Accurate", desc: "Context-aware responses" },
-                  { icon: MessageCircle, title: "Interactive", desc: "Conversational interface" },
+                  {
+                    icon: Sparkles,
+                    title: "AI-Powered",
+                    desc: "Advanced language models",
+                  },
+                  {
+                    icon: CheckCircle2,
+                    title: "Accurate",
+                    desc: "Context-aware responses",
+                  },
+                  {
+                    icon: MessageCircle,
+                    title: "Interactive",
+                    desc: "Natural conversation",
+                  },
                 ].map((feature, i) => (
-                  <Card key={i} className="p-6 text-center border shadow-lg bg-card backdrop-blur-sm hover:shadow-xl transition-all hover:-translate-y-1">
-                    <div className="w-12 h-12 mx-auto rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center mb-3 shadow-md">
+                  <div
+                    key={i}
+                    className="relative group p-5 sm:p-6 text-center rounded-xl sm:rounded-2xl bg-slate-900/40 border border-slate-800 backdrop-blur-sm hover:bg-slate-900/60 hover:border-slate-700 transition-all hover:scale-[1.02] active:scale-100"
+                  >
+                    <div className="w-11 h-11 sm:w-12 sm:h-12 mx-auto rounded-lg sm:rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center mb-3 shadow-md group-hover:shadow-lg group-hover:shadow-orange-500/20 transition-shadow">
                       <feature.icon className="text-white" size={20} />
                     </div>
-                    <h4 className="font-semibold mb-2">
+                    <h4 className="font-semibold mb-1.5 text-white text-sm sm:text-base">
                       {feature.title}
                     </h4>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-slate-400">
                       {feature.desc}
                     </p>
-                  </Card>
+                  </div>
                 ))}
               </div>
             </div>
@@ -296,25 +314,23 @@ export default function ChatWithPDF() {
         </div>
       ) : (
         /* ===================== CHAT SCREEN ===================== */
-        <>
-          {/* Fixed Header with PDF Info */}
-          <div className="flex-shrink-0 bg-background backdrop-blur-md border-b border-border px-4 py-4 shadow-sm">
-            <div className="flex items-center justify-between max-w-5xl mx-auto">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center flex-shrink-0 shadow-md">
-                  <FileText className="h-6 w-6 text-white" />
+        <div className="flex flex-col h-full">
+          {/* Fixed Header */}
+          <div className="flex-shrink-0 bg-slate-900/80 backdrop-blur-lg border-b border-slate-800 px-3 sm:px-4 py-3 sm:py-4">
+            <div className="flex items-center justify-between gap-3 max-w-5xl mx-auto">
+              <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center flex-shrink-0 shadow-lg">
+                  <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h2 className="font-semibold truncate">
+                  <h2 className="font-semibold truncate text-sm sm:text-base text-white">
                     {pdf.name}
                   </h2>
-                  <p className="text-xs text-muted-foreground flex items-center gap-2">
-                    <span>{(pdf.size / 1024 / 1024).toFixed(2)} MB</span>
-                    <span className="w-1 h-1 rounded-full bg-muted-foreground"></span>
-                    <span className="flex items-center gap-1">
-                      <CheckCircle2 size={12} className="text-green-600" />
-                      Ready
-                    </span>
+                  <p className="text-xs text-slate-400 flex items-center gap-1.5 sm:gap-2">
+                    <span>{(pdf.size / 1024 / 1024).toFixed(1)} MB</span>
+                    <span className="w-1 h-1 rounded-full bg-slate-600"></span>
+                    <CheckCircle2 size={12} className="text-green-500" />
+                    <span>Ready</span>
                   </p>
                 </div>
               </div>
@@ -322,28 +338,31 @@ export default function ChatWithPDF() {
                 onClick={handleRemovePdf}
                 variant="ghost"
                 size="icon"
-                className="h-10 w-10 hover:bg-red-50 dark:hover:bg-red-950 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0 rounded-xl transition-colors"
+                className="h-9 w-9 sm:h-10 sm:w-10 hover:bg-red-500/10 hover:text-red-400 flex-shrink-0 rounded-lg sm:rounded-xl transition-colors"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
             </div>
           </div>
 
-          {/* Scrollable Messages Container */}
-          <div className="flex-1 overflow-y-scroll no-scrollbar px-4 py-8 ">
-            <div className="max-w-6xl mx-auto space-y-6">
+          {/* Messages Container */}
+          <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 sm:py-6">
+            <div className="max-w-4xl mx-auto space-y-4 sm:space-y-5">
               {messages.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-center py-20">
-                  <div className="space-y-6 max-w-md">
-                    <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-orange-500/10 to-red-500/10 flex items-center justify-center">
-                      <MessageCircle className="text-orange-500" size={32} />
+                <div className="flex items-center justify-center text-center py-12 sm:py-20 px-4">
+                  <div className="space-y-4 sm:space-y-6 max-w-md">
+                    <div className="relative inline-block">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-xl sm:rounded-2xl bg-gradient-to-br from-orange-500/10 to-red-600/10 border border-orange-500/20 flex items-center justify-center">
+                        <MessageCircle className="text-orange-400" size={28} />
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xl font-semibold mb-3">
-                        Start a conversation
+                    <div className="space-y-2">
+                      <p className="text-lg sm:text-xl font-semibold text-white">
+                        Start the conversation
                       </p>
-                      <p className="text-muted-foreground">
-                        Ask any question about your PDF document and receive detailed, accurate answers powered by AI
+                      <p className="text-sm sm:text-base text-slate-400 leading-relaxed">
+                        Ask anything about your document and get intelligent,
+                        context-aware answers
                       </p>
                     </div>
                   </div>
@@ -353,17 +372,23 @@ export default function ChatWithPDF() {
                   {messages.map((message, index) => (
                     <div
                       key={index}
-                      className={`flex gap-3 ${
-                        message.type === "user" ? "justify-end" : "justify-start"
+                      className={`flex gap-2 sm:gap-3 ${
+                        message.type === "user"
+                          ? "justify-end"
+                          : "justify-start"
                       }`}
                     >
-                   
+                      {message.type === "ai" && (
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center flex-shrink-0 shadow-md mt-1">
+                          <Bot className="text-white" size={16} />
+                        </div>
+                      )}
                       
                       <div
-                        className={`max-w-[85%] rounded-2xl px-5 py-4 shadow-md ${
+                        className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-3.5 py-3 sm:px-4 sm:py-3.5 shadow-lg ${
                           message.type === "user"
-                            ? "bg-gradient-to-br from-orange-500 to-red-500 text-white rounded-tr-sm"
-                            : "bg-card border border-border rounded-tl-sm"
+                            ? "bg-gradient-to-br from-orange-500 to-red-600 text-white"
+                            : "bg-slate-800/50 backdrop-blur-sm border border-slate-700"
                         }`}
                       >
                         {message.type === "user" ? (
@@ -371,26 +396,33 @@ export default function ChatWithPDF() {
                             {message.content}
                           </p>
                         ) : (
-                          <div className="text-sm">
+                          <div className="text-sm text-slate-100">
                             <AIOutput content={message.content} />
                           </div>
                         )}
-                       
                       </div>
 
+                      {message.type === "user" && (
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0 mt-1">
+                          <User className="text-slate-300" size={16} />
+                        </div>
+                      )}
                     </div>
                   ))}
 
                   {loading && (
-                    <div className="flex gap-3 justify-start">
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center flex-shrink-0 shadow-md">
-                        <Bot className="text-white" size={18} />
+                    <div className="flex gap-2 sm:gap-3 justify-start">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center flex-shrink-0 shadow-md mt-1">
+                        <Bot className="text-white" size={16} />
                       </div>
-                      <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-5 py-4 shadow-md">
-                        <div className="flex gap-3 items-center">
-                          <Loader2 className="animate-spin text-orange-500" size={18} />
-                          <span className="text-sm text-muted-foreground">
-                            Analyzing your document...
+                      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl px-4 py-3 shadow-lg">
+                        <div className="flex gap-2.5 items-center">
+                          <Loader2
+                            className="animate-spin text-orange-400"
+                            size={16}
+                          />
+                          <span className="text-sm text-slate-300">
+                            Thinking...
                           </span>
                         </div>
                       </div>
@@ -402,49 +434,39 @@ export default function ChatWithPDF() {
             </div>
           </div>
 
-          {/* Fixed Input Bar at Bottom */}
-          <div className="flex-shrink-0 bg-background backdrop-blur-md border-t border-border px-4 py-5 shadow-lg">
+          {/* Fixed Input Bar */}
+          <div className="flex-shrink-0 bg-slate-900/80 backdrop-blur-lg border-t border-slate-800 px-3 sm:px-4 py-3 sm:py-4">
             <div className="max-w-4xl mx-auto">
-              <div className="flex gap-3 items-end">
-                <Button
-                  onClick={() => fileInputRef.current?.click()}
-                  variant="outline"
-                  size="icon"
-                  disabled={uploading}
-                  className="h-12 w-12 flex-shrink-0 rounded-xl hover:bg-muted border-input"
-                >
-                  <Upload className="h-5 w-5" />
-                </Button>
-                
+              <div className="flex gap-2 items-end">
                 <div className="flex-1 relative">
                   <Textarea
                     ref={textareaRef}
-                    placeholder="Ask a question about your PDF..."
+                    placeholder="Ask about your PDF..."
                     value={question}
                     onChange={(e) => setQuestion(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    rows={1}
                     disabled={loading}
-                    className="resize-none min-h-[48px] max-h-[120px] text-sm rounded-xl px-4 py-3 border-2 border-input focus:border-orange-500 focus:ring-0 bg-background shadow-sm"
+                    className="resize-none min-h-[44px] max-h-[120px] text-sm rounded-xl sm:rounded-2xl px-3.5 py-2.5 sm:px-4 sm:py-3 border-2 border-slate-700 focus:border-orange-500 focus:ring-0 bg-slate-800/50 backdrop-blur-sm text-white placeholder:text-slate-500 shadow-sm disabled:opacity-60 transition-colors"
+                    style={{ height: "44px" }}
                   />
                 </div>
-                
+
                 <Button
                   onClick={handleAsk}
                   disabled={loading || !question.trim()}
                   size="icon"
-                  className="h-12 w-12 flex-shrink-0 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all"
+                  className="h-11 w-11 flex-shrink-0 rounded-xl sm:rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl hover:shadow-orange-500/20 transition-all active:scale-95"
                 >
                   {loading ? (
                     <Loader2 className="h-5 w-5 animate-spin text-white" />
                   ) : (
-                    <Send className="h-5 w-5 text-white" />
+                    <ArrowUp className="h-5 w-5 text-white" />
                   )}
                 </Button>
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
