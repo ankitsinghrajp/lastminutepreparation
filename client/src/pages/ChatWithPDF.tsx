@@ -19,7 +19,37 @@ const AIOutput = ({ content }) => {
   if (!content) return null;
 
   return (
-    <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:font-semibold prose-p:leading-relaxed prose-pre:bg-slate-900 prose-pre:text-slate-100">
+    <div
+      className="
+        max-w-none 
+        text-sm 
+        leading-relaxed 
+        text-slate-100
+
+        [&>*]:mb-4
+        [&>ul]:mb-5
+        [&>ol]:mb-5
+        [&>li]:mb-2
+        [&>p]:mb-4
+        [&>h1]:mt-6 [&>h1]:mb-3
+        [&>h2]:mt-6 [&>h2]:mb-3
+        [&>h3]:mt-5 [&>h3]:mb-2
+
+        [&>hr]:my-6
+
+        [&>pre]:my-5
+        [&>pre]:p-4
+        [&>pre]:rounded-xl
+        [&>pre]:bg-slate-900
+
+        [&>code]:px-1
+        [&>code]:py-0.5
+        [&>code]:rounded-md
+        [&>code]:bg-slate-800
+
+        dark:text-slate-100
+      "
+    >
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
