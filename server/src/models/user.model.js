@@ -40,7 +40,16 @@ const userSchema = new mongoose.Schema({
     },
     refreshToken:{
         type:String
-    }
+    },
+    pdfUploadsThisMonth: {
+        type: Number,
+        default: 0,
+    },
+    pdfUploadResetAt: {
+       type: Date,
+       default: Date.now,
+},
+
 },
 {
     timestamps:true

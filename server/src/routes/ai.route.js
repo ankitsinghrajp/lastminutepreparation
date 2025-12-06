@@ -11,10 +11,14 @@ import { chapterWiseDoubtSolver, chapterWiseMindMap, chapterWiseShortNotes, chap
 import { diagramImageAnalysis } from "../controllers/image.controller.js";
 import { chatWithPdf } from "../controllers/chatWithPdf.controller.js";
 import { uploadPdfAndProcess } from "../controllers/uploadPdfAndProcess.controller.js";
+import { premiumOnly } from "../middlewares/premiumOnly.middleware.js";
+import { pdfUploadQuotaCheck } from "../middlewares/pdfQuota.middleware.js";
 
 const router = express.Router();
 router.use(verifyJWT);
 router.use(verifyEmailMiddleware);
+
+
 router.use(rateLimitByPlan);
 
 router.post("/summarizer",upload.fields([
@@ -45,7 +49,7 @@ router.post("/chapter-wise-study/mind-map",chapterWiseMindMap);
 router.post("/chapter-wise-study/doubt-solver",chapterWiseDoubtSolver);
 
 
-router.post("/get-pyqs",generatePYQs);
+
 router.post("/important-question-generator",importantQuestionGenerator);
 router.post("/quiz-fillups",quizMcqFillupTrueFalse);
 router.post("/ask-any",upload.fields([
@@ -57,8 +61,11 @@ router.post("/ask-any",upload.fields([
 
 
 
-// Image & Pdf Routes
 
+// Chat with pdf routes Premium Only routes
+router.use(premiumOnly);
+
+router.post("/get-pyqs",generatePYQs);
 router.post("/image-analysis",upload.fields([
     {
         name:"image",
@@ -67,11 +74,9 @@ router.post("/image-analysis",upload.fields([
 ]),diagramImageAnalysis);
 
 
-// Chat with pdf routes
+router.use(pdfUploadQuotaCheck);
 
 router.post("/upload-pdf", pdfUpload.single("pdf"), uploadPdfAndProcess);
-
-// STEP 2: Ask unlimited questions
 router.post("/chat-with-pdf", chatWithPdf);
 
 export default router;

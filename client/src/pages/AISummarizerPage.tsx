@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useAsyncMutation } from "@/hooks/hook";
 import { useSummarizerMutation } from "@/redux/api/api";
 import AIOutput from "@/components/specifics/AIOutput";
+import { useSelector } from "react-redux";
 
 const detailLevels = ["Short", "Medium", "Long"];
 
@@ -19,7 +20,10 @@ export default function AISummarizer() {
   const [result, setResult] = useState("");
   const [summarizer, isLoading] = useAsyncMutation(useSummarizerMutation);
 
+  const {user} = useSelector(state=>state.auth);
+
   const handleSummarize = async () => {
+
     if (!topic.trim() && !image) {
       toast.error("Please enter a topic or upload an image");
       return;
@@ -121,6 +125,11 @@ export default function AISummarizer() {
                       const file = e.target.files[0];
                       if (file) {
                         // Check if file is AVIF
+
+                        if(user.planType === "FREE"){
+                          toast.error("Only Premium users can upload images. If you’ve just upgraded, please log in again.”");
+                          return;
+                        }
                         if (file.type === "image/avif" || file.name.toLowerCase().endsWith(".avif")) {
                           toast.error("AVIF format is not supported. Please use PNG, JPG, JPEG, or WebP.");
                           e.target.value = "";

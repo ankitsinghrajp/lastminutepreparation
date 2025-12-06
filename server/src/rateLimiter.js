@@ -12,17 +12,15 @@ const defaultHandler = (req, res) => {
   });
 };
 
-// FIXED KEY GENERATOR (uses ipKeyGenerator safely)
+// ✅ Key generator: user > IP
 const keyGenerator = (req) => {
-  // If user is logged in → limit by user ID
   if (req.user?._id) return req.user._id.toString();
-
-  // Else → safe IPv6 handling
   return ipKeyGenerator(req);
 };
 
 const ONE_MONTH = 30 * 24 * 60 * 60 * 1000;
 
+// ✅ Correct Mongo Limiter Factory
 const createMongoLimiter = (maxRequests) =>
   rateLimit({
     store: new RateLimitMongo({
@@ -31,7 +29,6 @@ const createMongoLimiter = (maxRequests) =>
       expireTimeMs: ONE_MONTH,
       errorHandler: console.error.bind(null, "rate-limit-mongo"),
       resetExpireDateOnChange: true,
-      points: maxRequests,
     }),
     windowMs: ONE_MONTH,
     max: maxRequests,
@@ -41,11 +38,12 @@ const createMongoLimiter = (maxRequests) =>
     legacyHeaders: false,
   });
 
-export const freeLimiter = createMongoLimiter(20);
-export const basicLimiter = createMongoLimiter(500);
-export const proLimiter = createMongoLimiter(800);
+// ✅ Plan-based limiters
+export const freeLimiter = createMongoLimiter(40);   // 40 / month
+export const basicLimiter = createMongoLimiter(500); // 500 / month
+export const proLimiter = createMongoLimiter(800);   // 800 / month
 
-// LOGIN LIMITER 
+// ✅ Login limiter
 export const loginLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 5,
@@ -56,28 +54,26 @@ export const loginLimiter = rateLimit({
       message: "Too many login attempts. Try again in 10 minutes.",
     });
   },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
-// REGISTER LIMITER
-
+// ✅ Register limiter
 export const registerLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour window
-  max: 5, // max 5 registrations per window per IP/email
-  keyGenerator: (req) => req.body?.email || ipKeyGenerator(req), // limit by email if provided, else by IP
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => req.body?.email || ipKeyGenerator(req),
   handler: (req, res) => {
     res.status(429).json({
       status: "error",
       message: "Too many registration attempts. Try again after 1 hour.",
     });
   },
-  standardHeaders: true, // sends RateLimit-* headers
+  standardHeaders: true,
   legacyHeaders: false,
 });
 
-
-
-// RATE LIMIT BY PLAN
-
+// ✅ Apply limiter by plan
 export const rateLimitByPlan = (req, res, next) => {
   const plan = req.user?.planType || "FREE";
 

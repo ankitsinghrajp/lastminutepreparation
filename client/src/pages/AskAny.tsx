@@ -16,6 +16,7 @@ import rehypeKatex from "rehype-katex";
 import rehypeHighlight from "rehype-highlight";
 import "katex/dist/katex.min.css";
 import "highlight.js/styles/github.css";
+import { useSelector } from "react-redux";
 
 /* ===================== AI OUTPUT ===================== */
 const AIOutput = ({ content }) => {
@@ -61,9 +62,16 @@ export default function AskAnyQuestion() {
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
 
+  const {user} = useSelector(state=>state.auth);
+
   const handleImageUpload = (e) => {
     const uploadedFile = e.target.files?.[0];
     if (!uploadedFile) return;
+
+    if(user.planType === "FREE"){
+       toast.error("Only Premium users can upload images. If you’ve just upgraded, please log in again.”");
+       return;
+    }
 
     const validTypes = ["image/jpeg", "image/png", "image/jpg", "image/gif", "image/webp"];
     if (!validTypes.includes(uploadedFile.type)) {

@@ -8,7 +8,6 @@ import {
   Upload,
   X,
   FileText,
-  Send,
   Sparkles,
   CheckCircle2,
   User,
@@ -94,8 +93,10 @@ export default function ChatWithPDF() {
         body: formdata,
       });
 
+      
+
       const response = await res.json();
-  
+          
       if (response?.data?.pdfId) {
         setPdf(file);
         setPdfId(response.data.pdfId);
@@ -105,6 +106,7 @@ export default function ChatWithPDF() {
         toast.error(response?.message || "Error in extracting text!");
                 fileInputRef.current.value = "";
       }
+  
     } catch (error) {
       console.error("Upload error:", error);
       toast.error("An error occurred while uploading the PDF. Please try again.");

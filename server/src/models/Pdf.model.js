@@ -25,4 +25,4 @@ const pdfSchema = new mongoose.Schema(
 //  AUTO DELETE AFTER 2 HOURS (7200 seconds)
 pdfSchema.index({ createdAt: 1 }, { expireAfterSeconds: 7200 });
 
-export const PdfModel = mongoose.model("Pdf", pdfSchema);
+export const PdfModel = mongoose.models.PdfModel || mongoose.model("Pdf", pdfSchema);

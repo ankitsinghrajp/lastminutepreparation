@@ -127,7 +127,7 @@ export default function PreviousYearQuestions() {
     }
 
     const res = await pyqGenerator(`Fetching year: ${selectedYear} cbse board questions...`,{className:selectedClass, subject:selectedSubject, chapter:selectedChapter, year:selectedYear});
-    console.log("This is the response: ",res);
+    
     if(res?.data?.data?.data?.pyqs){
        setPyqs(res?.data?.data?.data?.pyqs);
     }

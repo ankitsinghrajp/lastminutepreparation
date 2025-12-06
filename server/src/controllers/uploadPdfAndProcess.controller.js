@@ -92,6 +92,10 @@ export const uploadPdfAndProcess = asyncHandler(async (req, res) => {
     extractedText,
   });
 
+
+  req.user.pdfUploadsThisMonth += 1;
+  await req.user.save();
+
   return res.status(200).json(
     new ApiResponse(
       200,
