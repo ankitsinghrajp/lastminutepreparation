@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { Sparkles, Loader2, Copy, Trash2, ImageIcon } from "lucide-react";
+import { Sparkles, Loader2, Copy, Trash2, ImageIcon, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useAsyncMutation } from "@/hooks/hook";
 import { useSummarizerMutation } from "@/redux/api/api";
@@ -79,6 +79,11 @@ export default function AISummarizer() {
 
         {/* Header */}
         <div className="text-center mb-6 sm:mb-8 space-y-3 sm:space-y-4">
+             <div className="flex items-center justify-center gap-3 mb-3 sm:mb-4">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
+              <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+            </div>
+          </div>
           <h1 className="text-3xl sm:text-4xl font-bold">
             AI Topic{" "}
             <span className="bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">

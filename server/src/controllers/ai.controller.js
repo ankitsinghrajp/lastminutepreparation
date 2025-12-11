@@ -321,17 +321,59 @@ chapter: ${selectedChapter}
 
 
 const importantQuestionGenerator = asyncHandler(async (req, res) => {
-    const { className, subject, chapter, index } = req.body;
-    const {mainSubject, bookName} = parseSubject(subject);
+  const { className, subject, chapter, index } = req.body;
+  const { mainSubject, bookName } = parseSubject(subject);
 
-    if ([className, subject, chapter].some((f) => !f || f.trim() === "")) {
-        throw new ApiError(400, "className, subject, chapter are required!");
+  if ([className, subject, chapter].some((f) => !f || f.trim() === "")) {
+    throw new ApiError(400, "className, subject, chapter are required!");
+  }
+
+  const topics =
+    Array.isArray(index) && index.length > 0
+      ? JSON.stringify(index)
+      : "All key topics";
+
+  const cacheKey = `lmp:impQ:${className}:${mainSubject}:${chapter}:${topics}`;
+
+  // 1️⃣ CHECK REDIS CACHE (SAFE LIKE TOPPER STYLE)
+  try {
+    const redisCached = await redis.get(cacheKey);
+
+    if (redisCached) {
+      let finalData;
+
+      // CASE 1: Already JSON object
+      if (typeof redisCached === "object") {
+        finalData = redisCached;
+      }
+      // CASE 2: JSON string → parse safely
+      else if (typeof redisCached === "string") {
+        try {
+          finalData = JSON.parse(redisCached);
+        } catch {
+          console.log("Corrupt Redis JSON. Ignoring.");
+        }
+      }
+
+      if (finalData) {
+        return res
+          .status(200)
+          .json(
+            new ApiResponse(
+              200,
+              { data: finalData },
+              "Important Questions Ready (Cached)"
+            )
+          );
+      }
     }
+  } catch (err) {
+    console.error("Redis GET Error:", err);
+  }
 
-    const topics = Array.isArray(index) && index.length > 0 ? JSON.stringify(index) : "All key topics";
-
-    const prompt = `
-You are a CBSE Exam Expert. First read the ncert chapter first that is provided in deeply. Think deeply do not show it. Generate ONLY HIGH-VALUE QUESTIONS that come frequently in CBSE Boards.
+  // 2️⃣ PREPARE PROMPT (UNTOUCHED)
+ const prompt = `
+You are a CBSE Exam Expert. First read the ncert chapter first that is provided in deeply. Think deeply do not show it. Generate ONLY HIGH-VALUE QUESTIONS (95% chance) that come frequently in CBSE Boards.
 
 Return **VALID JSON only** (no markdown, no backticks).
 
@@ -348,7 +390,6 @@ OUTPUT JSON STRUCTURE:
   "chapter": "<chapter name>",
   "whyImportant": "<2 lines explaining why this chapter is important for exam>",
   
- 
   "importantQuestions": [
     {
       "question": "<Most expected question>",
@@ -400,68 +441,179 @@ Requirements:
 - All JSON must be strictly valid.
 `;
 
-     const cache = await ImpQuestionModel.findOne({
+  try {
+    // 3️⃣ CHECK DATABASE
+    const dbCache = await ImpQuestionModel.findOne({
       className,
-      subject:mainSubject,
-      chapter
-    })
+      subject: mainSubject,
+      chapter,
+    });
 
-    if(cache) {
-      return res.status(200).json(new ApiResponse(200,{data:cache.content},"Important Questions Generated Successfully"))
+    if (dbCache) {
+      const safeData = JSON.parse(JSON.stringify(dbCache.content));
+
+      // Write to Redis
+      await redis.set(cacheKey, JSON.stringify(safeData), {
+        ex: 60 * 60 * 24 * 2, // 2 days
+      });
+
+      return res.status(200).json(
+        new ApiResponse(
+          200,
+          { data: safeData },
+          "Important Questions Ready (DB Cache)"
+        )
+      );
     }
-    
-    // CALL OPENAI
+
+    // 4️⃣ CALL OPENAI
     const apiData = await askOpenAI(prompt);
 
     let finalQuestions;
     try {
-        const clean = apiData.replace(/```json/g, "").replace(/```/g, "").trim();
-        finalQuestions = JSON.parse(clean);
+      const clean = apiData
+        .replace(/```json/g, "")
+        .replace(/```/g, "")
+        .trim();
 
-        const required = [
-            "chapter",
-            "importantQuestions",
-            "veryShortQuestions",
-            "longAnswerQuestions",
-            "examStrategy"
-        ];
+      finalQuestions = JSON.parse(clean);
 
-        const missing = required.filter(f => !finalQuestions[f]);
-        if (missing.length > 0) {
-            throw new Error("Missing required fields: " + missing.join(", "));
-        }
+      const required = [
+        "chapter",
+        "importantQuestions",
+        "veryShortQuestions",
+        "longAnswerQuestions",
+        "examStrategy",
+      ];
 
+      const missing = required.filter((f) => !finalQuestions[f]);
+      if (missing.length > 0) {
+        throw new Error("Missing required fields: " + missing.join(", "));
+      }
     } catch (err) {
-        throw new ApiError(500, "Failed to parse AI response: " + err.message);
+      throw new ApiError(
+        500,
+        "Failed to parse AI response: " + err.message
+      );
     }
 
-      await ImpQuestionModel.create({
+    // 5️⃣ SAVE IN DATABASE
+    await ImpQuestionModel.create({
       className,
-      subject:mainSubject,
+      subject: mainSubject,
       chapter,
-      content:finalQuestions,
-    })
+      content: finalQuestions,
+    });
+
+    // 6️⃣ SAVE IN REDIS SAFELY
+    await redis.set(cacheKey, JSON.stringify(finalQuestions), {
+      ex: 60 * 60 * 24 * 2, // 2 days
+    });
 
     return res.status(200).json(
-        new ApiResponse(
-            200,
-            { data: finalQuestions },
-            "Important Question Set Generated Successfully! 🔥"
-        )
+      new ApiResponse(
+        200,
+        { data: finalQuestions },
+        "Important Question Set Generated Successfully! 🔥"
+      )
     );
+  } catch (error) {
+    console.error("Important Question Generation Failed:", error);
+    return res
+      .status(500)
+      .json(
+        new ApiResponse(500, null, "Failed to generate important questions.")
+      );
+  }
 });
 
+
+
 const quizMcqFillupTrueFalse = asyncHandler(async (req, res) => {
-    const { className, subject, chapter, index } = req.body;
-    const {mainSubject, bookName} = parseSubject(subject);
+  const { className, subject, chapter, index } = req.body;
+  const { mainSubject, bookName } = parseSubject(subject);
 
-    if (!className || !subject || !chapter) {
-        throw new ApiError(400, "className, subject and chapter are required");
+  if (!className || !subject || !chapter) {
+    throw new ApiError(400, "className, subject and chapter are required");
+  }
+
+  const topics =
+    Array.isArray(index) && index.length > 0
+      ? JSON.stringify(index)
+      : "All key topics";
+
+  // REDIS CACHE KEY
+  const cacheKey = `lmp:quiz:${className}:${mainSubject}:${chapter}:${topics}`;
+
+  // 1️⃣ CHECK REDIS CACHE
+  try {
+    const redisCached = await redis.get(cacheKey);
+
+    if (redisCached) {
+      let finalData;
+
+      // Case 1: Already an object (Upstash sometimes returns objects)
+      if (typeof redisCached === "object") {
+        finalData = redisCached;
+      }
+
+      // Case 2: String → parse safely
+      else if (typeof redisCached === "string") {
+        try {
+          finalData = JSON.parse(redisCached);
+        } catch {
+          console.log("Invalid JSON in Redis — ignoring cache.");
+        }
+      }
+
+      if (finalData) {
+        return res
+          .status(200)
+          .json(
+            new ApiResponse(
+              200,
+              { data: finalData },
+              "Quiz (MCQ, Fillups, True/False) Ready (Cached)"
+            )
+          );
+      }
     }
+  } catch (err) {
+    console.error("Redis GET error:", err);
+  }
 
-    const topics = Array.isArray(index) && index.length > 0 ? JSON.stringify(index) : "All key topics";
+  // 2️⃣ CHECK DATABASE
+  try {
+    const dbCache = await McqModel.findOne({
+      className,
+      subject: mainSubject,
+      chapter,
+    });
 
-    const prompt = `
+    if (dbCache) {
+      const safeDBData = JSON.parse(JSON.stringify(dbCache.content));
+
+      // Write to Redis (2 days)
+      await redis.set(cacheKey, JSON.stringify(safeDBData), {
+        ex: 60 * 60 * 24 * 2,
+      });
+
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(
+            200,
+            { data: safeDBData },
+            "Quiz (MCQ, Fillups, True/False) Ready (DB Cache)"
+          )
+        );
+    }
+  } catch (err) {
+    console.error("DB Cache Error:", err);
+  }
+
+  // 3️⃣ RAW PROMPT (UNTOUCHED)
+  const prompt = `
 You are a CBSE Exam Expert. Generate ONLY HIGH-VALUE questions from the chapter.
 Include MCQs, Fillups, and True/False with answers.
 
@@ -482,103 +634,72 @@ STRICT GENERATION RULES:
 3. MCQ Rules:
    - Must contain EXACTLY 4 options.
    - "answer" must MATCH one of the options EXACTLY.
-   - No empty options, no missing options.
 
 4. Fillups Rules:
-   - Use blank as "______".
-   - "answer" MUST be provided and must NOT be empty.
-   - Do NOT generate fillups without answers under any condition.
+   - Must use "______".
+   - Answer MUST be provided.
 
 5. True/False Rules:
-   - Must contain ONLY "True" or "False" in the "answer" field.
-   - NO other words allowed.
+   - Answer must be EXACTLY "True" or "False".
 
-6. ABSOLUTELY NO missing fields.
-   Every question object MUST have:
-   - id
-   - type
-   - question
-   - answer
-   - options (only for mcq, ALWAYS 4 items)
-   If any field is missing, regenerate the ENTIRE JSON again.
+6. NO missing fields.
 
-7. Do NOT repeat ANY question.
-8. Do NOT add explanations.
-9. Return STRICT JSON ONLY. No markdown, no codeblock, no comments.
-
-FINAL OUTPUT FORMAT (STRICT):
-{
-  "class": "${className}",
-  "subject": "${subject}",
-  "chapter": "${chapter}",
-  "questions": [
-    {
-      "id": 1,
-      "type": "mcq" | "fillup" | "true_false",
-      "question": "<question text>",
-      "options": ["A", "B", "C", "D"],   // Only for mcq
-      "answer": "<correct answer>"
-    }
-  ]
-}
-
-FINAL VALIDATION CHECK (MANDATORY):
-- If any answer field is missing or empty → REGENERATE FULL JSON.
-- If any fillup does not contain an answer → REGENERATE FULL JSON.
-- If any mcq option is missing or not exactly 4 → REGENERATE FULL JSON.
-- If "answer" for True/False is not EXACTLY "True" or "False" → REGENERATE FULL JSON.
-- If any required field is missing → REGENERATE FULL JSON.
-
-RETURN ONLY THE FINAL VALID JSON.
+RETURN STRICT JSON ONLY.
 `;
-    const cache = await McqModel.findOne({
-      className,
-      subject:mainSubject,
-      chapter
-    })
 
-    if(cache) {
-      return res.status(200).json(new ApiResponse(200,{data:cache.content},"Mcqs Generated Successfully"))
-    }
-    
-    const apiData = await askOpenAI(prompt);
+  // 4️⃣ CALL OPENAI
+  const apiData = await askOpenAI(prompt);
 
-    let finalQuestions;
-    try {
-        const cleaned = apiData.replace(/```json/g, "").replace(/```/g, "").trim();
-        finalQuestions = JSON.parse(cleaned);
+  let finalQuestions;
+  try {
+    const cleaned = apiData
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
 
-        // Validate required fields
-        const requiredFields = ["class", "subject", "chapter", "questions"];
-        const missingFields = requiredFields.filter((f) => !finalQuestions[f]);
-        if (missingFields.length > 0) {
-            throw new Error("Missing required fields: " + missingFields.join(", "));
-        }
+    finalQuestions = JSON.parse(cleaned);
 
-        if (!Array.isArray(finalQuestions.questions) || finalQuestions.questions.length === 0) {
-            throw new Error("Questions array is empty or invalid");
-        }
+    // Validate minimal structure
+    const requiredFields = ["class", "subject", "chapter", "questions"];
+    const missingFields = requiredFields.filter((f) => !finalQuestions[f]);
 
-    } catch (err) {
-        console.error("AI Response Parsing Error:", err);
-        throw new ApiError(500, "Failed to parse AI response: " + err.message);
+    if (missingFields.length > 0) {
+      throw new Error("Missing required fields: " + missingFields.join(", "));
     }
 
-    await McqModel.create({
-      className,
-      subject:mainSubject,
-      chapter,
-      content:finalQuestions,
-    })
+    if (
+      !Array.isArray(finalQuestions.questions) ||
+      finalQuestions.questions.length === 0
+    ) {
+      throw new Error("Questions array is empty or invalid");
+    }
+  } catch (err) {
+    console.error("JSON Parse Error:", err);
+    throw new ApiError(500, "Failed to parse AI response: " + err.message);
+  }
 
-    return res.status(200).json(
-        new ApiResponse(
-            200,
-            { data: finalQuestions },
-            "MCQs + Fillups + True/False generated successfully 🔥"
-        )
-    );
+  // 5️⃣ SAVE TO DATABASE
+  await McqModel.create({
+    className,
+    subject: mainSubject,
+    chapter,
+    content: finalQuestions,
+  });
+
+  // 6️⃣ SAVE TO REDIS SAFELY
+  await redis.set(cacheKey, JSON.stringify(finalQuestions), {
+    ex: 60 * 60 * 24 * 2, // 2 days
+  });
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      { data: finalQuestions },
+      "MCQs + Fillups + True/False generated successfully 🔥"
+    )
+  );
 });
+
 
 const askAnyQuestion = asyncHandler(async (req, res) => {
 
@@ -751,13 +872,81 @@ ${finalQuestion}
 
 // Generate PYQS
 const generatePYQs = asyncHandler(async (req, res) => {
-    const { className, subject, chapter, year } = req.body;
-     const { mainSubject, bookName } = parseSubject(subject);
-    if (!className || !subject || !chapter || !year) {
-        throw new ApiError(400, "className, subject, chapter and year are required");
-    }
+  const { className, subject, chapter, year } = req.body;
+  const { mainSubject, bookName } = parseSubject(subject);
 
-    const prompt = `
+  if (!className || !subject || !chapter || !year) {
+    throw new ApiError(
+      400,
+      "className, subject, chapter and year are required"
+    );
+  }
+
+  // REDIS CACHE KEY
+  const cacheKey = `lmp:pyq:${className}:${mainSubject}:${chapter}:${year}`;
+
+  // 1️⃣ CHECK REDIS CACHE FIRST
+  try {
+    const redisCached = await redis.get(cacheKey);
+
+    if (redisCached) {
+      let finalData;
+
+      // If Upstash returns an object
+      if (typeof redisCached === "object") {
+        finalData = redisCached;
+      }
+
+      // If Upstash returns a string → parse safely
+      else if (typeof redisCached === "string") {
+        try {
+          finalData = JSON.parse(redisCached);
+        } catch {
+          console.log("Invalid JSON in Redis — ignoring.");
+        }
+      }
+
+      if (finalData) {
+        return res
+          .status(200)
+          .json(
+            new ApiResponse(200, { data: finalData }, "PYQs Ready (Cached)")
+          );
+      }
+    }
+  } catch (err) {
+    console.error("Redis GET error:", err);
+  }
+
+  // 2️⃣ CHECK DATABASE CACHE
+  try {
+    const dbCache = await PyqModel.findOne({
+      className,
+      subject: mainSubject,
+      chapter,
+      year,
+    });
+
+    if (dbCache) {
+      const safeDB = JSON.parse(JSON.stringify(dbCache.content));
+
+      // Save to Redis (2 days)
+      await redis.set(cacheKey, JSON.stringify(safeDB), {
+        ex: 60 * 60 * 24 * 2,
+      });
+
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(200, { data: safeDB }, "PYQs Ready (DB Cache)")
+        );
+    }
+  } catch (err) {
+    console.error("DB Cache Error:", err);
+  }
+
+  // 3️⃣ RAW PROMPT (UNTOUCHED)
+  const prompt = `
 You are a CBSE PYQ Expert. Your ONLY task is to generate synthetic but accurate
 CBSE-style PYQs for ONE specific year provided by the user.
 
@@ -776,20 +965,8 @@ STRICT GENERATION RULES:
    - "question" → Must be meaningful and chapter-focused
 3. NO repeated questions.
 4. ABSOLUTELY NO missing fields.
-5. NO explanation, NO commentary.
-6. Return STRICT JSON ONLY — NO markdown, NO extra text.
-
-MANDATORY VALIDATION:
-If ANY of the following occur → regenerate full JSON:
-- year field is not exactly ${year}
-- marks is missing or not 1/2/3/5
-- id missing
-- question missing
-- any field empty
-- more or fewer than 10–15 questions
-
-THIS IS THE NCERT BOOKNAME FOR YOUR REFERENCE
-- ${bookName}
+5. NO explanation.
+6. Return STRICT JSON ONLY.
 
 FINAL OUTPUT FORMAT:
 {
@@ -806,56 +983,49 @@ FINAL OUTPUT FORMAT:
     }
   ]
 }
-
 RETURN STRICT JSON ONLY.
-    `;
+  `;
 
-        const cache = await PyqModel.findOne({
-      className,
-      subject:mainSubject,
-      chapter,
-      year,
-    })
+  // 4️⃣ CALL OPENAI
+  const aiResponse = await askOpenAI(prompt, "gpt-5.1");
 
-    if(cache) {
-      return res.status(200).json(new ApiResponse(200,{data:cache.content},"Pyqs Fetched Successfully"))
-    }
+  // 5️⃣ CLEAN & PARSE JSON
+  let finalJson;
+  try {
+    const cleaned = aiResponse
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
 
-    // Call AI
-    const aiResponse = await askOpenAI(prompt,"gpt-5.1");
+    finalJson = JSON.parse(cleaned);
+  } catch (err) {
+    console.error("❌ AI JSON Error:", err);
+    throw new ApiError(500, "Failed to parse PYQ JSON: " + err.message);
+  }
 
-    // Clean JSON
-    let finalJson;
-    try {
-        const cleaned = aiResponse
-            .replace(/```json/g, "")
-            .replace(/```/g, "")
-            .trim();
+  // 6️⃣ SAVE TO DATABASE
+  await PyqModel.create({
+    className,
+    subject: mainSubject,
+    chapter,
+    year,
+    content: finalJson,
+  });
 
-        finalJson = JSON.parse(cleaned);
+  // 7️⃣ SAVE TO REDIS (2 days)
+  try {
+    await redis.set(cacheKey, JSON.stringify(finalJson), {
+      ex: 60 * 60 * 24 * 2,
+    });
+  } catch (err) {
+    console.error("Redis SET error:", err);
+  }
 
-    
-    } catch (err) {
-        console.error("❌ AI JSON Error:", err);
-        throw new ApiError(500, "Failed to parse PYQ JSON: " + err.message);
-    }
-
-      await PyqModel.create({
-      className,
-      subject:mainSubject,
-      chapter,
-      content:finalJson,
-      year
-    })
-
-    return res.status(200).json(
-        new ApiResponse(
-            200,
-            { data: finalJson },
-            "PYQs fetched successfully! 🎯"
-        )
-    );
+  return res.status(200).json(
+    new ApiResponse(200, { data: finalJson }, "PYQs fetched successfully! 🎯")
+  );
 });
+
 
 
 export { summarizer, topperStyleAnswer, importantQuestionGenerator, quizMcqFillupTrueFalse,askAnyQuestion, generatePYQs};

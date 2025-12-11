@@ -40,8 +40,8 @@ const createMongoLimiter = (maxRequests) =>
 
 // ✅ Plan-based limiters
 export const freeLimiter = createMongoLimiter(40);   // 40 / month
-export const basicLimiter = createMongoLimiter(500); // 500 / month
-export const proLimiter = createMongoLimiter(800);   // 800 / month
+export const basicLimiter = createMongoLimiter(700); // 700 / month
+export const proLimiter = createMongoLimiter(1000);   // 1000 / month
 
 // ✅ Login limiter
 export const loginLimiter = rateLimit({
