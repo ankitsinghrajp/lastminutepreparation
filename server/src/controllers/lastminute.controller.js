@@ -63,7 +63,6 @@ try {
     }
 
     if (finalData) {
-      console.log("This is the final Data: ",finalData);
       return res
         .status(200)
         .json(
@@ -78,7 +77,6 @@ try {
 
   let prompt = "";
 
-  // 🔥 YOUR PROMPT — 0% CHANGES, EXACTLY AS PROVIDED
   if (category === "language") {
     prompt = `
 You are an API. Think silently but DO NOT show your internal thinking.
@@ -158,7 +156,7 @@ Stream: ${category}
       await redis.set(
         cacheKey,
         JSON.stringify(safeDBContent),
-        { ex: 60 * 60 * 24 } // 24 hrs
+        { ex: 60 * 60 * 24 * 2 }  // 48 hours
       );
 
       return res
@@ -185,7 +183,7 @@ Stream: ${category}
     await redis.set(
       cacheKey,
       JSON.stringify(safeParsed),
-      { ex: 60 * 60 * 24 }
+      { ex: 60 * 60 * 24 * 2}
     );
 
     return res
@@ -204,13 +202,40 @@ Stream: ${category}
 });
 
 
-
-
 const LastMinutePanelImportantTopics = asyncHandler(async (req, res) => {
   const { className, subject, chapter } = req.body;
   const { mainSubject, bookName } = parseSubject(subject);
   const category = detectCategory(mainSubject);
 
+  // Redis Cache Key
+  const cacheKey = `lmp:imptopics:${className}:${mainSubject}:${chapter}`;
+
+  // 1️⃣ CHECK REDIS CACHE FIRST
+  try {
+    const redisCached = await redis.get(cacheKey);
+
+    if (redisCached) {
+      // Upstash REST returns objects automatically
+      if (typeof redisCached === "object") {
+        return res
+          .status(200)
+          .json(new ApiResponse(200, redisCached, "Important Topics Ready (Cached)"));
+      }
+
+      // fallback if string
+      if (typeof redisCached === "string") {
+       return res
+          .status(200)
+          .json(
+            new ApiResponse(200, JSON.parse(redisCached), "Important Topics Ready (Cached)")
+          );
+      }
+    }
+  } catch (err) {
+    console.error("Redis GET error:", err);
+  }
+
+  // 2️⃣ PROMPT (UNCHANGED)
   const prompt = `
 You are an API that returns ONLY valid JSON. No extra text, no markdown, no explanation outside JSON.
 
@@ -260,19 +285,31 @@ CRITICAL:
 `;
 
   try {
-
-    const cache = await ImpTopicsModel.findOne({
+    // 3️⃣ CHECK DB CACHE
+    const dbCache = await ImpTopicsModel.findOne({
       className,
-      subject:mainSubject,
-      chapter
+      subject: mainSubject,
+      chapter,
     });
 
-    if(cache){
-      return res.status(200).json(new ApiResponse(200,cache.content,"Important Topics Ready!"))
+    if (dbCache) {
+      const safeDBContent = JSON.parse(JSON.stringify(dbCache.content));
+
+      // Save to Redis for future faster response
+      await redis.set(cacheKey, JSON.stringify(safeDBContent), {
+        ex: 60 * 60 * 24 * 2, 
+      });
+
+      return res
+        .status(200)
+        .json(new ApiResponse(200, safeDBContent, "Important Topics Ready (DB Cache)"));
     }
+
+    // 4️⃣ GENERATE VIA OPENAI
     let output = await askOpenAI(prompt);
     const parsed = extractJSON(output);
 
+    // validate
     if (!parsed.topics || !Array.isArray(parsed.topics)) {
       throw new Error("Invalid topics format");
     }
@@ -283,27 +320,33 @@ CRITICAL:
       }
     });
 
+    const safeParsed = JSON.parse(JSON.stringify(parsed));
+
+    // 5️⃣ SAVE TO DB
     await ImpTopicsModel.create({
       className,
-      subject:mainSubject,
+      subject: mainSubject,
       chapter,
-      content:parsed
-    })
+      content: safeParsed,
+    });
+
+    // 6️⃣ SAVE TO REDIS
+    await redis.set(cacheKey, JSON.stringify(safeParsed), {
+      ex: 60 * 60 * 24 * 2,
+    });
 
     return res
       .status(200)
-      .json(new ApiResponse(200, parsed, "Important Topics Ready"));
+      .json(new ApiResponse(200, safeParsed, "Important Topics Ready"));
   } catch (error) {
     console.error("Topics generation failed:", error);
-    return res
-      .status(500)
-      .json(
-        new ApiResponse(
-          500,
-          null,
-          "Failed to generate topics. Please try again."
-        )
-      );
+    return res.status(500).json(
+      new ApiResponse(
+        500,
+        null,
+        "Failed to generate topics. Please try again."
+      )
+    );
   }
 });
 
@@ -312,6 +355,35 @@ const LastMinutePanelPredictedQuestions = asyncHandler(async (req, res) => {
   const { mainSubject, bookName } = parseSubject(subject);
   const category = detectCategory(mainSubject);
 
+  // Redis Cache Key
+  const cacheKey = `lmp:predicted:${className}:${mainSubject}:${chapter}`;
+
+  // 1️⃣ CHECK REDIS CACHE
+  try {
+    const redisCached = await redis.get(cacheKey);
+
+    if (redisCached) {
+      // Upstash REST usually returns parsed object
+      if (typeof redisCached === "object") {
+      
+        return res
+          .status(200)
+          .json(new ApiResponse(200, redisCached, "Predicted Questions Ready (Cached)"));
+      }
+
+      // fallback: string → parse
+      if (typeof redisCached === "string") {
+        const parsed = JSON.parse(redisCached);
+        return res
+          .status(200)
+          .json(new ApiResponse(200, parsed, "Predicted Questions Ready (Cached)"));
+      }
+    }
+  } catch (err) {
+    console.error("Redis GET error:", err);
+  }
+
+  // ✨ PROMPT — UNTOUCHED & EXACT
   const prompt = `
 You are an API that returns ONLY valid JSON. No extra text, no markdown, no explanation outside JSON.
 
@@ -356,55 +428,101 @@ CRITICAL:
 `;
 
   try {
-
-    const cache = await PredictedQuestionModel.findOne({
+    // 2️⃣ CHECK DATABASE CACHE
+    const dbCache = await PredictedQuestionModel.findOne({
       className,
-      subject:mainSubject,
+      subject: mainSubject,
       chapter,
-    })
+    });
 
-    if(cache) {
-      return res.status(200).json(new ApiResponse(200,cache.content,"Predicted Questions Ready"))
+    if (dbCache) {
+      const safeDBContent = JSON.parse(JSON.stringify(dbCache.content));
+
+      // warm redis
+      await redis.set(cacheKey, JSON.stringify(safeDBContent), {
+        ex: 60 * 60 * 24 * 2, 
+      });
+
+      return res
+        .status(200)
+        .json(new ApiResponse(200, safeDBContent, "Predicted Questions Ready (DB Cache)"));
     }
 
+    // 3️⃣ GENERATE USING AI
     let output = await askOpenAI(prompt);
     const parsed = extractJSON(output);
 
+    // validation
     parsed.questions.forEach((q, idx) => {
       if (!q.question) {
         throw new Error(`Invalid question structure at index ${idx}`);
       }
     });
 
-      await PredictedQuestionModel.create({
+    const safeParsed = JSON.parse(JSON.stringify(parsed));
+
+    // 4️⃣ SAVE TO DB
+    await PredictedQuestionModel.create({
       className,
-      subject:mainSubject,
+      subject: mainSubject,
       chapter,
-      content:parsed
-    })
+      content: safeParsed,
+    });
+
+    // 5️⃣ SAVE TO REDIS
+    await redis.set(cacheKey, JSON.stringify(safeParsed), {
+      ex: 60 * 60 * 24 * 2,
+    });
 
     return res
       .status(200)
-      .json(new ApiResponse(200, parsed, "Predicted Questions Ready"));
+      .json(new ApiResponse(200, safeParsed, "Predicted Questions Ready"));
   } catch (error) {
     console.error("Predicted questions generation failed:", error);
-    return res
-      .status(500)
-      .json(
-        new ApiResponse(
-          500,
-          null,
-          "Failed to generate predicted questions. Please try again."
-        )
-      );
+    return res.status(500).json(
+      new ApiResponse(
+        500,
+        null,
+        "Failed to generate predicted questions. Please try again."
+      )
+    );
   }
 });
+
 
 const LastMinutePanelMCQs = asyncHandler(async (req, res) => {
   const { className, subject, chapter } = req.body;
   const { mainSubject, bookName } = parseSubject(subject);
   const category = detectCategory(mainSubject);
 
+  // Redis Cache Key
+  const cacheKey = `lmp:mcqs:${className}:${mainSubject}:${chapter}`;
+
+  // 1️⃣ CHECK REDIS CACHE FIRST
+  try {
+    const redisCached = await redis.get(cacheKey);
+
+    if (redisCached) {
+      // Upstash REST returns JSON object directly
+      if (typeof redisCached === "object") {
+        return res
+          .status(200)
+          .json(new ApiResponse(200, redisCached, "Important MCQs Ready (Cached)"));
+      }
+
+      // fallback if string
+      if (typeof redisCached === "string") {
+        const parsed = JSON.parse(redisCached);
+        return res
+          .status(200)
+          .json(new ApiResponse(200, parsed, "Important MCQs Ready (Cached)"));
+      }
+    }
+  } catch (err) {
+    console.error("Redis GET error:", err);
+  }
+
+  //  PROMPT (UNCHANGED)
   const prompt = `
 You are an API. Output ONLY valid JSON.
 
@@ -431,20 +549,31 @@ JSON:
 `;
 
   try {
-
-    const cache = await LastMinuteMCQModel.findOne({
+    // 2️⃣ CHECK DATABASE CACHE
+    const dbCache = await LastMinuteMCQModel.findOne({
       className,
-      subject:mainSubject,
+      subject: mainSubject,
       chapter,
-    })
+    });
 
-    if(cache) {
-      return res.status(200).json(new ApiResponse(200,cache.content,"Important MCQs Ready"))
+    if (dbCache) {
+      const safeDBContent = JSON.parse(JSON.stringify(dbCache.content));
+
+      // save to redis
+      await redis.set(cacheKey, JSON.stringify(safeDBContent), {
+        ex: 60 * 60 * 24 * 2,
+      });
+
+      return res
+        .status(200)
+        .json(new ApiResponse(200, safeDBContent, "Important MCQs Ready (DB Cache)"));
     }
 
+    // 3️⃣ GENERATE USING OPENAI
     let output = await askOpenAI(prompt);
     const parsed = extractJSON(output);
 
+    // validation
     parsed.mcqs.forEach((mcq, idx) => {
       if (!mcq.question || !mcq.correct || !mcq.options)
         throw new Error(`Invalid MCQ structure at ${idx}`);
@@ -456,14 +585,24 @@ JSON:
         throw new Error(`Correct answer mismatch in MCQ ${idx}`);
     });
 
-     await LastMinuteMCQModel.create({
-      className,
-      subject:mainSubject,
-      chapter,
-      content:parsed
-    })
+    const safeParsed = JSON.parse(JSON.stringify(parsed));
 
-    return res.status(200).json(new ApiResponse(200, parsed, "MCQs Ready"));
+    // 4️⃣ SAVE TO DB
+    await LastMinuteMCQModel.create({
+      className,
+      subject: mainSubject,
+      chapter,
+      content: safeParsed,
+    });
+
+    // 5️⃣ SAVE TO REDIS
+    await redis.set(cacheKey, JSON.stringify(safeParsed), {
+      ex: 60 * 60 * 24 * 2,
+    });
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, safeParsed, "MCQs Ready"));
   } catch (error) {
     console.error("MCQs generation failed:", error);
     return res
@@ -472,11 +611,40 @@ JSON:
   }
 });
 
+
 const LastMinutePanelMemoryBooster = asyncHandler(async (req, res) => {
   const { className, subject, chapter } = req.body;
   const { mainSubject, bookName } = parseSubject(subject);
   const category = detectCategory(mainSubject);
 
+  // Redis Cache Key
+  const cacheKey = `lmp:booster:${className}:${mainSubject}:${chapter}`;
+
+  // 1️⃣ CHECK REDIS CACHE
+  try {
+    const redisCached = await redis.get(cacheKey);
+
+    if (redisCached) {
+      // Upstash REST returns object directly
+      if (typeof redisCached === "object") {
+        return res
+          .status(200)
+          .json(new ApiResponse(200, redisCached, "Memory Booster Ready (Cached)"));
+      }
+
+      // fallback if returned string
+      if (typeof redisCached === "string") {
+        const parsed = JSON.parse(redisCached);
+        return res
+          .status(200)
+          .json(new ApiResponse(200, parsed, "Memory Booster Ready (Cached)"));
+      }
+    }
+  } catch (err) {
+    console.error("Redis GET error:", err);
+  }
+
+  // PROMPT (UNCHANGED, EXACT)
   const prompt = `
 You are an API. Output ONLY valid JSON.
 
@@ -516,29 +684,53 @@ JSON:
 `;
 
   try {
-
-    const cache = await Booster.findOne({
+    // 2️⃣ CHECK DATABASE CACHE
+    const dbCache = await Booster.findOne({
       className,
-      subject:mainSubject,
+      subject: mainSubject,
       chapter,
-    })
+    });
 
-    if(cache) {
-      return res.status(200).json(new ApiResponse(200,cache.content,"Memory Booster Ready"))
+    if (dbCache) {
+      const safeDBContent = JSON.parse(JSON.stringify(dbCache.content));
+
+      // Warm Redis
+      await redis.set(cacheKey, JSON.stringify(safeDBContent), {
+        ex: 60 * 60 * 24 * 2,
+      });
+
+      return res
+        .status(200)
+        .json(new ApiResponse(200, safeDBContent, "Memory Booster Ready (DB Cache)"));
     }
 
+    // 3️⃣ GENERATE USING OPENAI
     let output = await askOpenAI(prompt);
     const parsed = extractJSON(output);
 
+    // Validation (optional but safe)
+    if (!parsed.boosters || !Array.isArray(parsed.boosters) || parsed.boosters.length !== 3) {
+      throw new Error("Invalid booster format");
+    }
+
+    const safeParsed = JSON.parse(JSON.stringify(parsed));
+
+    // 4️⃣ SAVE TO DB
     await Booster.create({
       className,
-      subject:mainSubject,
+      subject: mainSubject,
       chapter,
-      content:parsed
-    })
+      content: safeParsed,
+    });
+
+    // 5️⃣ SAVE TO REDIS
+    await redis.set(cacheKey, JSON.stringify(safeParsed), {
+      ex: 60 * 60 * 24 * 2,
+    });
+
     return res
       .status(200)
-      .json(new ApiResponse(200, parsed, "Memory Booster Ready"));
+      .json(new ApiResponse(200, safeParsed, "Memory Booster Ready"));
   } catch (error) {
     console.error("Memory booster generation failed:", error);
     return res
@@ -547,11 +739,40 @@ JSON:
   }
 });
 
+
 const LastMinutePanelAICoach = asyncHandler(async (req, res) => {
   const { className, subject, chapter } = req.body;
   const { mainSubject, bookName } = parseSubject(subject);
   const category = detectCategory(mainSubject);
 
+  // Redis Cache Key
+  const cacheKey = `lmp:aicoach:${className}:${mainSubject}:${chapter}`;
+
+  // 1️⃣ CHECK REDIS CACHE FIRST
+  try {
+    const redisCached = await redis.get(cacheKey);
+
+    if (redisCached) {
+      // Upstash returns object directly
+      if (typeof redisCached === "object") {
+        return res
+          .status(200)
+          .json(new ApiResponse(200, redisCached, "AI Coach Ready (Cached)"));
+      }
+
+      // If string fallback → JSON parse
+      if (typeof redisCached === "string") {
+        const parsed = JSON.parse(redisCached);
+        return res
+          .status(200)
+          .json(new ApiResponse(200, parsed, "AI Coach Ready (Cached)"));
+      }
+    }
+  } catch (err) {
+    console.error("Redis GET error:", err);
+  }
+
+  // PROMPT — EXACT, UNTOUCHED
   const prompt = `
 You are an API. Output ONLY valid JSON.
 
@@ -575,35 +796,61 @@ JSON:
 `;
 
   try {
-    const cache = await AiCoach.findOne({
+    // 2️⃣ CHECK DATABASE CACHE
+    const dbCache = await AiCoach.findOne({
       className,
-      subject:mainSubject,
+      subject: mainSubject,
       chapter,
-    })
+    });
 
-    if(cache) {
-      return res.status(200).json(new ApiResponse(200,cache.content,"Ai Coach Ready"))
+    if (dbCache) {
+      const safeDBContent = JSON.parse(JSON.stringify(dbCache.content));
+
+      // Cache into Redis for instant future response
+      await redis.set(cacheKey, JSON.stringify(safeDBContent), {
+        ex: 60 * 60 * 24 * 2,
+      });
+
+      return res
+        .status(200)
+        .json(new ApiResponse(200, safeDBContent, "AI Coach Ready (DB Cache)"));
     }
 
+    // 3️⃣ GENERATE VIA AI
     let output = await askOpenAI(prompt);
     const parsed = extractJSON(output);
 
+    // Sort steps by priority
     parsed.steps.sort((a, b) => a.priority - b.priority);
-    
+
+    const safeParsed = JSON.parse(JSON.stringify(parsed));
+
+    // 4️⃣ SAVE IN DATABASE
     await AiCoach.create({
       className,
-      subject:mainSubject,
+      subject: mainSubject,
       chapter,
-      content:parsed
-    })
-    return res.status(200).json(new ApiResponse(200, parsed, "AI Coach Ready"));
+      content: safeParsed,
+    });
+
+    // 5️⃣ SAVE IN REDIS
+    await redis.set(cacheKey, JSON.stringify(safeParsed), {
+      ex: 60 * 60 * 24 * 2,
+    });
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, safeParsed, "AI Coach Ready"));
   } catch (error) {
     console.error("AI coach generation failed:", error);
     return res
       .status(500)
-      .json(new ApiResponse(500, null, "Failed to generate coaching steps."));
+      .json(
+        new ApiResponse(500, null, "Failed to generate coaching steps.")
+      );
   }
 });
+
 
 export {
   LastMinutePanelSummary,

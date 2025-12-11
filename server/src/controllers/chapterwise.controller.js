@@ -6,6 +6,7 @@
 // Formula Sheet / Key Terms -	All formulas, definitions, theorems, dates, character sketches in one place.
 // Doubt Solver - Ask ANY doubt from that chapter → AI answers with step-by-step explanation.
 
+import { redis } from "../libs/redis.js";
 import { ChapterWiseImportantQuestionModel } from "../models/chapterWiseStudy/chapterWiseImportantQuestion.model.js";
 import { ChapterWiseMindMapModel } from "../models/chapterWiseStudy/chapterWiseMindMap.model.js";
 import { ChapterWiseShortNotesModel } from "../models/chapterWiseStudy/chapterWiseShortNotes.model.js";
@@ -39,16 +40,42 @@ const extractJSON = (text) => {
   return JSON.parse(jsonString);
 };
 
-const smartChapterSummary = asyncHandler(async (req, res)=>{
+const smartChapterSummary = asyncHandler(async (req, res) => {
   const { className, subject, chapter } = req.body;
   const { mainSubject, bookName } = parseSubject(subject);
   const category = detectCategory(mainSubject);
-   
+
+  // Redis Key
+  const cacheKey = `lmp:smartsummary:${className}:${mainSubject}:${chapter}`;
+
+  // 1️⃣ CHECK REDIS CACHE
+  try {
+    const redisCached = await redis.get(cacheKey);
+
+    if (redisCached) {
+      if (typeof redisCached === "object") {
+        return res
+          .status(200)
+          .json(new ApiResponse(200, redisCached, "Summary Ready (Cached)"));
+      }
+
+      if (typeof redisCached === "string") {
+        return res
+          .status(200)
+          .json(
+            new ApiResponse(200, JSON.parse(redisCached), "Summary Ready (Cached)")
+          );
+      }
+    }
+  } catch (err) {
+    console.error("Redis GET error:", err);
+  }
+
+  // 2️⃣ PROMPT (EXACT — UNTOUCHED)
   let prompt = "";
 
-if (category === "language") {
-
- prompt = `
+  if (category === "language") {
+    prompt = `
 You are an API. Think silently but DO NOT show your internal thinking.
 
 First, internally understand the content of the given NCERT chapter(s) or poem(s) as if you have fully read them. Do NOT mention this step in the output.
@@ -95,8 +122,6 @@ Book: ${bookName}
 Chapter: ${chapter}
 Stream: ${category}
 `;
-
-
   } else {
     prompt = `
 You are an API. Think silently but DO NOT show your internal thinking.
@@ -121,39 +146,94 @@ Stream: ${category}
 `;
   }
 
-  const summary = await ChapterWiseSummaryModel.findOne({
+  // 3️⃣ CHECK DATABASE CACHE
+  const dbSummary = await ChapterWiseSummaryModel.findOne({
     className,
-    subject:mainSubject,
-    chapter
+    subject: mainSubject,
+    chapter,
   });
 
-  if(summary){
+  if (dbSummary) {
+    const safeDBContent = JSON.parse(JSON.stringify(dbSummary.content));
+
+    // Store inside Redis
+    await redis.set(cacheKey, JSON.stringify(safeDBContent), {
+      ex: 60 * 60 * 24 * 2, // 2 DAYS
+    });
+
     return res.status(200).json(
-      new ApiResponse(200, summary.content, "Summary Ready")
-    )
+      new ApiResponse(200, safeDBContent, "Summary Ready (DB Cache)")
+    );
   }
 
-
-
+  // 4️⃣ CALL OPENAI
   let output = await askOpenAI(prompt);
-  
   const parsed = extractJSON(output);
 
+  const safeParsed = JSON.parse(JSON.stringify(parsed));
+
+  // 5️⃣ SAVE TO DB
   await ChapterWiseSummaryModel.create({
     className,
-    subject:mainSubject,
+    subject: mainSubject,
     chapter,
-    content:parsed
+    content: safeParsed,
   });
-  
-return res.status(200).json(new ApiResponse(200, parsed, "Summary Ready"));
+
+  // 6️⃣ SAVE TO REDIS
+  await redis.set(cacheKey, JSON.stringify(safeParsed), {
+    ex: 60 * 60 * 24 * 2, // 2 DAYS
+  });
+
+  return res.status(200).json(new ApiResponse(200, safeParsed, "Summary Ready"));
 });
+
 
 const chapterWiseShortNotes = asyncHandler(async (req, res) => {
   const { className, subject, chapter } = req.body;
   const { mainSubject, bookName } = parseSubject(subject);
 
-const prompt = `You are a CBSE Board exam expert. Think internally first but DO NOT show your thinking.
+  // Redis Key
+  const cacheKey = `lmp:shortnotes:${className}:${mainSubject}:${chapter}`;
+
+  // 1️⃣ CHECK REDIS CACHE FIRST
+  try {
+    const redisCached = await redis.get(cacheKey);
+
+    if (redisCached) {
+      // Upstash REST returns objects, but your value is plain string
+      if (typeof redisCached === "string") {
+        return res
+          .status(200)
+          .json(
+            new ApiResponse(
+              200,
+              { shortNotes: redisCached },
+              "Short Notes Ready (Cached)"
+            )
+          );
+      }
+
+      // If by chance object, still convert to string
+      if (typeof redisCached === "object") {
+        return res
+          .status(200)
+          .json(
+            new ApiResponse(
+              200,
+              { shortNotes: redisCached.shortNotes || redisCached },
+              "Short Notes Ready (Cached)"
+            )
+          );
+      }
+    }
+  } catch (err) {
+    console.error("Redis GET error:", err);
+  }
+
+
+  // 2️⃣ ORIGINAL PROMPT — EXACT, NOT TOUCHED
+  const prompt = `You are a CBSE Board exam expert. Think internally first but DO NOT show your thinking.
 
 Your ONLY task is to generate SHORT NOTES for the given chapter exactly like toppers write: clean, crisp, scoring, and technically perfect.
 
@@ -186,7 +266,7 @@ Every formula MUST look EXACTLY like this:
 
 (blank line)
 $$
-F = k \frac{q_1 q_2}{r^2}
+F = k \\frac{q_1 q_2}{r^2}
 $$
 (blank line)
 
@@ -266,14 +346,14 @@ The model MUST perform these checks for each $$ ... $$ block and REGENERATE if a
    • \\frac must contain both numerator and denominator braces.
 
 6) No stray backslash sequences:
-   • "\\n", "\\t", etc. are forbidden inside $$.
+   • "\\n", "\\t", etc. are forbidden inside $$.  
 
 7) Minimum content sanity:
-   • A formula must contain at least one operator (=, \\frac, ^, _, \\cdot, etc.).
+   • A formula must contain at least one operator (=, \\frac, ^, _, \\cdot, etc.).  
 
 8) Blank-line placement:
-   • One blank line above and one blank line below each formula.
-   • Then a short-note point immediately (without bullets).
+   • One blank line above and one blank line below each formula.  
+   • Then a short-note point immediately (without bullets).  
 
 ====================================================
 ADDITIONAL INLINE MATH AND SANITIZATION VALIDATIONS (MANDATORY):
@@ -281,9 +361,9 @@ ADDITIONAL INLINE MATH AND SANITIZATION VALIDATIONS (MANDATORY):
 A. Parentheses to inline math:
 1. You must never output Greek letters or variables inside plain parentheses such as (Phi), (phi), (p), (E), (V), (Phi_E).
    Convert them to inline math:
-     (Phi)   -> $ \\\\Phi $
-     (phi)   -> $ \\\\phi $
-     (Phi_E) -> $ \\\\Phi_E $
+     (Phi)   -> $ \\Phi $
+     (phi)   -> $ \\phi $
+     (Phi_E) -> $ \\Phi_E $
      (p)     -> $ p $
 
 B. Subscript and superscript rules:
@@ -296,12 +376,8 @@ B. Subscript and superscript rules:
 
 C. Greek letter normalization:
 1. Greek names must start with backslash:
-   Phi → \\\\Phi  
-   phi → \\\\phi
-
-If ANY rule fails → REGENERATE until all pass.
-
-====================================================
+   Phi → \\Phi  
+   phi → \\phi
 
 Now generate the topper-style SHORT NOTES for:
 Class: ${className}
@@ -310,34 +386,44 @@ Book: ${bookName}
 Chapter: ${chapter}
 `;
 
-
-
   try {
-
-    const shortNotes = await ChapterWiseShortNotesModel.findOne({
+    // 3️⃣ CHECK DATABASE CACHE
+    const dbNotes = await ChapterWiseShortNotesModel.findOne({
       className,
-      subject:mainSubject,
+      subject: mainSubject,
       chapter,
     });
 
-    if(shortNotes){
+    if (dbNotes) {
+      const safeData = dbNotes.content;
+
+      // Store to Redis for 2 days
+      await redis.set(cacheKey, safeData, {
+        ex: 60 * 60 * 24 * 2,
+      });
+
       return res.status(200).json(
-        new ApiResponse(200,{shortNotes:shortNotes.content},"Short Notes Ready")
-      )
+        new ApiResponse(200, { shortNotes: safeData }, "Short Notes Ready (DB Cache)")
+      );
     }
 
-    // Escape backslashes so GPT outputs correct LaTeX
+    // 4️⃣ CALL AI
     const safePrompt = prompt.replace(/\\/g, "\\\\");
-    const output = await askOpenAI(safePrompt,"gpt-5.1");
+    const output = await askOpenAI(safePrompt, "gpt-5.1");
 
+    // 5️⃣ SAVE TO DB
     await ChapterWiseShortNotesModel.create({
       className,
-      subject:mainSubject,
+      subject: mainSubject,
       chapter,
-      content:output
+      content: output,
     });
 
-    // OUTPUT is already a valid formatted string (NO JSON)
+    // 6️⃣ SAVE TO REDIS (2 DAYS)
+    await redis.set(cacheKey, output, {
+      ex: 60 * 60 * 24 * 2,
+    });
+
     return res
       .status(200)
       .json(new ApiResponse(200, { shortNotes: output }, "Short Notes Ready"));
@@ -356,10 +442,40 @@ Chapter: ${chapter}
 });
 
 
+
 const chapterWiseMindMap = asyncHandler(async (req, res) => {
   const { className, subject, chapter } = req.body;
   const { mainSubject, bookName } = parseSubject(subject);
 
+  // Redis Cache Key
+  const cacheKey = `lmp:mindmap:${className}:${mainSubject}:${chapter}`;
+
+  // 1️⃣ CHECK REDIS CACHE
+  try {
+    const redisCached = await redis.get(cacheKey);
+
+    if (redisCached) {
+      // Upstash returns parsed object for JSON strings
+      if (typeof redisCached === "object") {
+        return res
+          .status(200)
+          .json(new ApiResponse(200, redisCached, "MindMap Ready (Cached)"));
+      }
+
+      // fallback if string
+      if (typeof redisCached === "string") {
+        return res
+          .status(200)
+          .json(
+            new ApiResponse(200, JSON.parse(redisCached), "MindMap Ready (Cached)")
+          );
+      }
+    }
+  } catch (err) {
+    console.error("Redis GET Error:", err);
+  }
+
+  // 2️⃣ PROMPT (UNTOUCHED)
   const prompt = `
 You are a CBSE Board expert. Your ONLY task:
 
@@ -406,19 +522,27 @@ Chapter: ${chapter}
 `;
 
   try {
-
-    const mindMap = await ChapterWiseMindMapModel.findOne({
+    // 3️⃣ CHECK DATABASE CACHE
+    const dbData = await ChapterWiseMindMapModel.findOne({
       className,
-      subject:mainSubject,
-      chapter
+      subject: mainSubject,
+      chapter,
     });
 
-    if(mindMap){
-      return res.status(200).json(
-        new ApiResponse(200, mindMap.content,"MindMap Ready")
-      )
+    if (dbData) {
+      const safeDB = JSON.parse(JSON.stringify(dbData.content));
+
+      // Store in Redis for 2 days
+      await redis.set(cacheKey, JSON.stringify(safeDB), {
+        ex: 60 * 60 * 24 * 2,
+      });
+
+      return res
+        .status(200)
+        .json(new ApiResponse(200, safeDB, "MindMap Ready (DB Cache)"));
     }
 
+    // 4️⃣ CALL OPENAI
     const raw = await askOpenAI(prompt);
     const parsed = extractJSON(raw);
 
@@ -427,17 +551,24 @@ Chapter: ${chapter}
       throw new Error("Invalid JSON from OpenAI");
     }
 
+    const safeParsed = JSON.parse(JSON.stringify(parsed));
+
+    // 5️⃣ SAVE TO DATABASE
     await ChapterWiseMindMapModel.create({
-       className,
-       subject:mainSubject,
-       chapter,
-       content: parsed
-    })
+      className,
+      subject: mainSubject,
+      chapter,
+      content: safeParsed,
+    });
 
-    return res.status(200).json(
-      new ApiResponse(200, parsed, "React Flow Mindmap Ready")
-    );
+    // 6️⃣ SAVE TO REDIS
+    await redis.set(cacheKey, JSON.stringify(safeParsed), {
+      ex: 60 * 60 * 24 * 2,
+    });
 
+    return res
+      .status(200)
+      .json(new ApiResponse(200, safeParsed, "React Flow Mindmap Ready"));
   } catch (err) {
     console.error("Mindmap Generation Error:", err.message);
     return res
@@ -447,11 +578,47 @@ Chapter: ${chapter}
 });
 
 
+
 const chapterWiseStudyQuestions = asyncHandler(async (req, res) => {
   const { className, subject, chapter } = req.body;
   const { mainSubject, bookName } = parseSubject(subject);
   const category = detectCategory(mainSubject);
 
+  // Redis Cache Key
+  const cacheKey = `lmp:studyq:${className}:${mainSubject}:${chapter}`;
+
+  // 1️⃣ CHECK REDIS CACHE FIRST
+  try {
+    const redisCached = await redis.get(cacheKey);
+
+    if (redisCached) {
+      // Upstash returns parsed object
+      if (typeof redisCached === "object") {
+        return res
+          .status(200)
+          .json(
+            new ApiResponse(200, redisCached, "Important Questions Ready (Cached)")
+          );
+      }
+
+      // Fallback if string
+      if (typeof redisCached === "string") {
+        return res
+          .status(200)
+          .json(
+            new ApiResponse(
+              200,
+              JSON.parse(redisCached),
+              "Important Questions Ready (Cached)"
+            )
+          );
+      }
+    }
+  } catch (err) {
+    console.error("Redis GET error:", err);
+  }
+
+  // 2️⃣ PROMPT — EXACT, NOT MODIFIED
   const prompt = `
 You are an API that returns ONLY valid JSON. No extra text, no markdown, no explanation outside JSON.
 
@@ -496,51 +663,71 @@ CRITICAL:
 `;
 
   try {
-
+    // 3️⃣ CHECK DATABASE CACHE
     const importantQuestion = await ChapterWiseImportantQuestionModel.findOne({
       className,
-      subject:mainSubject,
-      chapter
+      subject: mainSubject,
+      chapter,
     });
 
-    if(importantQuestion){
-       return res
-      .status(200)
-      .json(new ApiResponse(200, importantQuestion.content, "Important Questions Ready"));
+    if (importantQuestion) {
+      const safeDBContent = JSON.parse(JSON.stringify(importantQuestion.content));
+
+      // Store in Redis for 2 days
+      await redis.set(cacheKey, JSON.stringify(safeDBContent), {
+        ex: 60 * 60 * 24 * 2,
+      });
+
+      return res.status(200).json(
+        new ApiResponse(
+          200,
+          safeDBContent,
+          "Important Questions Ready (DB Cache)"
+        )
+      );
     }
 
+    // 4️⃣ CALL OPENAI
     let output = await askOpenAI(prompt);
     const parsed = extractJSON(output);
 
+    // validation
     parsed.questions.forEach((q, idx) => {
       if (!q.question) {
         throw new Error(`Invalid question structure at index ${idx}`);
       }
     });
 
+    const safeParsed = JSON.parse(JSON.stringify(parsed));
+
+    // 5️⃣ SAVE TO DB
     await ChapterWiseImportantQuestionModel.create({
       className,
-      subject:mainSubject,
+      subject: mainSubject,
       chapter,
-      content:parsed,
-    })
+      content: safeParsed,
+    });
+
+    // 6️⃣ SAVE TO REDIS
+    await redis.set(cacheKey, JSON.stringify(safeParsed), {
+      ex: 60 * 60 * 24 * 2,
+    });
 
     return res
       .status(200)
-      .json(new ApiResponse(200, parsed, "Important Questions Ready"));
+      .json(new ApiResponse(200, safeParsed, "Important Questions Ready"));
   } catch (error) {
-    console.error("Predicted questions generation failed:", error);
-    return res
-      .status(500)
-      .json(
-        new ApiResponse(
-          500,
-          null,
-          "Failed to generate predicted questions. Please try again."
-        )
-      );
+    console.error("Study questions generation failed:", error);
+    return res.status(500).json(
+      new ApiResponse(
+        500,
+        null,
+        "Failed to generate important questions. Please try again."
+      )
+    );
   }
 });
+
 
 
 

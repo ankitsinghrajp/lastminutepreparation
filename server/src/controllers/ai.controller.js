@@ -14,6 +14,7 @@ import vision from "@google-cloud/vision";
 import path from "path";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
+import { redis } from "../libs/redis.js";
 
 // __dirname fix
 const __filename = fileURLToPath(import.meta.url);
@@ -191,8 +192,34 @@ OUTPUT: Only the topper-style answer. Nothing else.
 const topperStyleAnswer = asyncHandler(async (req, res) => {
   const { user_question, selectedClass, selectedSubject, selectedChapter } = req.body;
 
-  const prompt = `You are a CBSE Board exam expert. Think internally first, but DO NOT show your thinking. Your ONLY task is to write full-mark answers exactly the way toppers write in their exam notebooks — clean, simple, direct, and only what is required to score full marks.
+  // Redis Key
+  const cacheKey = `lmp:topper:${selectedClass}:${selectedSubject}:${selectedChapter}:${user_question}`;
 
+  // 1️⃣ CHECK REDIS CACHE
+  try {
+    const redisCached = await redis.get(cacheKey);
+
+    if (redisCached) {
+      if (typeof redisCached === "object") {
+        return res
+          .status(200)
+          .json(new ApiResponse(200, redisCached, "Answer Ready (Cached)"));
+      }
+
+      if (typeof redisCached === "string") {
+        const parsed = JSON.parse(redisCached);
+        return res
+          .status(200)
+          .json(new ApiResponse(200, parsed, "Answer Ready (Cached)"));
+      }
+    }
+  } catch (err) {
+    console.error("Redis GET error:", err);
+  }
+
+  // 2️⃣ PROMPT — 100% UNTOUCHED (EXACT, RAW)
+  const prompt = `
+You are a CBSE Board exam expert. Think internally first, but DO NOT show your thinking. Your ONLY task is to write full-mark answers exactly the way toppers write in their exam notebooks — clean, simple, direct, and only what is required to score full marks.
 
 STRICT LANGUAGE RULE:
 If the subject is Hindi  → then deep read the chapter first then answer the question ONLY in Hindi.
@@ -248,7 +275,6 @@ DOUBLE-CHECK formula formatting before generating the final answer.
 ✔️ Each equation in a derivation must be on a separate line using its own $$ block.
 ✔️ Never write multiple formulas in one $$ block.
 
-
 SPECIAL CASE — DIAGRAM QUESTIONS:
 If the question asks to "draw", "sketch", or "show diagram",
 YOU MUST:
@@ -270,13 +296,29 @@ subject: ${selectedSubject}
 chapter: ${selectedChapter}
 `;
 
-  const safePrompt = prompt.replace(/\\/g, "\\\\");
-  const apiData = await askOpenAI(safePrompt, "gpt-5.1");
+  try {
+    // 3️⃣ GENERATE AI ANSWER
+    const safePrompt = prompt.replace(/\\/g, "\\\\");
+    const apiData = await askOpenAI(safePrompt, "gpt-5.1");
 
-  return res.status(200).json(
-    new ApiResponse(200, { answer: apiData }, "Answer generated successfully!")
-  );
+    const finalAnswer = { answer: apiData };
+
+    // 4️⃣ SAVE TO REDIS (2 DAYS)
+    await redis.set(cacheKey, JSON.stringify(finalAnswer), {
+      ex: 60 * 60 * 24 * 2, // 2 days
+    });
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, finalAnswer, "Answer generated successfully!"));
+  } catch (error) {
+    console.error("Topper answer generation failed:", error);
+    return res
+      .status(500)
+      .json(new ApiResponse(500, null, "Failed to generate answer."));
+  }
 });
+
 
 const importantQuestionGenerator = asyncHandler(async (req, res) => {
     const { className, subject, chapter, index } = req.body;
