@@ -13,6 +13,7 @@ import { chatWithPdf } from "../controllers/chatWithPdf.controller.js";
 import { uploadPdfAndProcess } from "../controllers/uploadPdfAndProcess.controller.js";
 import { premiumOnly } from "../middlewares/premiumOnly.middleware.js";
 import { pdfUploadQuotaCheck } from "../middlewares/pdfQuota.middleware.js";
+import { redis } from "../libs/redis.js";
 
 const router = express.Router();
 router.use(verifyJWT);
@@ -78,5 +79,22 @@ router.use(pdfUploadQuotaCheck);
 
 router.post("/upload-pdf", pdfUpload.single("pdf"), uploadPdfAndProcess);
 router.post("/chat-with-pdf", chatWithPdf);
+
+
+
+
+
+// for testing only
+router.get("/test-redis", async (req, res) => {
+  try {
+    const set = await redis.set("test123", "hello world", { ex: 60 });
+    const get = await redis.get("test123");
+
+    return res.json({ set, get });
+  } catch (e) {
+    return res.json({ error: e.message });
+  }
+});
+
 
 export default router;

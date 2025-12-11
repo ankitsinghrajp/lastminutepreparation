@@ -1,3 +1,4 @@
+import { redis } from "../libs/redis.js";
 import { AiCoach } from "../models/LastMinuteBeforeExam/aiCoach.model.js";
 import { ImpTopicsModel } from "../models/LastMinuteBeforeExam/impTopics.model.js";
 import { LastMinuteMCQModel } from "../models/LastMinuteBeforeExam/lastMinuteMcq.model.js";
@@ -36,8 +37,48 @@ const LastMinutePanelSummary = asyncHandler(async (req, res) => {
   const { mainSubject, bookName } = parseSubject(subject);
   const category = detectCategory(mainSubject);
 
+  // Redis Cache Key
+  const cacheKey = `lmp:summary:${className}:${mainSubject}:${chapter}`;
+
+  // 1️⃣ CHECK REDIS
+// 1️⃣ CHECK REDIS CACHE
+try {
+  const redisCached = await redis.get(cacheKey);
+
+  if (redisCached) {
+    let finalData;
+
+    // CASE 1: Already an object (Upstash sometimes returns object)
+    if (typeof redisCached === "object") {
+      finalData = redisCached;
+    }
+    // CASE 2: String → needs JSON.parse
+    else if (typeof redisCached === "string") {
+      try {
+        finalData = JSON.parse(redisCached);
+      } catch (e) {
+        console.log("Invalid JSON string in Redis, deleting key...");
+        await redis.del(cacheKey);
+      }
+    }
+
+    if (finalData) {
+      console.log("This is the final Data: ",finalData);
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(200, finalData, "Summary Ready (Cached)")
+        );
+    }
+  }
+} catch (err) {
+  console.log("Redis GET error:", err);
+}
+
+
   let prompt = "";
 
+  // 🔥 YOUR PROMPT — 0% CHANGES, EXACTLY AS PROVIDED
   if (category === "language") {
     prompt = `
 You are an API. Think silently but DO NOT show your internal thinking.
@@ -79,7 +120,6 @@ Book: ${bookName}
 Chapter: ${chapter}
 Stream: ${category}
 `;
-
   } else {
     prompt = `
 You are an API. Think silently but DO NOT show your internal thinking.
@@ -105,42 +145,66 @@ Stream: ${category}
   }
 
   try {
-
-    const cache = await LastMinuteSummaryModel.findOne({
+    // 2️⃣ CHECK DATABASE
+    const dbCache = await LastMinuteSummaryModel.findOne({
       className,
-      subject:mainSubject,
-      chapter
+      subject: mainSubject,
+      chapter,
     });
 
-    if(cache){
-       return res.status(200).json(new ApiResponse(200, cache.content, "Summary Ready"));
+    if (dbCache) {
+      const safeDBContent = JSON.parse(JSON.stringify(dbCache.content));
+
+      await redis.set(
+        cacheKey,
+        JSON.stringify(safeDBContent),
+        { ex: 60 * 60 * 24 } // 24 hrs
+      );
+
+      return res
+        .status(200)
+        .json(new ApiResponse(200, safeDBContent, "Summary Ready (DB Cache)"));
     }
 
-    let output = await askOpenAI(prompt);
-
+    // 3️⃣ CALL OPENAI
+    const output = await askOpenAI(prompt);
     const parsed = extractJSON(output);
 
+    // ⭐ FIX — convert to pure JSON-safe object
+    const safeParsed = JSON.parse(JSON.stringify(parsed));
+
+    // 4️⃣ SAVE TO DATABASE
     await LastMinuteSummaryModel.create({
       className,
-      subject:mainSubject,
+      subject: mainSubject,
       chapter,
-      content:parsed
-    })
+      content: safeParsed,
+    });
 
-    return res.status(200).json(new ApiResponse(200, parsed, "Summary Ready"));
+    // 5️⃣ STORE IN REDIS SAFELY
+    await redis.set(
+      cacheKey,
+      JSON.stringify(safeParsed),
+      { ex: 60 * 60 * 24 }
+    );
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, safeParsed, "Summary Ready"));
   } catch (error) {
     console.error("Summary generation failed:", error);
-    return res
-      .status(500)
-      .json(
-        new ApiResponse(
-          500,
-          null,
-          "Failed to generate summary. Please try again."
-        )
-      );
+    return res.status(500).json(
+      new ApiResponse(
+        500,
+        null,
+        "Failed to generate summary. Please try again."
+      )
+    );
   }
 });
+
+
+
 
 const LastMinutePanelImportantTopics = asyncHandler(async (req, res) => {
   const { className, subject, chapter } = req.body;
