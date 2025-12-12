@@ -203,14 +203,14 @@ const topperStyleAnswer = asyncHandler(async (req, res) => {
       if (typeof redisCached === "object") {
         return res
           .status(200)
-          .json(new ApiResponse(200, redisCached, "Answer Ready (Cached)"));
+          .json(new ApiResponse(200, redisCached, "Answer Ready"));
       }
 
       if (typeof redisCached === "string") {
         const parsed = JSON.parse(redisCached);
         return res
           .status(200)
-          .json(new ApiResponse(200, parsed, "Answer Ready (Cached)"));
+          .json(new ApiResponse(200, parsed, "Answer Ready"));
       }
     }
   } catch (err) {
@@ -305,7 +305,7 @@ chapter: ${selectedChapter}
 
     // 4️⃣ SAVE TO REDIS (2 DAYS)
     await redis.set(cacheKey, JSON.stringify(finalAnswer), {
-      ex: 60 * 60 * 24 * 2, // 2 days
+      ex: 60 * 60 * 24 * 20, // 2 days
     });
 
     return res
@@ -362,7 +362,7 @@ const importantQuestionGenerator = asyncHandler(async (req, res) => {
             new ApiResponse(
               200,
               { data: finalData },
-              "Important Questions Ready (Cached)"
+              "Important Questions Ready"
             )
           );
       }
@@ -461,7 +461,7 @@ Requirements:
         new ApiResponse(
           200,
           { data: safeData },
-          "Important Questions Ready (DB Cache)"
+          "Important Questions Ready"
         )
       );
     }
@@ -573,7 +573,7 @@ const quizMcqFillupTrueFalse = asyncHandler(async (req, res) => {
             new ApiResponse(
               200,
               { data: finalData },
-              "Quiz (MCQ, Fillups, True/False) Ready (Cached)"
+              "Quiz (MCQ, Fillups, True/False) Ready"
             )
           );
       }
@@ -604,7 +604,7 @@ const quizMcqFillupTrueFalse = asyncHandler(async (req, res) => {
           new ApiResponse(
             200,
             { data: safeDBData },
-            "Quiz (MCQ, Fillups, True/False) Ready (DB Cache)"
+            "Quiz (MCQ, Fillups, True/False) Ready"
           )
         );
     }
@@ -910,7 +910,7 @@ const generatePYQs = asyncHandler(async (req, res) => {
         return res
           .status(200)
           .json(
-            new ApiResponse(200, { data: finalData }, "PYQs Ready (Cached)")
+            new ApiResponse(200, { data: finalData }, "PYQs Ready")
           );
       }
     }
@@ -938,7 +938,7 @@ const generatePYQs = asyncHandler(async (req, res) => {
       return res
         .status(200)
         .json(
-          new ApiResponse(200, { data: safeDB }, "PYQs Ready (DB Cache)")
+          new ApiResponse(200, { data: safeDB }, "PYQs Ready")
         );
     }
   } catch (err) {

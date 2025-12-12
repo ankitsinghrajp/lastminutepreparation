@@ -56,14 +56,14 @@ const smartChapterSummary = asyncHandler(async (req, res) => {
       if (typeof redisCached === "object") {
         return res
           .status(200)
-          .json(new ApiResponse(200, redisCached, "Summary Ready (Cached)"));
+          .json(new ApiResponse(200, redisCached, "Summary Ready"));
       }
 
       if (typeof redisCached === "string") {
         return res
           .status(200)
           .json(
-            new ApiResponse(200, JSON.parse(redisCached), "Summary Ready (Cached)")
+            new ApiResponse(200, JSON.parse(redisCached), "Summary Ready")
           );
       }
     }
@@ -162,7 +162,7 @@ Stream: ${category}
     });
 
     return res.status(200).json(
-      new ApiResponse(200, safeDBContent, "Summary Ready (DB Cache)")
+      new ApiResponse(200, safeDBContent, "Summary Ready")
     );
   }
 
@@ -209,7 +209,7 @@ const chapterWiseShortNotes = asyncHandler(async (req, res) => {
             new ApiResponse(
               200,
               { shortNotes: redisCached },
-              "Short Notes Ready (Cached)"
+              "Short Notes Ready"
             )
           );
       }
@@ -222,7 +222,7 @@ const chapterWiseShortNotes = asyncHandler(async (req, res) => {
             new ApiResponse(
               200,
               { shortNotes: redisCached.shortNotes || redisCached },
-              "Short Notes Ready (Cached)"
+              "Short Notes Ready"
             )
           );
       }
@@ -403,7 +403,7 @@ Chapter: ${chapter}
       });
 
       return res.status(200).json(
-        new ApiResponse(200, { shortNotes: safeData }, "Short Notes Ready (DB Cache)")
+        new ApiResponse(200, { shortNotes: safeData }, "Short Notes Ready")
       );
     }
 
@@ -459,7 +459,7 @@ const chapterWiseMindMap = asyncHandler(async (req, res) => {
       if (typeof redisCached === "object") {
         return res
           .status(200)
-          .json(new ApiResponse(200, redisCached, "MindMap Ready (Cached)"));
+          .json(new ApiResponse(200, redisCached, "MindMap Ready"));
       }
 
       // fallback if string
@@ -467,7 +467,7 @@ const chapterWiseMindMap = asyncHandler(async (req, res) => {
         return res
           .status(200)
           .json(
-            new ApiResponse(200, JSON.parse(redisCached), "MindMap Ready (Cached)")
+            new ApiResponse(200, JSON.parse(redisCached), "MindMap Ready")
           );
       }
     }
@@ -539,7 +539,7 @@ Chapter: ${chapter}
 
       return res
         .status(200)
-        .json(new ApiResponse(200, safeDB, "MindMap Ready (DB Cache)"));
+        .json(new ApiResponse(200, safeDB, "MindMap Ready"));
     }
 
     // 4️⃣ CALL OPENAI
@@ -597,7 +597,7 @@ const chapterWiseStudyQuestions = asyncHandler(async (req, res) => {
         return res
           .status(200)
           .json(
-            new ApiResponse(200, redisCached, "Important Questions Ready (Cached)")
+            new ApiResponse(200, redisCached, "Important Questions Ready")
           );
       }
 
@@ -609,7 +609,7 @@ const chapterWiseStudyQuestions = asyncHandler(async (req, res) => {
             new ApiResponse(
               200,
               JSON.parse(redisCached),
-              "Important Questions Ready (Cached)"
+              "Important Questions Ready"
             )
           );
       }
@@ -682,7 +682,7 @@ CRITICAL:
         new ApiResponse(
           200,
           safeDBContent,
-          "Important Questions Ready (DB Cache)"
+          "Important Questions Ready"
         )
       );
     }

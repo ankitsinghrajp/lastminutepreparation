@@ -66,7 +66,7 @@ try {
       return res
         .status(200)
         .json(
-          new ApiResponse(200, finalData, "Summary Ready (Cached)")
+          new ApiResponse(200, finalData, "Summary Ready")
         );
     }
   }
@@ -161,7 +161,7 @@ Stream: ${category}
 
       return res
         .status(200)
-        .json(new ApiResponse(200, safeDBContent, "Summary Ready (DB Cache)"));
+        .json(new ApiResponse(200, safeDBContent, "Summary Ready "));
     }
 
     // 3️⃣ CALL OPENAI
@@ -219,7 +219,7 @@ const LastMinutePanelImportantTopics = asyncHandler(async (req, res) => {
       if (typeof redisCached === "object") {
         return res
           .status(200)
-          .json(new ApiResponse(200, redisCached, "Important Topics Ready (Cached)"));
+          .json(new ApiResponse(200, redisCached, "Important Topics Ready "));
       }
 
       // fallback if string
@@ -227,7 +227,7 @@ const LastMinutePanelImportantTopics = asyncHandler(async (req, res) => {
        return res
           .status(200)
           .json(
-            new ApiResponse(200, JSON.parse(redisCached), "Important Topics Ready (Cached)")
+            new ApiResponse(200, JSON.parse(redisCached), "Important Topics Ready ")
           );
       }
     }
@@ -302,7 +302,7 @@ CRITICAL:
 
       return res
         .status(200)
-        .json(new ApiResponse(200, safeDBContent, "Important Topics Ready (DB Cache)"));
+        .json(new ApiResponse(200, safeDBContent, "Important Topics Ready "));
     }
 
     // 4️⃣ GENERATE VIA OPENAI
@@ -368,7 +368,7 @@ const LastMinutePanelPredictedQuestions = asyncHandler(async (req, res) => {
       
         return res
           .status(200)
-          .json(new ApiResponse(200, redisCached, "Predicted Questions Ready (Cached)"));
+          .json(new ApiResponse(200, redisCached, "Predicted Questions Ready "));
       }
 
       // fallback: string → parse
@@ -376,7 +376,7 @@ const LastMinutePanelPredictedQuestions = asyncHandler(async (req, res) => {
         const parsed = JSON.parse(redisCached);
         return res
           .status(200)
-          .json(new ApiResponse(200, parsed, "Predicted Questions Ready (Cached)"));
+          .json(new ApiResponse(200, parsed, "Predicted Questions Ready "));
       }
     }
   } catch (err) {
@@ -445,7 +445,7 @@ CRITICAL:
 
       return res
         .status(200)
-        .json(new ApiResponse(200, safeDBContent, "Predicted Questions Ready (DB Cache)"));
+        .json(new ApiResponse(200, safeDBContent, "Predicted Questions Ready "));
     }
 
     // 3️⃣ GENERATE USING AI
@@ -507,7 +507,7 @@ const LastMinutePanelMCQs = asyncHandler(async (req, res) => {
       if (typeof redisCached === "object") {
         return res
           .status(200)
-          .json(new ApiResponse(200, redisCached, "Important MCQs Ready (Cached)"));
+          .json(new ApiResponse(200, redisCached, "Important MCQs Ready "));
       }
 
       // fallback if string
@@ -515,7 +515,7 @@ const LastMinutePanelMCQs = asyncHandler(async (req, res) => {
         const parsed = JSON.parse(redisCached);
         return res
           .status(200)
-          .json(new ApiResponse(200, parsed, "Important MCQs Ready (Cached)"));
+          .json(new ApiResponse(200, parsed, "Important MCQs Ready "));
       }
     }
   } catch (err) {
@@ -566,7 +566,7 @@ JSON:
 
       return res
         .status(200)
-        .json(new ApiResponse(200, safeDBContent, "Important MCQs Ready (DB Cache)"));
+        .json(new ApiResponse(200, safeDBContent, "Important MCQs Ready "));
     }
 
     // 3️⃣ GENERATE USING OPENAI
@@ -629,7 +629,7 @@ const LastMinutePanelMemoryBooster = asyncHandler(async (req, res) => {
       if (typeof redisCached === "object") {
         return res
           .status(200)
-          .json(new ApiResponse(200, redisCached, "Memory Booster Ready (Cached)"));
+          .json(new ApiResponse(200, redisCached, "Memory Booster Ready "));
       }
 
       // fallback if returned string
@@ -637,7 +637,7 @@ const LastMinutePanelMemoryBooster = asyncHandler(async (req, res) => {
         const parsed = JSON.parse(redisCached);
         return res
           .status(200)
-          .json(new ApiResponse(200, parsed, "Memory Booster Ready (Cached)"));
+          .json(new ApiResponse(200, parsed, "Memory Booster Ready "));
       }
     }
   } catch (err) {
@@ -701,7 +701,7 @@ JSON:
 
       return res
         .status(200)
-        .json(new ApiResponse(200, safeDBContent, "Memory Booster Ready (DB Cache)"));
+        .json(new ApiResponse(200, safeDBContent, "Memory Booster Ready "));
     }
 
     // 3️⃣ GENERATE USING OPENAI
@@ -757,7 +757,7 @@ const LastMinutePanelAICoach = asyncHandler(async (req, res) => {
       if (typeof redisCached === "object") {
         return res
           .status(200)
-          .json(new ApiResponse(200, redisCached, "AI Coach Ready (Cached)"));
+          .json(new ApiResponse(200, redisCached, "AI Coach Ready "));
       }
 
       // If string fallback → JSON parse
@@ -765,7 +765,7 @@ const LastMinutePanelAICoach = asyncHandler(async (req, res) => {
         const parsed = JSON.parse(redisCached);
         return res
           .status(200)
-          .json(new ApiResponse(200, parsed, "AI Coach Ready (Cached)"));
+          .json(new ApiResponse(200, parsed, "AI Coach Ready "));
       }
     }
   } catch (err) {
@@ -813,7 +813,7 @@ JSON:
 
       return res
         .status(200)
-        .json(new ApiResponse(200, safeDBContent, "AI Coach Ready (DB Cache)"));
+        .json(new ApiResponse(200, safeDBContent, "AI Coach Ready "));
     }
 
     // 3️⃣ GENERATE VIA AI
