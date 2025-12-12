@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import { inngestHandler } from "./src/inngest/route.js";
 import helmet from "helmet";
 
 const corsOptions = {
@@ -33,4 +34,5 @@ app.use("/api/auth",authRoutes);
 app.use("/api/v1/ai",aiRoutes);
 app.use("/api/v1/info",classRoutes);
 app.use("/api/v1/payment",paymentRoutes);
+app.use("/api/v1/inngest",inngestHandler);
 export {app};

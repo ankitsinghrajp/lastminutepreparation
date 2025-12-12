@@ -1,7 +1,7 @@
 import { BookOpen } from "lucide-react";
 
 const LastNightBeforeExamSummary = ({ summary }) => {
-  // Convert \\n\\n → \n\n (real newline)
+
   const cleanSummary = summary.replace(/\\n/g, "\n");
 
   // Split into paragraphs

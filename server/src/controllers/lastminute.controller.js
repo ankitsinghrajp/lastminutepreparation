@@ -4,7 +4,7 @@ import { ImpTopicsModel } from "../models/LastMinuteBeforeExam/impTopics.model.j
 import { LastMinuteMCQModel } from "../models/LastMinuteBeforeExam/lastMinuteMcq.model.js";
 import { Booster } from "../models/LastMinuteBeforeExam/memoryBooster.model.js";
 import { PredictedQuestionModel } from "../models/LastMinuteBeforeExam/predictedQuestion.model.js";
-import { LastMinuteSummaryModel } from "../models/LastMinuteBeforeExam/summary.model.js";
+import { inngest } from "../libs/inngest.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { detectCategory, parseSubject } from "../utils/helper.js";
@@ -34,172 +34,74 @@ const extractJSON = (text) => {
 
 const LastMinutePanelSummary = asyncHandler(async (req, res) => {
   const { className, subject, chapter } = req.body;
-  const { mainSubject, bookName } = parseSubject(subject);
-  const category = detectCategory(mainSubject);
 
-  // Redis Cache Key
+  if (!className || !subject || !chapter) {
+    return res
+      .status(400)
+      .json(new ApiResponse(400, null, "Missing class, subject or chapter"));
+  }
+
+  const { mainSubject } = parseSubject(subject);
+
+  // Redis cache key
   const cacheKey = `lmp:summary:${className}:${mainSubject}:${chapter}`;
 
-  // 1️⃣ CHECK REDIS
-// 1️⃣ CHECK REDIS CACHE
-try {
-  const redisCached = await redis.get(cacheKey);
+  // Pending flag key
+  const pendingKey = `lmp:summary:pending:${className}:${mainSubject}:${chapter}`;
 
-  if (redisCached) {
-    let finalData;
+  // -------------------------------------------------------------------
+  // 1️⃣ CHECK REDIS (FASTEST PATH)
+  // -------------------------------------------------------------------
+  try {
+    const redisCached = await redis.get(cacheKey);
 
-    // CASE 1: Already an object (Upstash sometimes returns object)
-    if (typeof redisCached === "object") {
-      finalData = redisCached;
-    }
-    // CASE 2: String → needs JSON.parse
-    else if (typeof redisCached === "string") {
-      try {
-        finalData = JSON.parse(redisCached);
-      } catch (e) {
-        console.log("Invalid JSON string in Redis, deleting key...");
-        await redis.del(cacheKey);
+    if (redisCached) {
+      let finalData;
+
+      if (typeof redisCached === "object") {
+        finalData = redisCached;
+      } else {
+        try {
+          finalData = JSON.parse(redisCached);
+        } catch (err) {
+          await redis.del(cacheKey); // corrupted → delete
+        }
+      }
+
+      if (finalData) {
+        return res
+          .status(200)
+          .json(new ApiResponse(200, finalData, "Summary Ready (Redis)"));
       }
     }
-
-    if (finalData) {
-      return res
-        .status(200)
-        .json(
-          new ApiResponse(200, finalData, "Summary Ready")
-        );
-    }
-  }
-} catch (err) {
-  console.log("Redis GET error:", err);
-}
-
-
-  let prompt = "";
-
-  if (category === "language") {
-    prompt = `
-You are an API. Think silently but DO NOT show your internal thinking.
-
-First, internally understand the content of the given NCERT chapter(s) or poem(s) as if you have fully read them. Do NOT mention this step in the output.
-
-STRICT LANGUAGE RULE:
-If the subject is Hindi or Sanskrit → answer ONLY in Hindi.
-Otherwise → answer ONLY in English. DO NOT USE Hindi for English or any other subject.
-If this rule is violated, regenerate the answer.
-
-IMPORTANT:
-If the chapter/poem name contains "/", it means there are TWO different poems/chapters. They must be summarized SEPARATELY — never together, never merged.
-
-Your task:
-✔ If there is ONE poem/chapter → write its summary in 2–3 paragraphs (each paragraph 3–4 simple lines).
-✔ If there are TWO poems/chapters (detected using "/"):
-     → First poem/chapter only → 2–3 paragraphs (3–4 simple lines each)
-     → Leave ONE real blank line (ENTER twice)
-     → Second poem/chapter only → 2–3 paragraphs (3–4 simple lines each)
-
-HARD RULES (non-negotiable):
-✔ NO combining or comparing both poems/chapters
-✔ Do NOT mention that there are two poems/chapters
-✔ Do NOT include titles, headings, names, or section labels such as "First poem", "Second poem", etc.
-✔ Just write the first summary → blank line → second summary
-✔ REAL blank lines only + NO \\n or \\n\\n text
-✔ No bullet points, no numbering, no bold/italics, no emojis, no formulas, no quotes, no author names
-✔ Only clean plain text in paragraphs
-
-Return output ONLY in this JSON format:
-{
-  "summary": "Final summaries with real blank lines"
-}
-
-Class: ${className}
-Subject: ${mainSubject}
-Book: ${bookName}
-Chapter: ${chapter}
-Stream: ${category}
-`;
-  } else {
-    prompt = `
-You are an API. Think silently but DO NOT show your internal thinking.
-
-Write a short NCERT-style chapter summary in **3–4 simple lines** only.
-It must be crisp, student-friendly, and useful for last-minute revision.
-
-❌ Do NOT include formulas, numericals, derivations, diagrams, definitions, tables, or headings.
-❌ Do NOT use bullet points, lists, or line breaks after every sentence.
-✔ The summary must be a **single flowing paragraph of 3–4 lines** only.
-
-Return output in JSON format ONLY:
-{
-  "summary": "3–4 line paragraph here"
-}
-
-Class: ${className}
-Subject: ${mainSubject}
-Book: ${bookName}
-Chapter: ${chapter}
-Stream: ${category}
-`;
+  } catch (err) {
+    console.log("Redis GET error:", err);
   }
 
-  try {
-    // 2️⃣ CHECK DATABASE
-    const dbCache = await LastMinuteSummaryModel.findOne({
-      className,
-      subject: mainSubject,
-      chapter,
+  // -------------------------------------------------------------------
+  // 2️⃣ CHECK IF A JOB IS ALREADY RUNNING (PENDING FLAG)
+  // -------------------------------------------------------------------
+  const isPending = await redis.get(pendingKey);
+
+  if (!isPending) {
+    // No job running → queue Inngest job
+    // Set pending flag so no duplicate Inngest jobs spawn
+    await redis.set(pendingKey, "1", { EX: 120 }); // 2 min timeout safety
+
+    await inngest.send({
+      name: "lmp/generate.summary",
+      data: { className, subject, chapter },
     });
-
-    if (dbCache) {
-      const safeDBContent = JSON.parse(JSON.stringify(dbCache.content));
-
-      await redis.set(
-        cacheKey,
-        JSON.stringify(safeDBContent),
-        { ex: 60 * 60 * 24 * 2 }  // 48 hours
-      );
-
-      return res
-        .status(200)
-        .json(new ApiResponse(200, safeDBContent, "Summary Ready "));
-    }
-
-    // 3️⃣ CALL OPENAI
-    const output = await askOpenAI(prompt);
-    const parsed = extractJSON(output);
-
-    // ⭐ FIX — convert to pure JSON-safe object
-    const safeParsed = JSON.parse(JSON.stringify(parsed));
-
-    // 4️⃣ SAVE TO DATABASE
-    await LastMinuteSummaryModel.create({
-      className,
-      subject: mainSubject,
-      chapter,
-      content: safeParsed,
-    });
-
-    // 5️⃣ STORE IN REDIS SAFELY
-    await redis.set(
-      cacheKey,
-      JSON.stringify(safeParsed),
-      { ex: 60 * 60 * 24 * 2}
-    );
-
-    return res
-      .status(200)
-      .json(new ApiResponse(200, safeParsed, "Summary Ready"));
-  } catch (error) {
-    console.error("Summary generation failed:", error);
-    return res.status(500).json(
-      new ApiResponse(
-        500,
-        null,
-        "Failed to generate summary. Please try again."
-      )
-    );
   }
+
+  // -------------------------------------------------------------------
+  // 3️⃣ RETURN QUEUED RESPONSE (FRONTEND POLLS UNTIL READY)
+  // -------------------------------------------------------------------
+  return res
+    .status(202)
+    .json(new ApiResponse(202, null, "Summary generation queued"));
 });
+
 
 
 const LastMinutePanelImportantTopics = asyncHandler(async (req, res) => {

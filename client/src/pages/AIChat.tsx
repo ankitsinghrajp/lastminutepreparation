@@ -66,6 +66,25 @@ export default function LastNightBeforeExam() {
     { isError: isChapterError, error: chapterError },
   ]);
 
+  // Poll every 2 seconds until summary is ready
+const pollSummary = async (params) => {
+  const interval = setInterval(async () => {
+    try {
+      const res = await getSummary(null, params);
+
+      if (res?.data?.statusCode === 200) {
+        setSummary(res.data.data.summary);
+        clearInterval(interval);
+        toast.success("Summary Ready!");
+      }
+    } catch (error) {
+      clearInterval(interval);
+      toast.error("Error fetching summary");
+    }
+  }, 2000);
+};
+
+
   useEffect(() => {
     const fetchSubjectFun = async () => {
       if (selectedClass) {
@@ -160,9 +179,21 @@ export default function LastNightBeforeExam() {
     try {
 
       const summaryRes = await getSummary("Analyzing CBSE patterns...", params);
+      
       if (summaryRes?.data?.data) {
         setSummary(summaryRes.data.data?.summary);
       }
+
+      if (summaryRes?.data?.statusCode === 200) {
+      // 🎉 Summary ready instantly (from Redis)
+      setSummary(summaryRes.data.data.summary);
+    }
+
+    if (summaryRes?.data?.statusCode === 202) {
+      // ⏳ Not ready → queued → start polling
+      toast.message("Generating summary...");
+      pollSummary(params);
+    }
 
       const topicsRes = await getImportantTopics("Extracting important topics...", params);
       if (topicsRes?.data?.data) {

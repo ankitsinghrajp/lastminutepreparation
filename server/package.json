@@ -24,6 +24,7 @@
     "express-rate-limit": "^8.2.1",
     "google-auth-library": "^10.4.2",
     "helmet": "^6.2.0",
+    "inngest": "^3.47.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.2",
     "multer": "^2.0.2",
