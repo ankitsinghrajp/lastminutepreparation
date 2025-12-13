@@ -11,6 +11,7 @@ import { smartChapterSummaryFn } from "./functions/chapter-wise-summary.js";
 import { chapterWiseShortNotesFn } from "./functions/chapter-wise-shortNotes.js";
 import { chapterWiseMindMapFn } from "./functions/chapter-wise-mindMap.js";
 import { chapterWiseStudyQuestionsFn } from "./functions/chapter-wise-studyQuestions.js";
+import { importantQuestionGeneratorFn } from "./functions/important-question-feature.js";
 export const inngestHandler = serve({
   client: inngest,
   functions: [
@@ -24,5 +25,6 @@ export const inngestHandler = serve({
     chapterWiseShortNotesFn,
     chapterWiseMindMapFn,
     chapterWiseStudyQuestionsFn,
+    importantQuestionGeneratorFn,
   ],
 });

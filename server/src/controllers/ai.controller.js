@@ -15,6 +15,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
 import { redis } from "../libs/redis.js";
+import { inngest } from "../libs/inngest.js";
 
 // __dirname fix
 const __filename = fileURLToPath(import.meta.url);
@@ -319,14 +320,14 @@ chapter: ${selectedChapter}
   }
 });
 
-
 const importantQuestionGenerator = asyncHandler(async (req, res) => {
   const { className, subject, chapter, index } = req.body;
-  const { mainSubject, bookName } = parseSubject(subject);
 
   if ([className, subject, chapter].some((f) => !f || f.trim() === "")) {
     throw new ApiError(400, "className, subject, chapter are required!");
   }
+
+  const { mainSubject } = parseSubject(subject);
 
   const topics =
     Array.isArray(index) && index.length > 0
@@ -334,199 +335,55 @@ const importantQuestionGenerator = asyncHandler(async (req, res) => {
       : "All key topics";
 
   const cacheKey = `lmp:impQ:${className}:${mainSubject}:${chapter}:${topics}`;
+  const pendingKey = `lmp:impQ:pending:${className}:${mainSubject}:${chapter}:${topics}`;
 
-  // 1️⃣ CHECK REDIS CACHE (SAFE LIKE TOPPER STYLE)
+  // -------------------------------------------------------------------
+  // 1️⃣ REDIS FAST PATH
+  // -------------------------------------------------------------------
   try {
     const redisCached = await redis.get(cacheKey);
 
     if (redisCached) {
-      let finalData;
+      const finalData =
+        typeof redisCached === "object"
+          ? redisCached
+          : JSON.parse(redisCached);
 
-      // CASE 1: Already JSON object
-      if (typeof redisCached === "object") {
-        finalData = redisCached;
-      }
-      // CASE 2: JSON string → parse safely
-      else if (typeof redisCached === "string") {
-        try {
-          finalData = JSON.parse(redisCached);
-        } catch {
-          console.log("Corrupt Redis JSON. Ignoring.");
-        }
-      }
-
-      if (finalData) {
-        return res
-          .status(200)
-          .json(
-            new ApiResponse(
-              200,
-              { data: finalData },
-              "Important Questions Ready"
-            )
-          );
-      }
+      return res.status(200).json(
+        new ApiResponse(
+          200,
+          { data: finalData },
+          "Important Questions Ready (Redis)"
+        )
+      );
     }
   } catch (err) {
     console.error("Redis GET Error:", err);
   }
 
-  // 2️⃣ PREPARE PROMPT (UNTOUCHED)
- const prompt = `
-You are a CBSE Exam Expert. First read the ncert chapter first that is provided in deeply. Think deeply do not show it. Generate ONLY HIGH-VALUE QUESTIONS (95% chance) that come frequently in CBSE Boards.
+  // -------------------------------------------------------------------
+  // 2️⃣ PENDING FLAG (AVOID DUPLICATE JOBS)
+  // -------------------------------------------------------------------
+  const isPending = await redis.get(pendingKey);
 
-Return **VALID JSON only** (no markdown, no backticks).
+  if (!isPending) {
+    await redis.set(pendingKey, "1", { EX: 300 }); // 5 min safety
 
-INPUT:
-Class: ${className}
-Subject: ${subject}
-Chapter: ${chapter}
-Topics: ${topics}
-
-NCERT BOOK NAME: ${bookName}
-
-OUTPUT JSON STRUCTURE:
-{
-  "chapter": "<chapter name>",
-  "whyImportant": "<2 lines explaining why this chapter is important for exam>",
-  
-  "importantQuestions": [
-    {
-      "question": "<Most expected question>",
-      "marks": "<1/2/3/5>",
-      "whyThisIsImportant": "<1–2 lines>",
-      "keywords": ["keyword1", "keyword2"],
-      "modelAnswer": "<Simple English answer written exactly like exam>"
-    }
-  ],
-
-  "mustPracticeNumericals": [
-    {
-      "question": "<numerical question if subject needs>",
-      "marks": "<2/3/5>",
-      "formulaUsed": ["formula1", "formula2"],
-      "solutionSteps": "Step 1: ... Step 2: ... Step 3: ...",
-      "commonMistake": "<common student mistake>"
-    }
-  ],
-
-  "veryShortQuestions": [
-    {
-      "question": "<1 mark conceptual question>",
-      "answer": "<crisp answer>",
-      "keywords": ["term1"]
-    }
-  ],
-
-  "longAnswerQuestions": [
-    {
-      "question": "<expected 5-mark or derivation question>",
-      "structure": "Intro → Point 1 → Point 2 → Diagram → Conclusion",
-      "modelAnswer": "<full answer student can copy>",
-      "diagramTip": "<if diagram needed>"
-    }
-  ],
-
-  "examStrategy": {
-    "howToAttempt": ["tip1", "tip2"],
-    "mustRevise": ["topic1", "topic2"],
-    "avoidMistakes": ["mistake1", "mistake2"]
+    await inngest.send({
+      name: "lmp/generate.importantQuestions",
+      data: { className, subject, chapter, index },
+    });
   }
-}
 
-Requirements:
-- Minimum 10 important questions.
-- All answers in simple CBSE-friendly language.
-- No complex words.
-- All JSON must be strictly valid.
-`;
-
-  try {
-    // 3️⃣ CHECK DATABASE
-    const dbCache = await ImpQuestionModel.findOne({
-      className,
-      subject: mainSubject,
-      chapter,
-    });
-
-    if (dbCache) {
-      const safeData = JSON.parse(JSON.stringify(dbCache.content));
-
-      // Write to Redis
-      await redis.set(cacheKey, JSON.stringify(safeData), {
-        ex: 60 * 60 * 24 * 2, // 2 days
-      });
-
-      return res.status(200).json(
-        new ApiResponse(
-          200,
-          { data: safeData },
-          "Important Questions Ready"
-        )
-      );
-    }
-
-    // 4️⃣ CALL OPENAI
-    const apiData = await askOpenAI(prompt);
-
-    let finalQuestions;
-    try {
-      const clean = apiData
-        .replace(/```json/g, "")
-        .replace(/```/g, "")
-        .trim();
-
-      finalQuestions = JSON.parse(clean);
-
-      const required = [
-        "chapter",
-        "importantQuestions",
-        "veryShortQuestions",
-        "longAnswerQuestions",
-        "examStrategy",
-      ];
-
-      const missing = required.filter((f) => !finalQuestions[f]);
-      if (missing.length > 0) {
-        throw new Error("Missing required fields: " + missing.join(", "));
-      }
-    } catch (err) {
-      throw new ApiError(
-        500,
-        "Failed to parse AI response: " + err.message
-      );
-    }
-
-    // 5️⃣ SAVE IN DATABASE
-    await ImpQuestionModel.create({
-      className,
-      subject: mainSubject,
-      chapter,
-      content: finalQuestions,
-    });
-
-    // 6️⃣ SAVE IN REDIS SAFELY
-    await redis.set(cacheKey, JSON.stringify(finalQuestions), {
-      ex: 60 * 60 * 24 * 2, // 2 days
-    });
-
-    return res.status(200).json(
-      new ApiResponse(
-        200,
-        { data: finalQuestions },
-        "Important Question Set Generated Successfully! 🔥"
-      )
+  // -------------------------------------------------------------------
+  // 3️⃣ QUEUED RESPONSE
+  // -------------------------------------------------------------------
+  return res
+    .status(202)
+    .json(
+      new ApiResponse(202, null, "Important questions generation queued")
     );
-  } catch (error) {
-    console.error("Important Question Generation Failed:", error);
-    return res
-      .status(500)
-      .json(
-        new ApiResponse(500, null, "Failed to generate important questions.")
-      );
-  }
 });
-
 
 
 const quizMcqFillupTrueFalse = asyncHandler(async (req, res) => {
