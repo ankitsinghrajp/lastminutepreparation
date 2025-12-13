@@ -56,6 +56,36 @@ export default function DiagramAnalysis() {
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+
+  const pollForResult = async (formData: FormData) => {
+  const interval = setInterval(async () => {
+    try {
+      const res = await axios.post(
+        `${server}/api/v1/ai/image-analysis`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+          withCredentials: true,
+        }
+      );
+
+      // ✅ Result ready
+      if (res?.status === 200 && res.data?.aiResponse) {
+        setAnalysis(res.data.aiResponse);
+        setLoading(false);
+        clearInterval(interval);
+        toast.success("Diagram analyzed successfully!");
+      }
+    } catch (err) {
+      console.error("Polling error", err);
+      clearInterval(interval);
+      setLoading(false);
+      toast.error("Failed while fetching result");
+    }
+  }, 2000);
+};
+
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = e.target.files?.[0];
     if (uploadedFile) {
@@ -97,38 +127,45 @@ export default function DiagramAnalysis() {
   };
 
   const handleAnalyze = async () => {
-    if (!file) {
-      toast.error("Please upload a file first");
+  if (!file) {
+    toast.error("Please upload a file first");
+    return;
+  }
+
+  try {
+    setLoading(true);
+    setAnalysis("");
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const res = await axios.post(
+      `${server}/api/v1/ai/image-analysis`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+        withCredentials: true,
+      }
+    );
+
+    // ✅ If instantly ready (cache hit)
+    if (res?.status === 200 && res.data?.aiResponse) {
+      setAnalysis(res.data.aiResponse);
+      toast.success("Diagram analyzed successfully!");
+      setLoading(false);
       return;
     }
 
-    try {
-      setLoading(true);
+    // ⏳ Otherwise start polling
+    toast.message("Analyzing diagram...");
+    pollForResult(formData);
 
-      const formData = new FormData();
-      formData.append("image", file); // MUST match backend key
-
-      const response = await axios.post(
-        `${server}/api/v1/ai/image-analysis`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          withCredentials:true
-        }
-      );
-
-      setAnalysis(response.data.aiResponse || "No analysis found");
-      toast.success("Diagram analyzed successfully!");
-
-    } catch (error: any) {
-      console.error(error);
-      toast.error(error?.response?.data?.message || "Analysis failed. Try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  } catch (error: any) {
+    console.error(error);
+    toast.error(error?.response?.data?.message || "Analysis failed. Try again.");
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-background">

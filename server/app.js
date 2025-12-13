@@ -27,7 +27,6 @@ import aiRoutes from "./src/routes/ai.route.js";
 import classRoutes from "./src/routes/class.route.js";
 import paymentRoutes from "./src/routes/payment.route.js";
 
-
 // Configure routes
 app.use("/api/v1/user",userRoutes);
 app.use("/api/auth",authRoutes);
@@ -35,4 +34,5 @@ app.use("/api/v1/ai",aiRoutes);
 app.use("/api/v1/info",classRoutes);
 app.use("/api/v1/payment",paymentRoutes);
 app.use("/api/v1/inngest",inngestHandler);
+
 export {app};

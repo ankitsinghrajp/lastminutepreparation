@@ -14,6 +14,7 @@ import { chapterWiseStudyQuestionsFn } from "./functions/chapter-wise-studyQuest
 import { importantQuestionGeneratorFn } from "./functions/important-question-feature.js";
 import { quizMcqFillupTrueFalseFn } from "./functions/quiz-mcq-fillup-truefalse.js";
 import { generatePYQsFn } from "./functions/generate-pyqs.js";
+import { diagramImageAnalysisFn } from "./functions/diagram-analysis.js";
 
 export const inngestHandler = serve({
   client: inngest,
@@ -31,5 +32,6 @@ export const inngestHandler = serve({
     importantQuestionGeneratorFn,
     quizMcqFillupTrueFalseFn,
     generatePYQsFn,
+    diagramImageAnalysisFn,
   ],
 });
