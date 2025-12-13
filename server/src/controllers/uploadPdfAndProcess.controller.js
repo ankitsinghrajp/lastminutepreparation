@@ -1,4 +1,3 @@
-import pdfPoppler from "pdf-poppler";
 import { ApiError } from "../utils/APIError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -12,11 +11,14 @@ import { PdfModel } from "../models/Pdf.model.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// ✅ Google Vision Client
 const client = new vision.ImageAnnotatorClient({
   keyFilename: path.join(__dirname, "../../ocr-key.json"),
 });
 
-// ---------- helpers ----------
+// ---------- HELPERS ----------
+
+// ✅ Extract text from NORMAL (non-scanned) PDF
 const extractTextFromPDF = async (pdfPath) => {
   const data = new Uint8Array(fs.readFileSync(pdfPath));
   const pdfDoc = await pdfjsLib.getDocument({ data }).promise;
@@ -27,43 +29,25 @@ const extractTextFromPDF = async (pdfPath) => {
     const content = await page.getTextContent();
     fullText += "\n" + content.items.map(i => i.str).join(" ");
   }
+
   return fullText.trim();
 };
 
+// ✅ Detect scanned PDF
 const isScannedPDF = (text) => !text || text.length < 150;
 
-const convertPdfToImages = async (pdfPath) => {
-  const outputDir = path.join(process.cwd(), "uploads/pdf-pages");
-  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+// ✅ OCR directly on PDF (NO image conversion, Linux-safe)
+const extractTextWithOCR = async (pdfPath) => {
+  const fileBuffer = fs.readFileSync(pdfPath);
 
-  await pdfPoppler.convert(pdfPath, {
-    format: "png",
-    out_dir: outputDir,
-    out_prefix: "page",
-    page: null,
+  const [result] = await client.documentTextDetection({
+    image: { content: fileBuffer },
   });
 
-  return outputDir;
+  return result.fullTextAnnotation?.text?.trim() || "";
 };
 
-const extractTextWithOCR = async (pdfPath) => {
-  const imgDir = await convertPdfToImages(pdfPath);
-  const files = fs.readdirSync(imgDir).filter(f => f.endsWith(".png"));
-
-  let fullText = "";
-  for (const file of files) {
-    const imgPath = path.join(imgDir, file);
-    const [result] = await client.textDetection({
-      image: { content: fs.readFileSync(imgPath) },
-    });
-    fullText += "\n" + (result.fullTextAnnotation?.text || "");
-    fs.unlinkSync(imgPath);
-  }
-
-  return fullText.trim();
-};
-
-// ---------- MAIN UPLOAD CONTROLLER ----------
+// ---------- ✅ MAIN UPLOAD CONTROLLER ----------
 export const uploadPdfAndProcess = asyncHandler(async (req, res) => {
   if (!req.file?.path) {
     throw new ApiError(400, "PDF is required");
@@ -71,16 +55,18 @@ export const uploadPdfAndProcess = asyncHandler(async (req, res) => {
 
   const localPdfPath = req.file.path;
 
-  // 1. Extract text normally
+  // 1. Try normal text extraction
   let extractedText = await extractTextFromPDF(localPdfPath);
 
-  // 2. OCR fallback
+  // 2. OCR fallback for scanned PDFs
   if (isScannedPDF(extractedText)) {
     extractedText = await extractTextWithOCR(localPdfPath);
   }
 
-  // 3. Delete local PDF
-  fs.unlinkSync(localPdfPath);
+  // 3. Delete local PDF safely
+  if (fs.existsSync(localPdfPath)) {
+    fs.unlinkSync(localPdfPath);
+  }
 
   if (!extractedText || extractedText.length < 50) {
     throw new ApiError(400, "Unable to read PDF properly");
@@ -91,7 +77,6 @@ export const uploadPdfAndProcess = asyncHandler(async (req, res) => {
     filename: req.file.originalname,
     extractedText,
   });
-
 
   req.user.pdfUploadsThisMonth += 1;
   await req.user.save();

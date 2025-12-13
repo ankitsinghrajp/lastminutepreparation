@@ -2,33 +2,15 @@ import { inngest } from "../../libs/inngest.js";
 import {LastMinuteSummaryModel} from "../../models/LastMinuteBeforeExam/summary.model.js";
 import { parseSubject, detectCategory } from "../../utils/helper.js"; 
 import { askOpenAI } from "../../utils/OpenAI.js"; 
-
+import { extractJSON } from "./extractJsonForFunctions/extractJson.js";
 import { redis } from "../../libs/redis.js"; 
 
-const extractJSON = (text) => {
-  if (!text) throw new Error("Empty response received from AI.");
-
-  text = text
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
-
-  // Extract only JSON object
-  const first = text.indexOf("{");
-  const last = text.lastIndexOf("}");
-  if (first === -1 || last === -1) throw new Error("No JSON found.");
-
-  let jsonString = text.substring(first, last + 1);
-
-  jsonString = jsonString.replace(/\\/g, "\\\\");
-
-  jsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
-
-  return JSON.parse(jsonString);
-};
 
 export const lastNightSummaryFn = inngest.createFunction(
-  { name: "Generate LMP Summary" },
+
+  { name: "Generate LMP Summary",
+    id:"last-night-summary",
+   },
   { event: "lmp/generate.summary" },
   async ({ event, step }) => {
     try {

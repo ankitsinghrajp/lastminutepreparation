@@ -84,6 +84,94 @@ const pollSummary = async (params) => {
   }, 2000);
 };
 
+  // Poll every 2 seconds until topics is ready
+const pollImportantTopics = async (params) => {
+  const interval = setInterval(async () => {
+    try {
+      const res = await getImportantTopics(null, params);
+
+      if (res?.data?.statusCode === 200) {
+        setImportantTopics(res.data.data.topics);
+        clearInterval(interval);
+        toast.success("Important Topics Ready!");
+      }
+    } catch (error) {
+      clearInterval(interval);
+      toast.error("Error fetching Important Topics");
+    }
+  }, 4000);
+};
+ // Poll every 2 seconds until questions is ready
+const pollPredictedQuestions = async (params) => {
+  const interval = setInterval(async () => {
+    try {
+      const res = await getPredictedQuestion(null, params);
+
+      if (res?.data?.statusCode === 200) {
+        setPredictedQuestion(res.data.data.questions);
+        clearInterval(interval);
+        toast.success("Important Topics Ready!");
+      }
+    } catch (error) {
+      clearInterval(interval);
+      toast.error("Error fetching Important Topics");
+    }
+  }, 6000);
+};
+
+ // Poll every 2 seconds until mcqs is ready
+const pollMcqs = async (params) => {
+  const interval = setInterval(async () => {
+    try {
+      const res = await getMcqs(null, params);
+
+      if (res?.data?.statusCode === 200) {
+        setMcqs(res.data.data.mcqs);
+        clearInterval(interval);
+        toast.success("MCQs Ready!");
+      }
+    } catch (error) {
+      clearInterval(interval);
+      toast.error("Error fetching Important Topics");
+    }
+  }, 8000);
+};
+
+ // Poll every 2 seconds until boosters is ready
+const pollBoosters = async (params) => {
+  const interval = setInterval(async () => {
+    try {
+      const res = await getMemoryBooster(null, params);
+
+      if (res?.data?.statusCode === 200) {
+        setMemoryBooster(res.data.data.boosters);
+        clearInterval(interval);
+        toast.success("Boosters Ready!");
+      }
+    } catch (error) {
+      clearInterval(interval);
+      toast.error("Error fetching Boosters");
+    }
+  }, 8000);
+};
+// Poll every 2 seconds until coach is ready
+const pollAiCoach = async (params) => {
+  const interval = setInterval(async () => {
+    try {
+      const res = await getAiCoach(null, params);
+
+      if (res?.data?.statusCode === 200) {
+        setAiCoach(res.data.data.steps);
+        clearInterval(interval);
+        toast.success("Boosters Ready!");
+      }
+    } catch (error) {
+      clearInterval(interval);
+      toast.error("Error fetching Boosters");
+    }
+  }, 8000);
+};
+
 
   useEffect(() => {
     const fetchSubjectFun = async () => {
@@ -196,29 +284,88 @@ const pollSummary = async (params) => {
     }
 
       const topicsRes = await getImportantTopics("Extracting important topics...", params);
-      if (topicsRes?.data?.data) {
+
+       if (topicsRes?.data?.data) {
         setImportantTopics(topicsRes.data.data?.topics);
       }
 
+      if (topicsRes?.data?.statusCode === 200) {
+      // 🎉 Summary ready instantly (from Redis)
+      setImportantTopics(topicsRes.data.data.topics);
+    }
+
+    if (topicsRes?.data?.statusCode === 202) {
+      // ⏳ Not ready → queued → start polling
+      toast.message("Generating summary...");
+      pollImportantTopics(params);
+    }
+
       const questionsRes = await getPredictedQuestion("Generating predicted questions...", params);
-      if (questionsRes?.data?.data) {
+      
+        if (questionsRes?.data?.data) {
         setPredictedQuestion(questionsRes.data.data?.questions);
       }
+
+      if (questionsRes?.data?.statusCode === 200) {
+      // 🎉 Summary ready instantly (from Redis)
+      setPredictedQuestion(questionsRes.data.data.questions);
+    }
+
+    if (questionsRes?.data?.statusCode === 202) {
+      // ⏳ Not ready → queued → start polling
+      toast.message("Generating Important Questions...");
+      pollPredictedQuestions(params);
+    }
 
       const mcqsRes = await getMcqs("Creating practice MCQs...", params);
       if (mcqsRes?.data?.data) {
         setMcqs(mcqsRes.data.data?.mcqs);
       }
 
+      if (mcqsRes?.data?.statusCode === 200) {
+      // 🎉 Summary ready instantly (from Redis)
+      setMcqs(mcqsRes.data.data.mcqs);
+    }
+
+    if (mcqsRes?.data?.statusCode === 202) {
+      // ⏳ Not ready → queued → start polling
+      toast.message("Generating MCQs....");
+      pollMcqs(params);
+    }
+
       const memoryBoosterRes = await getMemoryBooster("Creating memory boosters...", params);
       if (memoryBoosterRes?.data?.data) {
         setMemoryBooster(memoryBoosterRes.data.data?.boosters);
       }
 
+      if (memoryBoosterRes?.data?.statusCode === 200) {
+      // 🎉 Summary ready instantly (from Redis)
+      setMemoryBooster(memoryBoosterRes.data.data.boosters);
+    }
+
+    if (memoryBoosterRes?.data?.statusCode === 202) {
+      // ⏳ Not ready → queued → start polling
+      toast.message("Generating Boosters....");
+      pollBoosters(params);
+    }
+
+
       const aiCoachRes = await getAiCoach("Generating study plan...", params);
       if (aiCoachRes?.data?.data) {
         setAiCoach(aiCoachRes.data.data?.steps);
       }
+
+      if (aiCoachRes?.data?.statusCode === 200) {
+      // 🎉 Summary ready instantly (from Redis)
+      setAiCoach(aiCoachRes.data.data.steps);
+    }
+
+    if (aiCoachRes?.data?.statusCode === 202) {
+      // ⏳ Not ready → queued → start polling
+      toast.message("AI Coach thinking....");
+      pollAiCoach(params);
+    }
+
 
     } catch (error) {
       toast.error("Failed to generate revision materials");

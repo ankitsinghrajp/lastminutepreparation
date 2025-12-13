@@ -2,7 +2,19 @@
 import { serve } from "inngest/express";
 import { inngest } from "../libs/inngest.js";
 import { lastNightSummaryFn } from "./functions/last-night-summary.js";
+import { lastNightImportantTopicsFn } from "./functions/last-night-importantTopics.js";
+import { lastNightPredictedQuestionsFn } from "./functions/last-night-predicted-question.js";
+import { lastNightMCQsFn } from "./functions/last-night-mcq.js";
+import { lastNightMemoryBoosterFn } from "./functions/last-night-boosters.js";
+import { lastNightAICoachFn } from "./functions/last-night-aiCoach.js";
 export const inngestHandler = serve({
   client: inngest,
-  functions: [lastNightSummaryFn],
+  functions: [
+    lastNightSummaryFn,
+    lastNightImportantTopicsFn,
+    lastNightPredictedQuestionsFn,
+    lastNightMCQsFn,
+    lastNightMemoryBoosterFn,
+    lastNightAICoachFn
+  ],
 });
