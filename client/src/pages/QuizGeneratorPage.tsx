@@ -34,6 +34,24 @@ export default function QuizGenerator() {
     { isError: isChapterError, error: chapterError },
   ]);
 
+    const pollMCQs = async (params) => {
+        const interval = setInterval(async () => {
+          try {
+            const res = await quizGenerator(null, params);
+      
+            if (res?.data?.statusCode === 200) {
+              setResponse(res.data.data.data);
+              clearInterval(interval);
+              toast.success("Mcqs Ready!");
+              
+            }
+          } catch (error) {
+            clearInterval(interval);
+            toast.error("Error fetching mcqs...");
+          }
+        }, 4000);
+      };
+
   // Fetch subjects when class changes
   useEffect(() => {
     const fetchSubjectFun = async () => {
@@ -111,10 +129,29 @@ export default function QuizGenerator() {
      
     const res = await quizGenerator("Generating...",{className:selectedClass, subject:selectedSubject, chapter:selectedChapter, index:selectedIndex});
 
-    if(res?.data?.data?.data){
-      setResponse(res?.data?.data?.data);
+    console.log("This is the response: ",res);
+        if (res?.data?.data) {
+        setResponse(res.data.data.data);
+      }
+
+      if (res?.data?.statusCode === 200) {
+      // 🎉 Summary ready instantly (from Redis)
+      setResponse(res.data.data.data);
     }
+
+    if (res?.data?.statusCode === 202) {
+      // ⏳ Not ready → queued → start polling
+      toast.message("Generating Questions...");
+      pollMCQs({
+      className: selectedClass,
+      subject: selectedSubject,
+      chapter: selectedChapter,
+      index: selectedIndex
+    });
+
+      }
  
+
   };
 
   const isGenerateDisabled = loading || !selectedClass || !selectedSubject || !selectedChapter;

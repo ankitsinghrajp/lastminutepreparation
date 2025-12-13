@@ -6,7 +6,6 @@ import { configDotenv } from "dotenv";
 import { PyqModel } from "../models/PreviousYearQuestions/pyq.model.js";
 import { parseSubject } from "../utils/helper.js";
 import { McqModel } from "../models/ImportantMcqsTrueFalse/mcq.model.js";
-import { ImpQuestionModel } from "../models/ImportantQuestionsPage/impquestions.model.js";
 
 configDotenv();
 
@@ -385,177 +384,71 @@ const importantQuestionGenerator = asyncHandler(async (req, res) => {
     );
 });
 
-
 const quizMcqFillupTrueFalse = asyncHandler(async (req, res) => {
   const { className, subject, chapter, index } = req.body;
-  const { mainSubject, bookName } = parseSubject(subject);
 
   if (!className || !subject || !chapter) {
     throw new ApiError(400, "className, subject and chapter are required");
   }
+
+  const { mainSubject } = parseSubject(subject);
 
   const topics =
     Array.isArray(index) && index.length > 0
       ? JSON.stringify(index)
       : "All key topics";
 
-  // REDIS CACHE KEY
   const cacheKey = `lmp:quiz:${className}:${mainSubject}:${chapter}:${topics}`;
+  const pendingKey = `lmp:quiz:pending:${className}:${mainSubject}:${chapter}:${topics}`;
 
-  // 1️⃣ CHECK REDIS CACHE
+  // -------------------------------------------------------------------
+  // 1️⃣ REDIS FAST PATH
+  // -------------------------------------------------------------------
   try {
     const redisCached = await redis.get(cacheKey);
 
     if (redisCached) {
-      let finalData;
+      const finalData =
+        typeof redisCached === "object"
+          ? redisCached
+          : JSON.parse(redisCached);
 
-      // Case 1: Already an object (Upstash sometimes returns objects)
-      if (typeof redisCached === "object") {
-        finalData = redisCached;
-      }
-
-      // Case 2: String → parse safely
-      else if (typeof redisCached === "string") {
-        try {
-          finalData = JSON.parse(redisCached);
-        } catch {
-          console.log("Invalid JSON in Redis — ignoring cache.");
-        }
-      }
-
-      if (finalData) {
-        return res
-          .status(200)
-          .json(
-            new ApiResponse(
-              200,
-              { data: finalData },
-              "Quiz (MCQ, Fillups, True/False) Ready"
-            )
-          );
-      }
+      return res.status(200).json(
+        new ApiResponse(
+          200,
+          { data: finalData },
+          "Quiz (MCQ, Fillups, True/False) Ready (Redis)"
+        )
+      );
     }
   } catch (err) {
     console.error("Redis GET error:", err);
   }
 
-  // 2️⃣ CHECK DATABASE
-  try {
-    const dbCache = await McqModel.findOne({
-      className,
-      subject: mainSubject,
-      chapter,
+  // -------------------------------------------------------------------
+  // 2️⃣ PENDING FLAG (AVOID DUPLICATE JOBS)
+  // -------------------------------------------------------------------
+  const isPending = await redis.get(pendingKey);
+
+  if (!isPending) {
+    await redis.set(pendingKey, "1", { EX: 300 }); // 5 min safety
+
+    await inngest.send({
+      name: "lmp/generate.quizMcqFillupTrueFalse",
+      data: { className, subject, chapter, index },
     });
-
-    if (dbCache) {
-      const safeDBData = JSON.parse(JSON.stringify(dbCache.content));
-
-      // Write to Redis (2 days)
-      await redis.set(cacheKey, JSON.stringify(safeDBData), {
-        ex: 60 * 60 * 24 * 2,
-      });
-
-      return res
-        .status(200)
-        .json(
-          new ApiResponse(
-            200,
-            { data: safeDBData },
-            "Quiz (MCQ, Fillups, True/False) Ready"
-          )
-        );
-    }
-  } catch (err) {
-    console.error("DB Cache Error:", err);
   }
 
-  // 3️⃣ RAW PROMPT (UNTOUCHED)
-  const prompt = `
-You are a CBSE Exam Expert. Generate ONLY HIGH-VALUE questions from the chapter.
-Include MCQs, Fillups, and True/False with answers.
-
-INPUT:
-- Class: ${className}
-- Subject: ${mainSubject}
-- Chapter Name: ${chapter}
-- Topics: ${topics}
-- Bookname: ${bookName}
-
-STRICT GENERATION RULES:
-1. Generate 15 to 20 VERY IMPORTANT questions in total.
-2. Must include all 3 types:
-   - "mcq" → minimum 7
-   - "fillup" → minimum 5
-   - "true_false" → minimum 4
-
-3. MCQ Rules:
-   - Must contain EXACTLY 4 options.
-   - "answer" must MATCH one of the options EXACTLY.
-
-4. Fillups Rules:
-   - Must use "______".
-   - Answer MUST be provided.
-
-5. True/False Rules:
-   - Answer must be EXACTLY "True" or "False".
-
-6. NO missing fields.
-
-RETURN STRICT JSON ONLY.
-`;
-
-  // 4️⃣ CALL OPENAI
-  const apiData = await askOpenAI(prompt);
-
-  let finalQuestions;
-  try {
-    const cleaned = apiData
-      .replace(/```json/g, "")
-      .replace(/```/g, "")
-      .trim();
-
-    finalQuestions = JSON.parse(cleaned);
-
-    // Validate minimal structure
-    const requiredFields = ["class", "subject", "chapter", "questions"];
-    const missingFields = requiredFields.filter((f) => !finalQuestions[f]);
-
-    if (missingFields.length > 0) {
-      throw new Error("Missing required fields: " + missingFields.join(", "));
-    }
-
-    if (
-      !Array.isArray(finalQuestions.questions) ||
-      finalQuestions.questions.length === 0
-    ) {
-      throw new Error("Questions array is empty or invalid");
-    }
-  } catch (err) {
-    console.error("JSON Parse Error:", err);
-    throw new ApiError(500, "Failed to parse AI response: " + err.message);
-  }
-
-  // 5️⃣ SAVE TO DATABASE
-  await McqModel.create({
-    className,
-    subject: mainSubject,
-    chapter,
-    content: finalQuestions,
-  });
-
-  // 6️⃣ SAVE TO REDIS SAFELY
-  await redis.set(cacheKey, JSON.stringify(finalQuestions), {
-    ex: 60 * 60 * 24 * 2, // 2 days
-  });
-
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      { data: finalQuestions },
-      "MCQs + Fillups + True/False generated successfully 🔥"
-    )
-  );
+  // -------------------------------------------------------------------
+  // 3️⃣ QUEUED RESPONSE
+  // -------------------------------------------------------------------
+  return res
+    .status(202)
+    .json(
+      new ApiResponse(202, null, "Quiz generation queued")
+    );
 });
+
 
 
 const askAnyQuestion = asyncHandler(async (req, res) => {
@@ -727,10 +620,8 @@ ${finalQuestion}
 });
 
 
-// Generate PYQS
 const generatePYQs = asyncHandler(async (req, res) => {
   const { className, subject, chapter, year } = req.body;
-  const { mainSubject, bookName } = parseSubject(subject);
 
   if (!className || !subject || !chapter || !year) {
     throw new ApiError(
@@ -739,149 +630,53 @@ const generatePYQs = asyncHandler(async (req, res) => {
     );
   }
 
-  // REDIS CACHE KEY
-  const cacheKey = `lmp:pyq:${className}:${mainSubject}:${chapter}:${year}`;
+  const { mainSubject } = parseSubject(subject);
 
-  // 1️⃣ CHECK REDIS CACHE FIRST
+  const cacheKey = `lmp:pyq:${className}:${mainSubject}:${chapter}:${year}`;
+  const pendingKey = `lmp:pyq:pending:${className}:${mainSubject}:${chapter}:${year}`;
+
+  // -------------------------------------------------------------------
+  // 1️⃣ REDIS FAST PATH
+  // -------------------------------------------------------------------
   try {
     const redisCached = await redis.get(cacheKey);
 
     if (redisCached) {
-      let finalData;
+      const finalData =
+        typeof redisCached === "object"
+          ? redisCached
+          : JSON.parse(redisCached);
 
-      // If Upstash returns an object
-      if (typeof redisCached === "object") {
-        finalData = redisCached;
-      }
-
-      // If Upstash returns a string → parse safely
-      else if (typeof redisCached === "string") {
-        try {
-          finalData = JSON.parse(redisCached);
-        } catch {
-          console.log("Invalid JSON in Redis — ignoring.");
-        }
-      }
-
-      if (finalData) {
-        return res
-          .status(200)
-          .json(
-            new ApiResponse(200, { data: finalData }, "PYQs Ready")
-          );
-      }
+      return res
+        .status(200)
+        .json(new ApiResponse(200, { data: finalData }, "PYQs Ready (Redis)"));
     }
   } catch (err) {
     console.error("Redis GET error:", err);
   }
 
-  // 2️⃣ CHECK DATABASE CACHE
-  try {
-    const dbCache = await PyqModel.findOne({
-      className,
-      subject: mainSubject,
-      chapter,
-      year,
+  // -------------------------------------------------------------------
+  // 2️⃣ PENDING FLAG (AVOID DUPLICATE JOBS)
+  // -------------------------------------------------------------------
+  const isPending = await redis.get(pendingKey);
+
+  if (!isPending) {
+    await redis.set(pendingKey, "1", { EX: 300 }); // 5 min safety
+
+    await inngest.send({
+      name: "lmp/generate.pyqs",
+      data: { className, subject, chapter, year },
     });
-
-    if (dbCache) {
-      const safeDB = JSON.parse(JSON.stringify(dbCache.content));
-
-      // Save to Redis (2 days)
-      await redis.set(cacheKey, JSON.stringify(safeDB), {
-        ex: 60 * 60 * 24 * 2,
-      });
-
-      return res
-        .status(200)
-        .json(
-          new ApiResponse(200, { data: safeDB }, "PYQs Ready")
-        );
-    }
-  } catch (err) {
-    console.error("DB Cache Error:", err);
   }
 
-  // 3️⃣ RAW PROMPT (UNTOUCHED)
-  const prompt = `
-You are a CBSE PYQ Expert. Your ONLY task is to generate synthetic but accurate
-CBSE-style PYQs for ONE specific year provided by the user.
-
-USER INPUT:
-- Class: ${className}
-- Subject: ${subject}
-- Chapter: ${chapter}
-- Year: ${year}
-
-STRICT GENERATION RULES:
-1. Generate **10 to 15 high-value PYQs** for the given year ONLY.
-2. For EACH question include ALL fields:
-   - "id"
-   - "year" → MUST be exactly ${year}
-   - "marks" → 1, 2, 3, or 5 ONLY
-   - "question" → Must be meaningful and chapter-focused
-3. NO repeated questions.
-4. ABSOLUTELY NO missing fields.
-5. NO explanation.
-6. Return STRICT JSON ONLY.
-
-FINAL OUTPUT FORMAT:
-{
-  "class": "${className}",
-  "subject": "${subject}",
-  "chapter": "${chapter}",
-  "year": ${year},
-  "pyqs": [
-    {
-      "id": 1,
-      "year": ${year},
-      "marks": 3,
-      "question": "Explain the role of …"
-    }
-  ]
-}
-RETURN STRICT JSON ONLY.
-  `;
-
-  // 4️⃣ CALL OPENAI
-  const aiResponse = await askOpenAI(prompt, "gpt-5.1");
-
-  // 5️⃣ CLEAN & PARSE JSON
-  let finalJson;
-  try {
-    const cleaned = aiResponse
-      .replace(/```json/g, "")
-      .replace(/```/g, "")
-      .trim();
-
-    finalJson = JSON.parse(cleaned);
-  } catch (err) {
-    console.error("❌ AI JSON Error:", err);
-    throw new ApiError(500, "Failed to parse PYQ JSON: " + err.message);
-  }
-
-  // 6️⃣ SAVE TO DATABASE
-  await PyqModel.create({
-    className,
-    subject: mainSubject,
-    chapter,
-    year,
-    content: finalJson,
-  });
-
-  // 7️⃣ SAVE TO REDIS (2 days)
-  try {
-    await redis.set(cacheKey, JSON.stringify(finalJson), {
-      ex: 60 * 60 * 24 * 2,
-    });
-  } catch (err) {
-    console.error("Redis SET error:", err);
-  }
-
-  return res.status(200).json(
-    new ApiResponse(200, { data: finalJson }, "PYQs fetched successfully! 🎯")
-  );
+  // -------------------------------------------------------------------
+  // 3️⃣ QUEUED RESPONSE
+  // -------------------------------------------------------------------
+  return res
+    .status(202)
+    .json(new ApiResponse(202, null, "PYQs generation queued"));
 });
+
 
 
 

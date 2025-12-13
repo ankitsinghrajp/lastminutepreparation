@@ -135,7 +135,6 @@ export default function ImportantQuestions() {
       chapter: selectedChapter,
       index: selectedIndex
     });
-       console.log("This is the response: ",res);
         if (res?.data?.data) {
         setResponse(res.data.data.data);
       }

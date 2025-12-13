@@ -12,6 +12,9 @@ import { chapterWiseShortNotesFn } from "./functions/chapter-wise-shortNotes.js"
 import { chapterWiseMindMapFn } from "./functions/chapter-wise-mindMap.js";
 import { chapterWiseStudyQuestionsFn } from "./functions/chapter-wise-studyQuestions.js";
 import { importantQuestionGeneratorFn } from "./functions/important-question-feature.js";
+import { quizMcqFillupTrueFalseFn } from "./functions/quiz-mcq-fillup-truefalse.js";
+import { generatePYQsFn } from "./functions/generate-pyqs.js";
+
 export const inngestHandler = serve({
   client: inngest,
   functions: [
@@ -26,5 +29,7 @@ export const inngestHandler = serve({
     chapterWiseMindMapFn,
     chapterWiseStudyQuestionsFn,
     importantQuestionGeneratorFn,
+    quizMcqFillupTrueFalseFn,
+    generatePYQsFn,
   ],
 });

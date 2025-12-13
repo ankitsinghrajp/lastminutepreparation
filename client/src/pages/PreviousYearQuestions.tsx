@@ -56,6 +56,25 @@ export default function PreviousYearQuestions() {
     { isError: isChapterError, error: chapterError },
   ]);
 
+     const pollPyqs = async (params) => {
+      const interval = setInterval(async () => {
+        try {
+          const res = await pyqGenerator(null, params);
+    
+          if (res?.data?.statusCode === 200) {
+            setQuestions(res.data.data.data.pyqs);
+            setPyqs(res.data.data.data);
+            clearInterval(interval);
+            toast.success("Questions Ready!");
+            
+          }
+        } catch (error) {
+          clearInterval(interval);
+          toast.error("Error fetching questions...");
+        }
+      }, 4000);
+    };
+
   // Fetch subjects when class changes
   useEffect(() => {
     const fetchSubjectFun = async () => {
@@ -65,6 +84,7 @@ export default function PreviousYearQuestions() {
         setSelectedSubject("");
         setSelectedChapter("");
         setQuestions([]);
+        setPyqs({});
         try {
           await fetchSubject({ selectedClass });
         } catch (error) {
@@ -96,6 +116,7 @@ export default function PreviousYearQuestions() {
         setChapters([]);
         setSelectedChapter("");
         setQuestions([]);
+        setPyqs({});
         try {
           await fetchChapter({ selectedClass, selectedSubject });
         } catch (error) {
@@ -126,11 +147,29 @@ export default function PreviousYearQuestions() {
       return;
     }
 
+    // Reset previous questions before fetching new ones
+    setQuestions([]);
+    setPyqs({});
+
     const res = await pyqGenerator(`Fetching year: ${selectedYear} cbse board questions...`,{className:selectedClass, subject:selectedSubject, chapter:selectedChapter, year:selectedYear});
     
-    if(res?.data?.data?.data?.pyqs){
-       setPyqs(res?.data?.data?.data?.pyqs);
+    if (res?.data?.data) {
+        setQuestions(res.data.data.data.pyqs);
+        setPyqs(res.data.data.data);
+      }
+
+      if (res?.data?.statusCode === 200) {
+      // 🎉 Summary ready instantly (from Redis)
+      setQuestions(res.data.data.data.pyqs);
+      setPyqs(res.data.data.data);
     }
+
+    if (res?.data?.statusCode === 202) {
+      // ⏳ Not ready → queued → start polling
+      toast.message(`Fetching year: ${selectedYear} cbse board questions...`);
+      pollPyqs({className:selectedClass, subject:selectedSubject, chapter:selectedChapter, year:selectedYear});
+
+      }
 
   };
 
