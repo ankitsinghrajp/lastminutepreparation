@@ -7,6 +7,10 @@ import { lastNightPredictedQuestionsFn } from "./functions/last-night-predicted-
 import { lastNightMCQsFn } from "./functions/last-night-mcq.js";
 import { lastNightMemoryBoosterFn } from "./functions/last-night-boosters.js";
 import { lastNightAICoachFn } from "./functions/last-night-aiCoach.js";
+import { smartChapterSummaryFn } from "./functions/chapter-wise-summary.js";
+import { chapterWiseShortNotesFn } from "./functions/chapter-wise-shortNotes.js";
+import { chapterWiseMindMapFn } from "./functions/chapter-wise-mindMap.js";
+import { chapterWiseStudyQuestionsFn } from "./functions/chapter-wise-studyQuestions.js";
 export const inngestHandler = serve({
   client: inngest,
   functions: [
@@ -15,6 +19,10 @@ export const inngestHandler = serve({
     lastNightPredictedQuestionsFn,
     lastNightMCQsFn,
     lastNightMemoryBoosterFn,
-    lastNightAICoachFn
+    lastNightAICoachFn,
+    smartChapterSummaryFn,
+    chapterWiseShortNotesFn,
+    chapterWiseMindMapFn,
+    chapterWiseStudyQuestionsFn,
   ],
 });

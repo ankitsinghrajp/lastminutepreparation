@@ -1,4 +1,4 @@
-export const extractJSON = (text) => {
+export const lastMinuteExtractJson = (text) => {
   if (!text) throw new Error("Empty response received from AI.");
 
   text = text

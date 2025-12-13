@@ -1,32 +1,9 @@
 import { redis } from "../libs/redis.js";
-import { AiCoach } from "../models/LastMinuteBeforeExam/aiCoach.model.js";
 import { inngest } from "../libs/inngest.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { detectCategory, parseSubject } from "../utils/helper.js";
-import { askOpenAI } from "../utils/OpenAI.js";
+import { parseSubject } from "../utils/helper.js";
 
-const extractJSON = (text) => {
-  if (!text) throw new Error("Empty response received from AI.");
-
-  text = text
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
-
-  // Extract only JSON object
-  const first = text.indexOf("{");
-  const last = text.lastIndexOf("}");
-  if (first === -1 || last === -1) throw new Error("No JSON found.");
-
-  let jsonString = text.substring(first, last + 1);
-
-  jsonString = jsonString.replace(/\\/g, "\\\\");
-
-  jsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
-
-  return JSON.parse(jsonString);
-};
 
 const LastMinutePanelSummary = asyncHandler(async (req, res) => {
   const { className, subject, chapter } = req.body;

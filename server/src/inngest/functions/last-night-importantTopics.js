@@ -3,7 +3,7 @@ import { ImpTopicsModel } from "../../models/LastMinuteBeforeExam/impTopics.mode
 import { parseSubject, detectCategory } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
-import { extractJSON } from "./extractJsonForFunctions/extractJson.js";
+import { lastMinuteExtractJson as extractJSON } from "./extractJsonForFunctions/lastMinuteExtractJson.js";
 export const lastNightImportantTopicsFn = inngest.createFunction(
   { name: "Generate LMP Important Topics",
     id: "last-night-important-topics"

@@ -3,7 +3,7 @@ import { AiCoach } from "../../models/LastMinuteBeforeExam/aiCoach.model.js";
 import { parseSubject, detectCategory } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
-import { extractJSON } from "./extractJsonForFunctions/extractJson.js";
+import { lastMinuteExtractJson as extractJSON } from "./extractJsonForFunctions/lastMinuteExtractJson.js";
 
 export const lastNightAICoachFn = inngest.createFunction(
   {

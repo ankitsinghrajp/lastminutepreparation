@@ -3,7 +3,7 @@ import { LastMinuteMCQModel } from "../../models/LastMinuteBeforeExam/lastMinute
 import { parseSubject, detectCategory } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
-import { extractJSON } from "./extractJsonForFunctions/extractJson.js";
+import { lastMinuteExtractJson as extractJSON } from "./extractJsonForFunctions/lastMinuteExtractJson.js";
 export const lastNightMCQsFn = inngest.createFunction(
   {
     id: "lmp-mcqs",

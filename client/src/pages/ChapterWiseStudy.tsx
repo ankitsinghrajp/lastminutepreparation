@@ -88,6 +88,84 @@ export default function ChapterWiseStudy() {
   ]);
 
 
+    // Poll every 2 seconds until summary is ready
+  const pollSummary = async (params) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await getSummary(null, params);
+  
+        if (res?.data?.statusCode === 200) {
+          setSummary(res.data.data.summary);
+          clearInterval(interval);
+          toast.success("Summary Ready!");
+          setSummaryComplete(true);
+        }
+      } catch (error) {
+        clearInterval(interval);
+        toast.error("Error fetching summary");
+      }
+    }, 2000);
+  };
+
+     // Poll every 6 seconds until summary is ready
+  const pollshortNotes = async (params) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await getShortNotes(null, params);
+  
+        if (res?.data?.statusCode === 200) {
+          setShortNotes(res.data.data.shortNotes);
+          clearInterval(interval);
+          setNotesComplete(true);
+          toast.success("Short Notes Ready!");
+          
+        }
+      } catch (error) {
+        clearInterval(interval);
+        toast.error("Error fetching short Notes");
+      }
+    }, 6000);
+  };
+
+  //  Poll every 8 second until summary is ready
+    const pollMindMap = async (params) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await getMindMap(null, params);
+  
+        if (res?.data?.statusCode === 200) {
+          setMindMap(res.data.data);
+          clearInterval(interval);
+          setMindMapComplete(true);
+          toast.success("Mind Map Ready!");
+          
+        }
+      } catch (error) {
+        clearInterval(interval);
+        toast.error("Error fetching mind map");
+      }
+    }, 8000);
+  };
+
+    const pollImportantQuestion = async (params) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await getImportantQuestion(null, params);
+  
+        if (res?.data?.statusCode === 200) {
+          setImportantQuestions(res.data.data.questions);
+          clearInterval(interval);
+          setQuestionsComplete(true);
+          toast.success("Questions Ready!");
+          
+        }
+      } catch (error) {
+        clearInterval(interval);
+        toast.error("Error fetching questions...");
+      }
+    }, 10000);
+  };
+
   // Fetch subjects when class changes
   useEffect(() => {
     const fetchSubjectFun = async () => {
@@ -189,10 +267,24 @@ export default function ChapterWiseStudy() {
       setSummaryLoading(true);
       try {
         const summaryRes = await getSummary("Generating Summary...", params);
-        if (summaryRes?.data?.data) {
-          setSummary(summaryRes.data.data.summary);
-          setSummaryComplete(true);
-        }
+
+         if (summaryRes?.data?.data) {
+        setSummary(summaryRes.data.data?.summary);
+        setSummaryComplete(true);
+      }
+
+      if (summaryRes?.data?.statusCode === 200) {
+      // 🎉 Summary ready instantly (from Redis)
+      setSummary(summaryRes.data.data.summary);
+      setSummaryComplete(true);
+    }
+
+    if (summaryRes?.data?.statusCode === 202) {
+      // ⏳ Not ready → queued → start polling
+      toast.message("Generating summary...");
+      pollSummary(params);
+    }
+
       } catch (error) {
         console.error("Error generating summary:", error);
         setSummaryComplete(false);
@@ -205,10 +297,22 @@ export default function ChapterWiseStudy() {
       try {
         const notesRes = await getShortNotes("Generating Short Notes...", params);
         if (notesRes?.data?.data) {
-          setShortNotes(notesRes.data.data.shortNotes);
-          setNotesComplete(true);
-        }
-      } catch (error) {
+        setShortNotes(notesRes.data.data?.shortNotes);
+        setNotesComplete(true);
+      }
+
+      if (notesRes?.data?.statusCode === 200) {
+      // 🎉 Summary ready instantly (from Redis)
+      setShortNotes(notesRes.data.data.shortNotes);
+      setNotesComplete(true);
+    }
+
+    if (notesRes?.data?.statusCode === 202) {
+      // ⏳ Not ready → queued → start polling
+      toast.message("Generating short notes...");
+      pollshortNotes(params);
+
+      }} catch (error) {
         console.error("Error generating short notes:", error);
         setNotesComplete(false);
       } finally {
@@ -219,10 +323,23 @@ export default function ChapterWiseStudy() {
       setMindMapLoading(true);
       try {
         const mindMapRes = await getMindMap("Generating Mind Map...", params);
-        if (mindMapRes?.data?.data) {
-          setMindMap(mindMapRes.data.data);
-          setMindMapComplete(true);
-        }
+       if (mindMapRes?.data?.data) {
+        setMindMap(mindMapRes.data.data);
+        setMindMapComplete(true);
+      }
+
+      if (mindMapRes?.data?.statusCode === 200) {
+      // 🎉 Summary ready instantly (from Redis)
+      setMindMap(mindMapRes.data.data);
+      setMindMapComplete(true);
+    }
+
+    if (mindMapRes?.data?.statusCode === 202) {
+      // ⏳ Not ready → queued → start polling
+      toast.message("Generating mind map...");
+      pollMindMap(params);
+
+      }
       } catch (error) {
         console.error("Error generating mind map:", error);
         setMindMapComplete(false);
@@ -234,10 +351,23 @@ export default function ChapterWiseStudy() {
       setQuestionsLoading(true);
       try {
         const questionsRes = await getImportantQuestion("Generating Important Questions...", params);
-        if (questionsRes?.data?.data) {
-          setImportantQuestions(questionsRes.data.data.questions);
-          setQuestionsComplete(true);
-        }
+         if (questionsRes?.data?.data) {
+        setImportantQuestions(questionsRes.data.data.questions);
+        setQuestionsComplete(true);
+      }
+
+      if (questionsRes?.data?.statusCode === 200) {
+      // 🎉 Summary ready instantly (from Redis)
+      setImportantQuestions(questionsRes.data.data.questions);
+      setQuestionsComplete(true);
+    }
+
+    if (questionsRes?.data?.statusCode === 202) {
+      // ⏳ Not ready → queued → start polling
+      toast.message("Generating Questions...");
+      pollImportantQuestion(params);
+
+      }
       } catch (error) {
         console.error("Error generating questions:", error);
         setQuestionsComplete(false);

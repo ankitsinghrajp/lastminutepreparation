@@ -1,49 +1,50 @@
 import { inngest } from "../../libs/inngest.js";
-import { PredictedQuestionModel } from "../../models/LastMinuteBeforeExam/predictedQuestion.model.js";
+import { ChapterWiseImportantQuestionModel } from "../../models/chapterWiseStudy/chapterWiseImportantQuestion.model.js";
 import { parseSubject, detectCategory } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
-import { lastMinuteExtractJson as extractJSON } from "./extractJsonForFunctions/lastMinuteExtractJson.js";
-
-export const lastNightPredictedQuestionsFn = inngest.createFunction(
+import { chapterWiseExtractJson as extractJSON } from "./extractJsonForFunctions/chapterWiseExtractJson.js";
+export const chapterWiseStudyQuestionsFn = inngest.createFunction(
   {
-    id: "lmp-predicted-questions",
-    name: "Generate LMP Predicted Questions",
+    name: "Generate Chapter Wise Study Questions",
+    id: "chapter-wise-study-questions",
   },
-  { event: "lmp/generate.predictedQuestions" },
+  { event: "lmp/generate.chapterWiseStudyQuestions" },
   async ({ event, step }) => {
     const { className, subject, chapter } = event.data;
     const { mainSubject, bookName } = parseSubject(subject);
-    const category = detectCategory(mainSubject);
+    const category = detectCategory(subject); // ✅ correct input
 
-    const cacheKey = `lmp:predicted:${className}:${mainSubject}:${chapter}`;
-    const pendingKey = `lmp:predicted:pending:${className}:${mainSubject}:${chapter}`;
+    const cacheKey = `lmp:studyq:${className}:${mainSubject}:${chapter}`;
+    const pendingKey = `lmp:studyq:pending:${className}:${mainSubject}:${chapter}`;
 
     try {
       // -------------------------------------------------------------------
       // 1️⃣ DB CHECK
       // -------------------------------------------------------------------
-      const dbCache = await step.run("DB Check", async () => {
-        return await PredictedQuestionModel.findOne({
+      const dbData = await step.run("DB Check", async () => {
+        return await ChapterWiseImportantQuestionModel.findOne({
           className,
           subject: mainSubject,
           chapter,
         });
       });
 
-      if (dbCache) {
-        const safeDBContent = JSON.parse(JSON.stringify(dbCache.content));
+      if (dbData) {
+        const safeDBContent = JSON.parse(JSON.stringify(dbData.content));
 
-        await redis.set(cacheKey, JSON.stringify(safeDBContent), {
-          EX: 60 * 60 * 24 * 2,
+        await step.run("Save Redis", async () => {
+          await redis.set(cacheKey, JSON.stringify(safeDBContent), {
+            EX: 60 * 60 * 24 * 2,
+          });
         });
 
         await redis.del(pendingKey);
-        return { questions: safeDBContent, source: "database" };
+        return { source: "database" };
       }
 
       // -------------------------------------------------------------------
-      // 2️⃣ BUILD PROMPT (UNCHANGED)
+      // 2️⃣ PROMPT (UNCHANGED)
       // -------------------------------------------------------------------
   const prompt = `
 You are an API that returns ONLY valid JSON. No extra text, no markdown, no explanation outside JSON.
@@ -52,7 +53,7 @@ Class: ${className} | Subject: ${mainSubject} | Book: ${bookName}
 Chapter: ${chapter} | Stream: ${category}
 
 TASK:
-Generate EXACTLY 6 high-probability CBSE Board exam questions for this chapter.
+Generate EXACTLY 10 high-probability CBSE Board exam questions for this chapter.
 
 STRICT LANGUAGE RULE:
 If the subject is Hindi → give questions ONLY in Hindi.
@@ -96,13 +97,15 @@ CRITICAL:
       });
 
       // -------------------------------------------------------------------
-      // 4️⃣ EXTRACT JSON
+      // 4️⃣ PARSE + VALIDATE
       // -------------------------------------------------------------------
-      const parsed = extractJSON(aiRaw);
+      const parsed = await step.run("Extract JSON", async () => {
+        return extractJSON(aiRaw);
+      });
 
       parsed.questions.forEach((q, idx) => {
         if (!q.question) {
-          throw new Error(`Invalid question at index ${idx}`);
+          throw new Error(`Invalid question structure at index ${idx}`);
         }
       });
 
@@ -112,7 +115,7 @@ CRITICAL:
       // 5️⃣ SAVE DB
       // -------------------------------------------------------------------
       await step.run("Save DB", async () => {
-        await PredictedQuestionModel.create({
+        await ChapterWiseImportantQuestionModel.create({
           className,
           subject: mainSubject,
           chapter,
@@ -123,18 +126,18 @@ CRITICAL:
       // -------------------------------------------------------------------
       // 6️⃣ SAVE REDIS
       // -------------------------------------------------------------------
-      await redis.set(cacheKey, JSON.stringify(safeParsed), {
-        EX: 60 * 60 * 24 * 2,
+      await step.run("Save Redis", async () => {
+        await redis.set(cacheKey, JSON.stringify(safeParsed), {
+          EX: 60 * 60 * 24 * 2,
+        });
       });
 
       await redis.del(pendingKey);
 
-      return { questions: safeParsed, source: "generated" };
-
+      return { source: "generated" };
     } catch (err) {
-      // IMPORTANT: clear pending on failure
       await redis.del(pendingKey);
-      throw new Error(`generatePredictedQuestions error: ${err.message}`);
+      throw new Error(`chapterWiseStudyQuestions error: ${err.message}`);
     }
   }
 );

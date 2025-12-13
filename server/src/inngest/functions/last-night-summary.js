@@ -2,7 +2,7 @@ import { inngest } from "../../libs/inngest.js";
 import {LastMinuteSummaryModel} from "../../models/LastMinuteBeforeExam/summary.model.js";
 import { parseSubject, detectCategory } from "../../utils/helper.js"; 
 import { askOpenAI } from "../../utils/OpenAI.js"; 
-import { extractJSON } from "./extractJsonForFunctions/extractJson.js";
+import { lastMinuteExtractJson as extractJSON } from "./extractJsonForFunctions/lastMinuteExtractJson.js";
 import { redis } from "../../libs/redis.js"; 
 
 
