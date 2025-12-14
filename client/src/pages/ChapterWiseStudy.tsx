@@ -383,6 +383,7 @@ export default function ChapterWiseStudy() {
     }
   };
 
+
   // Check if any content is still loading
   const isAnyContentLoading = summaryLoading || notesLoading || mindMapLoading || questionsLoading;
 
@@ -392,10 +393,6 @@ export default function ChapterWiseStudy() {
   const shouldShowMindMap = (mindMapComplete || mindMapLoading) && notesComplete;
   const shouldShowImportantQuestions = (questionsComplete || questionsLoading) && mindMapComplete;
 
-  // Check if any content has been loaded
-  const hasContentData = summary || shortNotes.length > 0 || 
-                         Object.keys(mindMap).length > 0 || 
-                         Object.keys(importantQuestions).length > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -563,6 +560,9 @@ export default function ChapterWiseStudy() {
               shortNotes={shouldShowShortNotes ? shortNotes : []} 
               mindMap={shouldShowMindMap ? mindMap : {}} 
               importantQuestions={shouldShowImportantQuestions ? importantQuestions : {}}
+              selectedClass={selectedClass}
+              selectedSubject={selectedSubject}
+              selectedChapter={selectedChapter}
             />
           </div>
         )}

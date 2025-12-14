@@ -1,6 +1,4 @@
-import { 
-  Button 
-} from '@/components/ui/button';
+
 import { 
   Card 
 } from '@/components/ui/card';
@@ -18,6 +16,7 @@ import { useState } from 'react';
 import { useAsyncMutation } from '@/hooks/hook';
 import { useTopperStyleMutation } from '@/redux/api/api';
 import AIOutput from "../AIOutput";
+import { toast } from 'sonner';
 
 const PyqsComponent = ({ pyqsData, selectedClass, selectedSubject, selectedChapter }) => {
   const [getAnswer] = useAsyncMutation(useTopperStyleMutation);
@@ -25,27 +24,53 @@ const PyqsComponent = ({ pyqsData, selectedClass, selectedSubject, selectedChapt
   const [loading, setLoading] = useState({});
   const [showAnswers, setShowAnswers] = useState({});
 
+  const pollTopperStyleAnswer = async (params, key) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await getAnswer("Fetching answer...", params);
+  
+        if (res?.data?.statusCode === 200) {
+          const answer = res.data.data.answer;
+          setAnswers(prev => ({ ...prev, [key]: answer }));
+          setShowAnswers(prev => ({ ...prev, [key]: true }));
+          clearInterval(interval);
+          setLoading(prev => ({ ...prev, [key]: false }));
+          
+          toast.success("Answer Ready!");
+        }
+      } catch (error) {
+        clearInterval(interval);
+        setLoading(prev => ({ ...prev, [key]: false }));
+        toast.error("Error fetching Answer...");
+      }
+    }, 10000);
+  };
+
   const toggleAnswer = (key) => {
     setShowAnswers(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   const generateAIAnswer = async (question, key) => {
+    setLoading(prev => ({ ...prev, [key]: true }));
     try {
-      setLoading(prev => ({ ...prev, [key]: true }));
-
       const res = await getAnswer(
         "Generating topper-style answer...",
         { user_question: question, selectedClass, selectedSubject, selectedChapter }
       );
 
-      const aiAnswer = res?.data?.data?.answer;
-      if (aiAnswer) {
-        setAnswers(prev => ({ ...prev, [key]: aiAnswer }));
+      if (res?.data?.statusCode === 200) {
+        const answer = res.data.data.answer;
+        setAnswers(prev => ({ ...prev, [key]: answer }));
         setShowAnswers(prev => ({ ...prev, [key]: true }));
+        setLoading(prev => ({ ...prev, [key]: false }));
+      } else if (res?.data?.statusCode === 202) {
+        toast.message("Fetching Answer...");
+        pollTopperStyleAnswer({ user_question: question, selectedClass, selectedSubject, selectedChapter }, key);
+      } else {
+        setLoading(prev => ({ ...prev, [key]: false }));
       }
     } catch (error) {
       console.error(error);
-    } finally {
       setLoading(prev => ({ ...prev, [key]: false }));
     }
   };

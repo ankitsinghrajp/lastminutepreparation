@@ -53,6 +53,9 @@ const ContentArea = ({
   shortNotes,
   mindMap,
   importantQuestions,
+  selectedClass,
+  selectedSubject,
+  selectedChapter
 }) => {
   const [visibleSections, setVisibleSections] = useState({
     summary: false,
@@ -138,7 +141,7 @@ const ContentArea = ({
             gradient="bg-gradient-to-r from-pink-500 to-rose-600"
             defaultOpen={true}
           >
-           <ChapterWiseImportantQuestionSection importantQuestions={importantQuestions}/>
+           <ChapterWiseImportantQuestionSection importantQuestions={importantQuestions} selectedClass={selectedClass} selectedSubject={selectedSubject} selectedChapter={selectedChapter}/>
           </CollapsibleSection>
         )}
       </div>

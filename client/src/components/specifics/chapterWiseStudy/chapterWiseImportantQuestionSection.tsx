@@ -4,6 +4,7 @@ import AIOutput from '../AIOutput';
 import { useAsyncMutation } from '@/hooks/hook';
 import { useTopperStyleMutation } from '@/redux/api/api';
 import { renderFormula } from '../LastNightBeforeExam/renderFormula';
+import { toast } from 'sonner';
 
 const ChapterWiseImportantQuestionSection = ({ 
   importantQuestions, 
@@ -16,6 +17,29 @@ const ChapterWiseImportantQuestionSection = ({
   const [loadingStates, setLoadingStates] = useState({});
   const [showAnswers, setShowAnswers] = useState({});
 
+
+  const pollTopperStyleAnswer = async (params, idx) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await getAnswer("Fetching answer...", params);
+  
+        if (res?.data?.statusCode === 200) {
+          const answer = res.data.data.answer;
+          setAnswers(prev => ({ ...prev, [idx]: answer }));
+          setShowAnswers(prev => ({ ...prev, [idx]: true }));
+          clearInterval(interval);
+          setLoadingStates(prev => ({ ...prev, [idx]: false }));
+          
+          toast.success("Answer Ready!");
+        }
+      } catch (error) {
+        clearInterval(interval);
+        setLoadingStates(prev => ({ ...prev, [idx]: false }));
+        toast.error("Error fetching Answer...");
+      }
+    }, 10000);
+  };
+
   const generateAnswer = async (question, idx) => {
     setLoadingStates(prev => ({ ...prev, [idx]: true }));
     try {
@@ -24,14 +48,19 @@ const ChapterWiseImportantQuestionSection = ({
         { user_question: question, selectedClass, selectedSubject, selectedChapter }
       );
 
-      if (res?.data?.data?.answer) {
+      if (res?.data?.statusCode === 200) {
         const answer = res.data.data.answer;
         setAnswers(prev => ({ ...prev, [idx]: answer }));
         setShowAnswers(prev => ({ ...prev, [idx]: true }));
+        setLoadingStates(prev => ({ ...prev, [idx]: false }));
+      } else if (res?.data?.statusCode === 202) {
+        toast.message("Fetching Answer...");
+        pollTopperStyleAnswer({ user_question: question, selectedClass, selectedSubject, selectedChapter }, idx);
+      } else {
+        setLoadingStates(prev => ({ ...prev, [idx]: false }));
       }
     } catch (error) {
       console.error(error);
-    } finally {
       setLoadingStates(prev => ({ ...prev, [idx]: false }));
     }
   };

@@ -1,9 +1,10 @@
 import { FileText, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { useAsyncMutation } from '@/hooks/hook';
 import { useTopperStyleMutation } from '@/redux/api/api';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { renderFormula } from './renderFormula';
 import AIOutput from '../AIOutput';
+import { toast } from 'sonner';
 
 const LastNightPredictedQuestions = ({ predictedQuestion, selectedClass, selectedSubject, selectedChapter }) => {
   const [getAnswer] = useAsyncMutation(useTopperStyleMutation);
@@ -11,11 +12,29 @@ const LastNightPredictedQuestions = ({ predictedQuestion, selectedClass, selecte
   const [loadingStates, setLoadingStates] = useState({});
   const [showAnswers, setShowAnswers] = useState({});
 
-
+  const pollTopperStyleAnswer = async (params, idx) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await getAnswer("Fetching answer...", params);
+  
+        if (res?.data?.statusCode === 200) {
+          const answer = res.data.data.answer;
+          setAnswers(prev => ({ ...prev, [idx]: answer }));
+          setShowAnswers(prev => ({ ...prev, [idx]: true }));
+          clearInterval(interval);
+          setLoadingStates(prev => ({ ...prev, [idx]: false }));
+          
+          toast.success("Answer Ready!");
+        }
+      } catch (error) {
+        clearInterval(interval);
+        setLoadingStates(prev => ({ ...prev, [idx]: false }));
+        toast.error("Error fetching Answer...");
+      }
+    }, 10000);
+  };
 
   const generateAnswer = async (question, idx) => {
-   
-    // Call AI API
     setLoadingStates(prev => ({ ...prev, [idx]: true }));
     try {
       const res = await getAnswer(
@@ -23,17 +42,19 @@ const LastNightPredictedQuestions = ({ predictedQuestion, selectedClass, selecte
         { user_question: question, selectedClass, selectedSubject, selectedChapter }
       );
 
-      if (res?.data?.data?.answer) {
+      if (res?.data?.statusCode === 200) {
         const answer = res.data.data.answer;
-
-        // update UI
         setAnswers(prev => ({ ...prev, [idx]: answer }));
         setShowAnswers(prev => ({ ...prev, [idx]: true }));
-
+        setLoadingStates(prev => ({ ...prev, [idx]: false }));
+      } else if (res?.data?.statusCode === 202) {
+        toast.message("Fetching Answer...");
+        pollTopperStyleAnswer({ user_question: question, selectedClass, selectedSubject, selectedChapter }, idx);
+      } else {
+        setLoadingStates(prev => ({ ...prev, [idx]: false }));
       }
     } catch (error) {
       console.error(error);
-    } finally {
       setLoadingStates(prev => ({ ...prev, [idx]: false }));
     }
   };
@@ -171,4 +192,3 @@ const LastNightPredictedQuestions = ({ predictedQuestion, selectedClass, selecte
 };
 
 export default LastNightPredictedQuestions;
-

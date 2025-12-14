@@ -85,131 +85,57 @@ const summarizer = asyncHandler(async (req, res) => {
 const topperStyleAnswer = asyncHandler(async (req, res) => {
   const { user_question, selectedClass, selectedSubject, selectedChapter } = req.body;
 
-  // Redis Key
-  const cacheKey = `lmp:topper:${selectedClass}:${selectedSubject}:${selectedChapter}:${user_question}`;
 
-  // 1️⃣ CHECK REDIS CACHE
-  try {
-    const redisCached = await redis.get(cacheKey);
-
-    if (redisCached) {
-      if (typeof redisCached === "object") {
-        return res
-          .status(200)
-          .json(new ApiResponse(200, redisCached, "Answer Ready"));
-      }
-
-      if (typeof redisCached === "string") {
-        const parsed = JSON.parse(redisCached);
-        return res
-          .status(200)
-          .json(new ApiResponse(200, parsed, "Answer Ready"));
-      }
-    }
-  } catch (err) {
-    console.error("Redis GET error:", err);
+  if (!user_question || !selectedClass || !selectedSubject || !selectedChapter) {
+    return res.status(400).json(
+      new ApiResponse(400, null, "Missing required fields")
+    );
   }
 
-  // 2️⃣ PROMPT — 100% UNTOUCHED (EXACT, RAW)
-  const prompt = `
-You are a CBSE Board exam expert. Think internally first, but DO NOT show your thinking. Your ONLY task is to write full-mark answers exactly the way toppers write in their exam notebooks — clean, simple, direct, and only what is required to score full marks.
+  // 🔑 NORMALIZE QUESTION (IMPORTANT)
+  const normalizedQuestion = user_question
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 
-STRICT LANGUAGE RULE:
-If the subject is Hindi  → then deep read the chapter first then answer the question ONLY in Hindi.
-If the subject is Sanskrit  → then deep read the chapter first then answer the question ONLY in Sanskrit and must strictly answer in 3 lines only, it can less then 3 but not more than 3 strictly.
-Otherwise → answer ONLY in English. DO NOT USE Hindi for English or any other subject.
-If this rule is violated, regenerate the answer.
+  // 🔑 STABLE JOB ID
+  const jobId = crypto
+    .createHash("sha256")
+    .update(`${selectedClass}|${selectedSubject}|${selectedChapter}|${normalizedQuestion}`)
+    .digest("hex");
 
-Language Subject Rules: 
-- If subject is hindi then deep read the chapter then answer the question in hindi only
-- If subject is Sanskrit then first read the chapter then answer 2-3 lines if possible not more than this. It should be simple and concise 
-Rules:
-- Start the answer directly using the main concept asked in the question — no introduction, no background story.
-- Keep the language simple and crisp — not bookish, not heavy, not long.
-- Include formulas, steps, diagrams, tables, or bullet points ONLY when they improve scoring — do NOT force them.
-- Do NOT explain extra theory that is not needed to score marks.
-- Bold only very important keywords and terms — not the whole line.
-- Maintain natural flow like exam writing, not like a textbook.
+  const cacheKey = `lmp:topper:${jobId}`;
+  const pendingKey = `lmp:topper:pending:${jobId}`;
 
-Special case — derivation / numerical / maths questions:
-- Do NOT add theory or definition.
-- Do NOT write introduction or conclusion.
-- Only write the required steps and expressions that lead to the final result.
-- Keep everything as compact as toppers write.
-- ALL formulas inside $$...$$ must contain ONLY mathematical expressions — NO units, NO words, NO direction, NO sentences. Write units or explanation OUTSIDE the $$ formula $$ on the next line.
+  // 1️⃣ FAST PATH — CACHE
+  const cached = await redis.get(cacheKey);
+  if (cached) {
+    return res.status(200).json(
+      new ApiResponse(200, cached, "Answer Ready")
+    );
+  }
 
-If any formula contains \\frac, \\sqrt, powers, subscripts, Greek letters or scientific symbols, ALWAYS write them using standard LaTeX syntax (for example \\alpha, \\mu, \\Omega, \\theta, \\Delta — NOT /alpha or /Omega) and wrap the entire formula in $$ ... $$.
+  // 2️⃣ IF NOT PENDING → QUEUE IT
+  const pending = await redis.get(pendingKey);
+  if (!pending) {
+    await redis.set(pendingKey, "1", { EX: 120 }); // 2 min safety
 
-Output safety:
-- LaTeX formulas must be wrapped in $...$ or $$...$$.
-- No markdown headings (#), no backticks, no JSON, no code formatting.
-- No phrases like "Final Answer:", "Explanation:", "According to the question", etc.
-- If you break any of these output rules, rewrite the answer again until ALL rules are satisfied.
-
-❗Very important: NEVER write formulas inside normal brackets like ( V ), ( V_s ), ( Phi ), ( N ). Every mathematical symbol MUST be written ONLY inside $...$ or $$...$$ LaTeX format.
-
-Goal: A topper-style answer that is short, neat, direct, and guaranteed full marks — without unnecessary information.
-
-ADDITIONAL VALIDATIONS (EXTREMELY IMPORTANT):
-✔️ If the question has multiple parts, YOU MUST answer ALL parts one-by-one. No skipping.
-✔️ Every heading MUST be followed by proper explanation — NEVER give empty headings.
-✔️ If the question includes "Explain", "Define", "List", or "Write properties/advantages/characteristics", YOU MUST give clear points.
-✔️ Minimum 4 points whenever properties/advantages/characteristics are asked.
-✔️ Do NOT stop until the ENTIRE question is fully answered.
-✔️ Every mathematical formula MUST be written inside $ ... $ only.
-❌ Never use brackets like ( \\vec{E} ), [ \\vec{E} ], or \\( \\vec{E} \\).
-❌ Never escape slashes like \\\\vec or \\ldots.
-
-Correct format example: $\\vec{E} = \\frac{1}{4 \\pi \\epsilon_0} \\frac{q}{r^2}$
-
-DOUBLE-CHECK formula formatting before generating the final answer.
-
-✔️ Every formula involved in derivations MUST be written in display math using $$ ... $$ (not inline $...$).
-✔️ Each equation in a derivation must be on a separate line using its own $$ block.
-✔️ Never write multiple formulas in one $$ block.
-
-SPECIAL CASE — DIAGRAM QUESTIONS:
-If the question asks to "draw", "sketch", or "show diagram",
-YOU MUST:
-- Draw a neat TEXT / ASCII diagram suitable for exam use.
-- Clearly label all forces, angles, and important parts.
-- Do NOT mention that it is an ASCII diagram.
-- Do NOT use any image links or markdown images.
-
-BEFORE sending the final answer:
-🟢 Double-check that every part of the question is answered completely.
-🟢 Double-check that no heading is without its explanation.
-
-OUTPUT: Only the topper-style answer. Nothing else.
-
-Now answer the question: 
-Question: ${user_question}
-class: ${selectedClass}
-subject: ${selectedSubject}
-chapter: ${selectedChapter}
-`;
-
-  try {
-    // 3️⃣ GENERATE AI ANSWER
-    const safePrompt = prompt.replace(/\\/g, "\\\\");
-    const apiData = await askOpenAI(safePrompt, "gpt-5.1");
-
-    const finalAnswer = { answer: apiData };
-
-    // 4️⃣ SAVE TO REDIS (2 DAYS)
-    await redis.set(cacheKey, JSON.stringify(finalAnswer), {
-      ex: 60 * 60 * 24 * 20, // 2 days
+    await inngest.send({
+      name: "lmp/generate.topperAnswer",
+      data: {
+        jobId,
+        user_question,
+        selectedClass,
+        selectedSubject,
+        selectedChapter,
+      },
     });
-
-    return res
-      .status(200)
-      .json(new ApiResponse(200, finalAnswer, "Answer generated successfully!"));
-  } catch (error) {
-    console.error("Topper answer generation failed:", error);
-    return res
-      .status(500)
-      .json(new ApiResponse(500, null, "Failed to generate answer."));
   }
+
+  // 3️⃣ RETURN PROCESSING
+  return res.status(202).json(
+    new ApiResponse(202, { jobId }, "Answer is being generated")
+  );
 });
 
 const importantQuestionGenerator = asyncHandler(async (req, res) => {
