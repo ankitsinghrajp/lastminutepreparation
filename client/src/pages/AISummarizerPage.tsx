@@ -68,7 +68,6 @@ export default function AISummarizer() {
       { headers: { "Content-Type": "multipart/form-data" } }
     );
 
-    // ✅ INSTANT RESULT (Redis hit)
     if (response?.data?.statusCode === 200) {
       const aiText =
         response?.data?.data?.summary ||
