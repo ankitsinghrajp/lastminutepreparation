@@ -12,6 +12,12 @@ export const uploadPdfAndProcess = asyncHandler(async (req, res) => {
   }
 
   const fileBuffer = fs.readFileSync(req.file.path);
+
+  // ✅ DELETE FILE AFTER READING (local / server storage cleanup)
+  fs.unlink(req.file.path, (err) => {
+    if (err) console.error("Failed to delete uploaded PDF:", err);
+  });
+
   const jobId = crypto.createHash("sha256").update(fileBuffer).digest("hex");
 
   const cacheKey = `lmp:pdf:${jobId}`;
@@ -34,7 +40,7 @@ export const uploadPdfAndProcess = asyncHandler(async (req, res) => {
       name: "lmp/generate.pdfProcessing",
       data: {
         jobId,
-        filePath: req.file.path,
+        filePath: req.file.path, // path no longer exists, but jobId is primary
         originalName: req.file.originalname,
         userId: req.user._id,
       },
