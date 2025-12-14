@@ -53,6 +53,33 @@ export default function ChatWithPDF() {
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
+
+  const pollUploadPdf = async (file, maxRetries = 20) => {
+  const formData = new FormData();
+  formData.append("pdf", file);
+
+  for (let i = 0; i < maxRetries; i++) {
+    const res = await fetch(`${server}/api/v1/ai/upload-pdf`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+
+    const data = await res.json();
+
+    // ✅ Final result received
+    if (data?.data?.pdfId) {
+      return data.data.pdfId;
+    }
+
+    // ⏳ Still processing → wait 2s
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+
+  throw new Error("PDF processing timed out");
+};
+
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -69,51 +96,35 @@ export default function ChatWithPDF() {
     }
   }, [question]);
 
-  const handlePdfUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file || file.type !== "application/pdf") {
-      toast.error("Please upload a valid PDF file");
-      return;
-    }
+const handlePdfUpload = async (e) => {
+  const file = e.target.files?.[0];
+  if (!file || file.type !== "application/pdf") {
+    toast.error("Please upload a valid PDF file");
+    return;
+  }
 
-    if (file.size > 15 * 1024 * 1024) {
-      toast.error("File size must be less than 15MB");
-      return;
-    }
+  if (file.size > 15 * 1024 * 1024) {
+    toast.error("File size must be less than 15MB");
+    return;
+  }
 
-    setUploading(true);
+  setUploading(true);
 
-    try {
-      const formdata = new FormData();
-      formdata.append("pdf", file);
+  try {
+    const pdfId = await pollUploadPdf(file);
 
-      const res = await fetch(`${server}/api/v1/ai/upload-pdf`, {
-        method: "POST",
-        credentials: "include",
-        body: formdata,
-      });
+    setPdf(file);
+    setPdfId(pdfId);
+    setMessages([]);
 
-      
-
-      const response = await res.json();
-          
-      if (response?.data?.pdfId) {
-        setPdf(file);
-        setPdfId(response.data.pdfId);
-        setMessages([]);
-      }
-      else{
-        toast.error(response?.message || "Error in extracting text!");
-                fileInputRef.current.value = "";
-      }
-  
-    } catch (error) {
-      console.error("Upload error:", error);
-      toast.error("An error occurred while uploading the PDF. Please try again.");
-    } finally {
-      setUploading(false);
-    }
-  };
+    toast.success("PDF processed successfully");
+  } catch (err) {
+    toast.error(err.message || "PDF processing failed");
+    fileInputRef.current.value = "";
+  } finally {
+    setUploading(false);
+  }
+};
 
   const handleRemovePdf = () => {
     setPdf(null);

@@ -17,6 +17,7 @@ import { generatePYQsFn } from "./functions/generate-pyqs.js";
 import { diagramImageAnalysisFn } from "./functions/diagram-analysis.js";
 import { askAnyQuestionFn } from "./functions/ask-anyQuestion.js";
 import { summarizerFn } from "./functions/summarizer.js";
+import { pdfProcessingFn } from "./functions/pdf-processing.js";
 
 export const inngestHandler = serve({
   client: inngest,
@@ -37,5 +38,6 @@ export const inngestHandler = serve({
     diagramImageAnalysisFn,
     askAnyQuestionFn,
     summarizerFn,
+    pdfProcessingFn,
   ],
 });
