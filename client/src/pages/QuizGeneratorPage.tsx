@@ -49,7 +49,7 @@ export default function QuizGenerator() {
             clearInterval(interval);
             toast.error("Error fetching mcqs...");
           }
-        }, 4000);
+        }, 5000);
       };
 
   // Fetch subjects when class changes
@@ -129,7 +129,6 @@ export default function QuizGenerator() {
      
     const res = await quizGenerator("Generating...",{className:selectedClass, subject:selectedSubject, chapter:selectedChapter, index:selectedIndex});
 
-    console.log("This is the response: ",res);
         if (res?.data?.data) {
         setResponse(res.data.data.data);
       }

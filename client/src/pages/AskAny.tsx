@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
@@ -64,6 +64,38 @@ export default function AskAnyQuestion() {
 
   const {user} = useSelector(state=>state.auth);
 
+
+  const pollRef = useRef(null);
+
+const startPolling = async (formData) => {
+  pollRef.current = setInterval(async () => {
+    try {
+      const res = await fetch(`${server}/api/v1/ai/ask-any`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      // ✅ Final result ready
+      if (res.ok && data?.answer) {
+        setResponse(data);
+        setLoading(false);
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+        toast.success("Answer ready!");
+      }
+    } catch (err) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+      setLoading(false);
+      toast.error("Polling failed");
+    }
+  }, 2500); // 🔁 2.5 seconds
+};
+
+
   const handleImageUpload = (e) => {
     const uploadedFile = e.target.files?.[0];
     if (!uploadedFile) return;
@@ -93,6 +125,16 @@ export default function AskAnyQuestion() {
     toast.success("Image uploaded");
   };
 
+
+useEffect(() => {
+  return () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+    }
+  };
+}, []);
+
+
   const handleRemoveImage = () => {
     setImage(null);
     setImagePreview(null);
@@ -100,39 +142,51 @@ export default function AskAnyQuestion() {
   };
 
   const handleAsk = async () => {
-    if (!question.trim() && !image) {
-      toast.error("Please enter a question or upload an image");
+  if (!question.trim() && !image) {
+    toast.error("Please enter a question or upload an image");
+    return;
+  }
+
+  setLoading(true);
+  setResponse(null);
+
+  try {
+    const formData = new FormData();
+    if (question.trim()) formData.append("question", question);
+    if (image) formData.append("image", image);
+
+    const res = await fetch(`${server}/api/v1/ai/ask-any`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      toast.error(data?.message || "Something went wrong");
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
-    setResponse(null);
-
-    try {
-      const formData = new FormData();
-      if (question.trim()) formData.append("question", question);
-      if (image) formData.append("image", image);
-
-      const res = await fetch(`${server}/api/v1/ai/ask-any`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        toast.error(data?.message || "Something went wrong");
-        return;
-      }
-
-      setResponse(data?.data);
-    } catch (err) {
-      toast.error("Failed to send question");
-    } finally {
+    // ✅ CASE 1: Answer already cached (Redis HIT)
+  
+    if (data?.answer) {
+      setResponse(data);
       setLoading(false);
+      return;
     }
-  };
+
+    // ⏳ CASE 2: Job queued → start polling
+    toast.message("Processing your question…");
+    startPolling(formData);
+
+  } catch (err) {
+    toast.error("Failed to send question");
+    setLoading(false);
+  }
+};
+
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {

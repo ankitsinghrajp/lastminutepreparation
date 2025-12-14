@@ -51,7 +51,7 @@ export default function ImportantQuestions() {
           clearInterval(interval);
           toast.error("Error fetching questions...");
         }
-      }, 4000);
+      }, 6000);
     };
 
   // Fetch subjects when class changes

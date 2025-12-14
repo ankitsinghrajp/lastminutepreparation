@@ -22,42 +22,75 @@ export default function AISummarizer() {
 
   const {user} = useSelector(state=>state.auth);
 
-  const handleSummarize = async () => {
 
-    if (!topic.trim() && !image) {
-      toast.error("Please enter a topic or upload an image");
-      return;
-    }
-
-    setResult("");
-
+  const pollSummary = async (formData) => {
+  const interval = setInterval(async () => {
     try {
-      const formData = new FormData();
-      formData.append("topic", topic);
-      formData.append("level", detailLevel);
+      const res = await summarizer(null, formData);
 
-      if (image) {
-        formData.append("image", image);
+      if (res?.data?.statusCode === 200) {
+        const aiText =
+          res?.data?.data?.summary ||
+          res?.data?.data ||
+          res?.data;
+
+        if (aiText) {
+          setResult(aiText);
+          clearInterval(interval);
+          toast.success("Summary ready!");
+        }
       }
+    } catch (err) {
+      clearInterval(interval);
+      toast.error("Failed while fetching summary");
+    }
+  }, 4500);
+};
 
-      const response = await summarizer(
-        "Generating explanation...",
-        formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
 
+  const handleSummarize = async () => {
+  if (!topic.trim() && !image) {
+    toast.error("Please enter a topic or upload an image");
+    return;
+  }
+
+  setResult("");
+
+  try {
+    const formData = new FormData();
+    formData.append("topic", topic);
+    formData.append("level", detailLevel);
+    if (image) formData.append("image", image);
+
+    const response = await summarizer(
+      "Generating explanation...",
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+
+    // ✅ INSTANT RESULT (Redis hit)
+    if (response?.data?.statusCode === 200) {
       const aiText =
-        response?.data?.data?.data ||
-        response?.data?.data?.answer ||
+        response?.data?.data?.summary ||
         response?.data?.data ||
         response?.data;
 
-      if (aiText) setResult(aiText);
-      else toast.error(response?.error?.data?.message || "No valid response from AI");
-    } catch (error) {
-      toast.error("Something went wrong");
+      if (aiText) {
+        setResult(aiText);
+        return;
+      }
     }
-  };
+
+    // ⏳ QUEUED → START POLLING
+    if (response?.data?.statusCode === 202) {
+      toast.message("Generating summary, please wait...");
+      pollSummary(formData);
+    }
+
+  } catch (error) {
+    toast.error("Something went wrong");
+  }
+};
 
   const handleCopy = () => {
     if (!result) return;

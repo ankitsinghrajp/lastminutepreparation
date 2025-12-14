@@ -15,6 +15,8 @@ import { importantQuestionGeneratorFn } from "./functions/important-question-fea
 import { quizMcqFillupTrueFalseFn } from "./functions/quiz-mcq-fillup-truefalse.js";
 import { generatePYQsFn } from "./functions/generate-pyqs.js";
 import { diagramImageAnalysisFn } from "./functions/diagram-analysis.js";
+import { askAnyQuestionFn } from "./functions/ask-anyQuestion.js";
+import { summarizerFn } from "./functions/summarizer.js";
 
 export const inngestHandler = serve({
   client: inngest,
@@ -33,5 +35,7 @@ export const inngestHandler = serve({
     quizMcqFillupTrueFalseFn,
     generatePYQsFn,
     diagramImageAnalysisFn,
+    askAnyQuestionFn,
+    summarizerFn,
   ],
 });
