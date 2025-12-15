@@ -2,10 +2,10 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
-import { Clock, Loader2, Brain, Sparkles, Trash2, HelpCircle, ChevronDown } from "lucide-react";
+import { Clock, Loader2, Brain, Sparkles, Trash2, HelpCircle, ChevronDown, History, X } from "lucide-react";
 import { toast } from "sonner";
 import { Footer } from "@/components/Footer";
-import logo from "../assets/logo.png"
+import logo from "../assets/logo.png";
 import {
   useGetLastNightSummaryMutation,
   useGetLastNightAiCoachMutation,
@@ -20,6 +20,15 @@ import { useAsyncMutation, useErrors } from "@/hooks/hook";
 import RevisionPanel from "@/components/specifics/RevisionPanel";
 
 const classes = ["9th", "10th", "11th", "12th"];
+
+const GENERATION_STEPS = [
+  { key: "summary", label: "Chapter Summary", pollInterval: 2000 },
+  { key: "importantTopics", label: "Important Topics", pollInterval: 3000 },
+  { key: "predictedQuestion", label: "Predicted Questions", pollInterval: 3000 },
+  { key: "mcqs", label: "Practice MCQs", pollInterval: 3000 },
+  { key: "memoryBooster", label: "Memory Boosters", pollInterval: 3000 },
+  { key: "aiCoach", label: "AI Study Coach", pollInterval: 3000 },
+];
 
 export default function LastNightBeforeExam() {
   const [subjects, setSubjects] = useState([]);
@@ -36,143 +45,259 @@ export default function LastNightBeforeExam() {
   const [memoryBooster, setMemoryBooster] = useState([]);
   const [aiCoach, setAiCoach] = useState([]);
 
-
-  const [loading, setLoading] = useState(false);
+  const [currentStep, setCurrentStep] = useState(-1);
   const [hasGenerated, setHasGenerated] = useState(false);
-  const [timerMinutes, setTimerMinutes] = useState(30);
+  const [history, setHistory] = useState([]);
+  const [timerMinutes] = useState(30);
   const [timerActive, setTimerActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(timerMinutes * 60);
   const timerRef = useRef(null);
   const contentEndRef = useRef(null);
+  const pollIntervalRefs = useRef({});
+  
+  // Create a ref to track revision data for saving to history
+  const revisionDataRef = useRef({
+    summary: "",
+    importantTopics: [],
+    predictedQuestion: [],
+    mcqs: [],
+    memoryBooster: [],
+    aiCoach: []
+  });
 
-  const [
-    fetchSubject,
-    { isLoading: isSubjectLoading, isError: isSubjectError, error: subjectError, data: subjectData },
-  ] = useLazyGetSubjectsQuery();
-  const [
-    fetchChapter,
-    { isLoading: isChapterLoading, isError: isChapterError, error: chapterError, data: ChapterData },
-  ] = useLazyGetChaptersQuery();
+  const [fetchSubject, { isLoading: isSubjectLoading, isError: isSubjectError, error: subjectError, data: subjectData }] = useLazyGetSubjectsQuery();
+  const [fetchChapter, { isLoading: isChapterLoading, isError: isChapterError, error: chapterError, data: ChapterData }] = useLazyGetChaptersQuery();
 
-  const [getSummary, getSummaryLoading] = useAsyncMutation(useGetLastNightSummaryMutation);
-  const [getImportantTopics, getImportantTopicsLoading] = useAsyncMutation(useGetLastNightImportantTopicsMutation);
-  const [getPredictedQuestion, getPredictedQuestionLoading] = useAsyncMutation(useGetLastNightPredictedQuestionsMutation);
-  const [getMcqs, getMcqsLoading] = useAsyncMutation(useGetLastNightMcqsMutation);
-  const [getMemoryBooster, getMemoryBoosterLoading] = useAsyncMutation(useGetLastNightMemoryBoosterMutation);
-  const [getAiCoach, getAiCoachLoading] = useAsyncMutation(useGetLastNightAiCoachMutation);
+  const [getSummary] = useAsyncMutation(useGetLastNightSummaryMutation);
+  const [getImportantTopics] = useAsyncMutation(useGetLastNightImportantTopicsMutation);
+  const [getPredictedQuestion] = useAsyncMutation(useGetLastNightPredictedQuestionsMutation);
+  const [getMcqs] = useAsyncMutation(useGetLastNightMcqsMutation);
+  const [getMemoryBooster] = useAsyncMutation(useGetLastNightMemoryBoosterMutation);
+  const [getAiCoach] = useAsyncMutation(useGetLastNightAiCoachMutation);
 
   useErrors([
     { isError: isSubjectError, error: subjectError },
     { isError: isChapterError, error: chapterError },
   ]);
 
-  // Poll every 2 seconds until summary is ready
-const pollSummary = async (params) => {
-  const interval = setInterval(async () => {
+  // Load history from localStorage on mount
+  useEffect(() => {
+    const loadHistory = () => {
+      try {
+        const savedHistory = localStorage.getItem("lastNightHistory");
+        if (savedHistory) {
+          setHistory(JSON.parse(savedHistory));
+        }
+      } catch (error) {
+        console.error("Error loading history:", error);
+      }
+    };
+    loadHistory();
+  }, []);
+
+  // Update the ref whenever any revision data changes
+  useEffect(() => {
+    revisionDataRef.current = {
+      summary,
+      importantTopics,
+      predictedQuestion,
+      mcqs,
+      memoryBooster,
+      aiCoach
+    };
+  }, [summary, importantTopics, predictedQuestion, mcqs, memoryBooster, aiCoach]);
+
+  // Save to history when all steps complete
+  const saveToHistory = (className, subject, chapter) => {
     try {
-      const res = await getSummary(null, params);
+      setHistory((prevHistory) => {
+        // Check if the same revision already exists in history
+        const isDuplicate = prevHistory.some(
+          (item) =>
+            item.className === className &&
+            item.subject === subject &&
+            item.chapter === chapter
+        );
+
+        // If duplicate exists, don't save again
+        if (isDuplicate) {
+          console.log("Duplicate revision - not saving to history");
+          return prevHistory;
+        }
+
+        const historyItem = {
+          id: Date.now(),
+          timestamp: new Date().toISOString(),
+          className,
+          subject,
+          chapter,
+          summary: revisionDataRef.current.summary,
+          importantTopics: revisionDataRef.current.importantTopics,
+          predictedQuestion: revisionDataRef.current.predictedQuestion,
+          mcqs: revisionDataRef.current.mcqs,
+          memoryBooster: revisionDataRef.current.memoryBooster,
+          aiCoach: revisionDataRef.current.aiCoach,
+        };
+
+        // Add new item at the beginning
+        const updatedHistory = [historyItem, ...prevHistory];
+        // Keep only last 5 items
+        const trimmedHistory = updatedHistory.slice(0, 5);
+        // Save to localStorage
+        localStorage.setItem("lastNightHistory", JSON.stringify(trimmedHistory));
+        return trimmedHistory;
+      });
+    } catch (error) {
+      console.error("Error saving to history:", error);
+    }
+  };
+
+  // Clear all polling intervals
+  const clearAllPolls = () => {
+    Object.values(pollIntervalRefs.current).forEach(interval => clearInterval(interval));
+    pollIntervalRefs.current = {};
+  };
+
+  // Generic polling function
+  const pollData = async (stepKey, fetcher, setter, dataKey, params, pollInterval) => {
+    pollIntervalRefs.current[stepKey] = setInterval(async () => {
+      try {
+        const res = await fetcher(null, params);
+        if (res?.data?.statusCode === 200) {
+          setter(res.data.data[dataKey]);
+          clearInterval(pollIntervalRefs.current[stepKey]);
+          delete pollIntervalRefs.current[stepKey];
+        }
+      } catch (error) {
+        clearInterval(pollIntervalRefs.current[stepKey]);
+        delete pollIntervalRefs.current[stepKey];
+        console.error(`Error polling ${stepKey}:`, error);
+      }
+    }, pollInterval);
+  };
+
+  // Generate content step by step
+  const generateStep = async (stepIndex, params) => {
+    if (stepIndex >= GENERATION_STEPS.length) {
+      setCurrentStep(-1);
+      toast.success("All revision materials ready!");
+      
+      // Save to history with a small delay to ensure all state updates are complete
+      setTimeout(() => {
+        saveToHistory(params.className, params.subject, params.chapter);
+      }, 1000);
+      
+      return;
+    }
+
+    const step = GENERATION_STEPS[stepIndex];
+    setCurrentStep(stepIndex);
+
+    try {
+      let res, fetcher, setter, dataKey;
+
+      switch (step.key) {
+        case "summary":
+          fetcher = getSummary;
+          setter = setSummary;
+          dataKey = "summary";
+          res = await getSummary(null, params);
+          break;
+        case "importantTopics":
+          fetcher = getImportantTopics;
+          setter = setImportantTopics;
+          dataKey = "topics";
+          res = await getImportantTopics(null, params);
+          break;
+        case "predictedQuestion":
+          fetcher = getPredictedQuestion;
+          setter = setPredictedQuestion;
+          dataKey = "questions";
+          res = await getPredictedQuestion(null, params);
+          break;
+        case "mcqs":
+          fetcher = getMcqs;
+          setter = setMcqs;
+          dataKey = "mcqs";
+          res = await getMcqs(null, params);
+          break;
+        case "memoryBooster":
+          fetcher = getMemoryBooster;
+          setter = setMemoryBooster;
+          dataKey = "boosters";
+          res = await getMemoryBooster(null, params);
+          break;
+        case "aiCoach":
+          fetcher = getAiCoach;
+          setter = setAiCoach;
+          dataKey = "steps";
+          res = await getAiCoach(null, params);
+          break;
+        default:
+          return;
+      }
 
       if (res?.data?.statusCode === 200) {
-        setSummary(res.data.data.summary);
-        clearInterval(interval);
-        toast.success("Summary Ready!");
+        // Data ready immediately
+        setter(res.data.data[dataKey]);
+        toast.success(`${step.label} ready!`);
+        // Move to next step
+        setTimeout(() => generateStep(stepIndex + 1, params), 500);
+      } else if (res?.data?.statusCode === 202) {
+        // Data being generated - start polling
+        pollData(step.key, fetcher, setter, dataKey, params, step.pollInterval);
+        
+        // Wait for polling to complete before moving to next step
+        const checkInterval = setInterval(() => {
+          if (!pollIntervalRefs.current[step.key]) {
+            clearInterval(checkInterval);
+            toast.success(`${step.label} ready!`);
+            setTimeout(() => generateStep(stepIndex + 1, params), 500);
+          }
+        }, 500);
       }
     } catch (error) {
-      clearInterval(interval);
-      toast.error("Error fetching summary");
+      toast.error(`Failed to generate ${step.label}`);
+      setCurrentStep(-1);
     }
-  }, 2000);
-};
+  };
 
-  // Poll every 2 seconds until topics is ready
-const pollImportantTopics = async (params) => {
-  const interval = setInterval(async () => {
-    try {
-      const res = await getImportantTopics(null, params);
-
-      if (res?.data?.statusCode === 200) {
-        setImportantTopics(res.data.data.topics);
-        clearInterval(interval);
-        toast.success("Important Topics Ready!");
-      }
-    } catch (error) {
-      clearInterval(interval);
-      toast.error("Error fetching Important Topics");
+  const handleGenerate = async () => {
+    if (!selectedClass || !selectedSubject || !selectedChapter) {
+      toast.error("Please select class, subject, and chapter");
+      return;
     }
-  }, 4000);
-};
- // Poll every 2 seconds until questions is ready
-const pollPredictedQuestions = async (params) => {
-  const interval = setInterval(async () => {
-    try {
-      const res = await getPredictedQuestion(null, params);
 
-      if (res?.data?.statusCode === 200) {
-        setPredictedQuestion(res.data.data.questions);
-        clearInterval(interval);
-        toast.success("Important Topics Ready!");
-      }
-    } catch (error) {
-      clearInterval(interval);
-      toast.error("Error fetching Important Topics");
-    }
-  }, 6000);
-};
+    // Reset all states before generating new content
+    setSummary("");
+    setImportantTopics([]);
+    setPredictedQuestion([]);
+    setMcqs([]);
+    setMemoryBooster([]);
+    setAiCoach([]);
+    revisionDataRef.current = {
+      summary: "",
+      importantTopics: [],
+      predictedQuestion: [],
+      mcqs: [],
+      memoryBooster: [],
+      aiCoach: []
+    };
+    
+    setHasGenerated(true);
+    clearAllPolls();
 
- // Poll every 2 seconds until mcqs is ready
-const pollMcqs = async (params) => {
-  const interval = setInterval(async () => {
-    try {
-      const res = await getMcqs(null, params);
+    const params = {
+      className: selectedClass,
+      subject: selectedSubject,
+      chapter: selectedChapter,
+    };
 
-      if (res?.data?.statusCode === 200) {
-        setMcqs(res.data.data.mcqs);
-        clearInterval(interval);
-        toast.success("MCQs Ready!");
-      }
-    } catch (error) {
-      clearInterval(interval);
-      toast.error("Error fetching Important Topics");
-    }
-  }, 8000);
-};
+    // Start step-by-step generation
+    generateStep(0, params);
+  };
 
- // Poll every 2 seconds until boosters is ready
-const pollBoosters = async (params) => {
-  const interval = setInterval(async () => {
-    try {
-      const res = await getMemoryBooster(null, params);
-
-      if (res?.data?.statusCode === 200) {
-        setMemoryBooster(res.data.data.boosters);
-        clearInterval(interval);
-        toast.success("Boosters Ready!");
-      }
-    } catch (error) {
-      clearInterval(interval);
-      toast.error("Error fetching Boosters");
-    }
-  }, 8000);
-};
-// Poll every 2 seconds until coach is ready
-const pollAiCoach = async (params) => {
-  const interval = setInterval(async () => {
-    try {
-      const res = await getAiCoach(null, params);
-
-      if (res?.data?.statusCode === 200) {
-        setAiCoach(res.data.data.steps);
-        clearInterval(interval);
-        toast.success("Boosters Ready!");
-      }
-    } catch (error) {
-      clearInterval(interval);
-      toast.error("Error fetching Boosters");
-    }
-  }, 8000);
-};
-
-
+  // Fetch subjects when class changes
   useEffect(() => {
     const fetchSubjectFun = async () => {
       if (selectedClass) {
@@ -190,6 +315,7 @@ const pollAiCoach = async (params) => {
     fetchSubjectFun();
   }, [selectedClass, fetchSubject]);
 
+  // Update subjects list
   useEffect(() => {
     if (subjectData?.data?.subjects) {
       const subjects = subjectData.data.subjects;
@@ -203,6 +329,7 @@ const pollAiCoach = async (params) => {
     }
   }, [subjectData, isSubjectLoading]);
 
+  // Fetch chapters when subject changes
   useEffect(() => {
     const fetchChaptersFun = async () => {
       if (selectedSubject && selectedClass) {
@@ -218,6 +345,7 @@ const pollAiCoach = async (params) => {
     fetchChaptersFun();
   }, [selectedSubject, selectedClass, fetchChapter]);
 
+  // Update chapters list
   useEffect(() => {
     if (ChapterData?.data?.chapters) {
       const chapters = ChapterData.data.chapters;
@@ -231,6 +359,7 @@ const pollAiCoach = async (params) => {
     }
   }, [ChapterData, isChapterLoading]);
 
+  // Timer logic
   useEffect(() => {
     if (timerActive && timeLeft > 0) {
       timerRef.current = setInterval(() => {
@@ -249,130 +378,13 @@ const pollAiCoach = async (params) => {
     return () => clearInterval(timerRef.current);
   }, [timerActive, timeLeft]);
 
-  const handleGenerate = async () => {
-    if (!selectedClass || !selectedSubject || !selectedChapter) {
-      toast.error("Please select class, subject, and chapter");
-      return;
-    }
-
-    setLoading(true);
-    setHasGenerated(true);
-    
-    const params = {
-      className: selectedClass,
-      subject: selectedSubject,
-      chapter: selectedChapter,
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clearAllPolls();
+      clearInterval(timerRef.current);
     };
-
-    try {
-
-      const summaryRes = await getSummary("Analyzing CBSE patterns...", params);
-      
-      if (summaryRes?.data?.data) {
-        setSummary(summaryRes.data.data?.summary);
-      }
-
-      if (summaryRes?.data?.statusCode === 200) {
-      // 🎉 Summary ready instantly (from Redis)
-      setSummary(summaryRes.data.data.summary);
-    }
-
-    if (summaryRes?.data?.statusCode === 202) {
-      // ⏳ Not ready → queued → start polling
-      toast.message("Generating summary...");
-      pollSummary(params);
-    }
-
-      const topicsRes = await getImportantTopics("Extracting important topics...", params);
-
-       if (topicsRes?.data?.data) {
-        setImportantTopics(topicsRes.data.data?.topics);
-      }
-
-      if (topicsRes?.data?.statusCode === 200) {
-      // 🎉 Summary ready instantly (from Redis)
-      setImportantTopics(topicsRes.data.data.topics);
-    }
-
-    if (topicsRes?.data?.statusCode === 202) {
-      // ⏳ Not ready → queued → start polling
-      toast.message("Generating summary...");
-      pollImportantTopics(params);
-    }
-
-      const questionsRes = await getPredictedQuestion("Generating predicted questions...", params);
-      
-        if (questionsRes?.data?.data) {
-        setPredictedQuestion(questionsRes.data.data?.questions);
-      }
-
-      if (questionsRes?.data?.statusCode === 200) {
-      // 🎉 Summary ready instantly (from Redis)
-      setPredictedQuestion(questionsRes.data.data.questions);
-    }
-
-    if (questionsRes?.data?.statusCode === 202) {
-      // ⏳ Not ready → queued → start polling
-      toast.message("Generating Important Questions...");
-      pollPredictedQuestions(params);
-    }
-
-      const mcqsRes = await getMcqs("Creating practice MCQs...", params);
-      if (mcqsRes?.data?.data) {
-        setMcqs(mcqsRes.data.data?.mcqs);
-      }
-
-      if (mcqsRes?.data?.statusCode === 200) {
-      // 🎉 Summary ready instantly (from Redis)
-      setMcqs(mcqsRes.data.data.mcqs);
-    }
-
-    if (mcqsRes?.data?.statusCode === 202) {
-      // ⏳ Not ready → queued → start polling
-      toast.message("Generating MCQs....");
-      pollMcqs(params);
-    }
-
-      const memoryBoosterRes = await getMemoryBooster("Creating memory boosters...", params);
-      if (memoryBoosterRes?.data?.data) {
-        setMemoryBooster(memoryBoosterRes.data.data?.boosters);
-      }
-
-      if (memoryBoosterRes?.data?.statusCode === 200) {
-      // 🎉 Summary ready instantly (from Redis)
-      setMemoryBooster(memoryBoosterRes.data.data.boosters);
-    }
-
-    if (memoryBoosterRes?.data?.statusCode === 202) {
-      // ⏳ Not ready → queued → start polling
-      toast.message("Generating Boosters....");
-      pollBoosters(params);
-    }
-
-
-      const aiCoachRes = await getAiCoach("Generating study plan...", params);
-      if (aiCoachRes?.data?.data) {
-        setAiCoach(aiCoachRes.data.data?.steps);
-      }
-
-      if (aiCoachRes?.data?.statusCode === 200) {
-      // 🎉 Summary ready instantly (from Redis)
-      setAiCoach(aiCoachRes.data.data.steps);
-    }
-
-    if (aiCoachRes?.data?.statusCode === 202) {
-      // ⏳ Not ready → queued → start polling
-      toast.message("AI Coach thinking....");
-      pollAiCoach(params);
-    }
-
-
-    } catch (error) {
-      toast.error("Failed to generate revision materials");
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, []);
 
   const toggleTimer = () => {
     if (timerActive) {
@@ -390,26 +402,82 @@ const pollAiCoach = async (params) => {
   };
 
   const handleClear = () => {
+    clearAllPolls();
     setSummary("");
     setImportantTopics([]);
     setPredictedQuestion([]);
     setMcqs([]);
     setMemoryBooster([]);
     setAiCoach([]);
+    revisionDataRef.current = {
+      summary: "",
+      importantTopics: [],
+      predictedQuestion: [],
+      mcqs: [],
+      memoryBooster: [],
+      aiCoach: []
+    };
     setHasGenerated(false);
+    setCurrentStep(-1);
     setTimerActive(false);
     setTimeLeft(timerMinutes * 60);
     toast.success("Cleared - Ready for new revision");
   };
 
+  const loadFromHistory = (historyItem) => {
+    clearAllPolls();
+    setSelectedClass(historyItem.className);
+    setSelectedSubject(historyItem.subject);
+    setSelectedChapter(historyItem.chapter);
+    setSummary(historyItem.summary || "");
+    setImportantTopics(historyItem.importantTopics || []);
+    setPredictedQuestion(historyItem.predictedQuestion || []);
+    setMcqs(historyItem.mcqs || []);
+    setMemoryBooster(historyItem.memoryBooster || []);
+    setAiCoach(historyItem.aiCoach || []);
+    revisionDataRef.current = {
+      summary: historyItem.summary || "",
+      importantTopics: historyItem.importantTopics || [],
+      predictedQuestion: historyItem.predictedQuestion || [],
+      mcqs: historyItem.mcqs || [],
+      memoryBooster: historyItem.memoryBooster || [],
+      aiCoach: historyItem.aiCoach || []
+    };
+    setHasGenerated(true);
+    setCurrentStep(-1);
+    setTimerActive(false);
+    setTimeLeft(timerMinutes * 60);
+    toast.success("Loaded from history");
+    
+    // Scroll to top to show content
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const deleteFromHistory = (itemId, e) => {
+    e.stopPropagation(); // Prevent triggering loadFromHistory
+    try {
+      setHistory((prevHistory) => {
+        const updatedHistory = prevHistory.filter((item) => item.id !== itemId);
+        localStorage.setItem("lastNightHistory", JSON.stringify(updatedHistory));
+        toast.success("Removed from history");
+        return updatedHistory;
+      });
+    } catch (error) {
+      console.error("Error deleting from history:", error);
+      toast.error("Failed to delete from history");
+    }
+  };
+
   const hasContent = summary || importantTopics.length > 0 || predictedQuestion.length > 0 || 
                      mcqs.length > 0 || memoryBooster.length > 0 || aiCoach.length > 0;
+
+  const isGenerating = currentStep >= 0;
 
   return (
     <div className="min-h-screen w-full bg-background">
       <Navbar />
 
-      <div className="container mx-auto px-1 pt-20 sm:pt-24 lg:max-w-[90%] xl:max-w-[90%] ">
+      <div className="container mx-auto px-1 pt-20 sm:pt-24 lg:max-w-[90%] xl:max-w-[90%]">
         {/* Header */}
         <div className="text-center mb-6 sm:mb-10">
           <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 mb-4">
@@ -422,7 +490,7 @@ const pollAiCoach = async (params) => {
             </span>
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto">
-            Even if you haven’t studied the chapter at all, this one-night revision material is enough to build full exam-ready understanding and aim for 90%+.
+            Even if you haven't studied the chapter at all, this one-night revision material is enough to build full exam-ready understanding and aim for 90%+.
           </p>
         </div>
 
@@ -456,6 +524,53 @@ const pollAiCoach = async (params) => {
         {/* Input Section - Only show when no revision */}
         {!hasGenerated && (
           <div className="max-w-2xl lg:max-w-7xl mx-auto space-y-6">
+            {/* History Section */}
+            {history.length > 0 && (
+              <Card className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <History className="w-5 h-5 text-orange-500" />
+                  <h3 className="font-semibold text-lg">Recent Revisions</h3>
+                </div>
+                <div className="space-y-2">
+                  {history.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => loadFromHistory(item)}
+                      className="w-full text-left p-4 rounded-lg border border-border hover:border-orange-500 hover:bg-orange-500/5 transition-all group relative"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 pr-8">
+                          <p className="font-medium text-sm">
+                            {item.className} - {item.subject}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {item.chapter}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(item.timestamp).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                          <button
+                            onClick={(e) => deleteFromHistory(item.id, e)}
+                            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-red-500/10 text-red-500 transition-all"
+                            title="Delete from history"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </Card>
+            )}
+
             <div className="grid lg:grid-cols-2 gap-6">
               <Card className="p-6 sm:p-8">
                 <div className="space-y-5">
@@ -521,13 +636,12 @@ const pollAiCoach = async (params) => {
                     </div>
                   </div>
 
-
                   <Button
                     onClick={handleGenerate}
-                    disabled={loading || !selectedClass || !selectedSubject || !selectedChapter}
+                    disabled={isGenerating || !selectedClass || !selectedSubject || !selectedChapter}
                     className="w-full h-12 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-medium shadow-md hover:shadow-lg transition-all"
                   >
-                    {loading ? (
+                    {isGenerating ? (
                       <>
                         <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                         Generating...
@@ -587,14 +701,14 @@ const pollAiCoach = async (params) => {
                 mcqs={mcqs} 
                 memoryBooster={memoryBooster} 
                 aiCoach={aiCoach}
-                selectedClass ={selectedClass}
-                selectedSubject = {selectedSubject}
-                selectedChapter = {selectedChapter}
+                selectedClass={selectedClass}
+                selectedSubject={selectedSubject}
+                selectedChapter={selectedChapter}
               />
             )}
 
-            {/* Chatbot-style loading indicator at the bottom */}
-            {(getSummaryLoading || getImportantTopicsLoading || getPredictedQuestionLoading || getMcqsLoading || getAiCoachLoading || getMemoryBoosterLoading) && (
+            {/* Sequential Loading Indicator */}
+            {isGenerating && currentStep >= 0 && (
               <div className="flex items-start gap-3 p-4">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
                   <img className="h-8 w-8" src={logo} alt="" />
@@ -602,7 +716,9 @@ const pollAiCoach = async (params) => {
                 <div className="flex-1">
                   <div className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl rounded-tl-sm bg-muted/50 border border-border/50">
                     <Loader2 className="w-4 h-4 text-orange-500 animate-spin" />
-                    <span className="text-sm text-muted-foreground">Getting CBSE most important chapter notes...</span>
+                    <span className="text-sm text-muted-foreground">
+                      Generating {GENERATION_STEPS[currentStep]?.label}...
+                    </span>
                   </div>
                 </div>
               </div>
@@ -614,7 +730,7 @@ const pollAiCoach = async (params) => {
         )}
 
         {/* Empty State */}
-        {!hasGenerated && !loading && (
+        {!hasGenerated && !isGenerating && (
           <Card className="p-12 sm:p-16 mb-8 text-center mt-8 max-w-2xl lg:max-w-5xl mx-auto">
             <Brain className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 text-orange-500/30" />
             <h3 className="text-lg sm:text-xl font-semibold mb-2 text-muted-foreground">

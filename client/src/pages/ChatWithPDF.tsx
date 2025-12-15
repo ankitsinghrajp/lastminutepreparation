@@ -24,6 +24,7 @@ import "katex/dist/katex.min.css";
 import "highlight.js/styles/github-dark.css";
 import { server } from "@/constants";
 import { toast } from "sonner";
+import { useSelector } from "react-redux";
 
 /* ===================== AI OUTPUT ===================== */
 const AIOutput = ({ content }) => {
@@ -53,6 +54,8 @@ export default function ChatWithPDF() {
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
+    const {user} = useSelector((state)=>state.auth)
+    
 
   const pollUploadPdf = async (file, maxRetries = 5) => {
   const formData = new FormData();
@@ -97,6 +100,11 @@ export default function ChatWithPDF() {
   }, [question]);
 
 const handlePdfUpload = async (e) => {
+
+  if(user.planType === "FREE"){
+    toast.error("Premium feature only. If recently subscribed logout and login again");
+    return;
+  }
   const file = e.target.files?.[0];
   if (!file || file.type !== "application/pdf") {
     toast.error("Please upload a valid PDF file");
