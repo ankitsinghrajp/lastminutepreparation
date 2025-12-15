@@ -34,19 +34,45 @@ export default function LastNightBeforeExam() {
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
 
-  const [selectedClass, setSelectedClass] = useState("12th");
-  const [selectedSubject, setSelectedSubject] = useState("");
-  const [selectedChapter, setSelectedChapter] = useState("");
+  const [selectedClass, setSelectedClass] = useState(() => {
+    return sessionStorage.getItem("lastNight_selectedClass") || "12th";
+  });
+  const [selectedSubject, setSelectedSubject] = useState(() => {
+    return sessionStorage.getItem("lastNight_selectedSubject") || "";
+  });
+  const [selectedChapter, setSelectedChapter] = useState(() => {
+    return sessionStorage.getItem("lastNight_selectedChapter") || "";
+  });
 
-  const [summary, setSummary] = useState("");
-  const [importantTopics, setImportantTopics] = useState([]);
-  const [predictedQuestion, setPredictedQuestion] = useState([]);
-  const [mcqs, setMcqs] = useState([]);
-  const [memoryBooster, setMemoryBooster] = useState([]);
-  const [aiCoach, setAiCoach] = useState([]);
+  const [summary, setSummary] = useState(() => {
+    const saved = sessionStorage.getItem("lastNight_summary");
+    return saved || "";
+  });
+  const [importantTopics, setImportantTopics] = useState(() => {
+    const saved = sessionStorage.getItem("lastNight_importantTopics");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [predictedQuestion, setPredictedQuestion] = useState(() => {
+    const saved = sessionStorage.getItem("lastNight_predictedQuestion");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [mcqs, setMcqs] = useState(() => {
+    const saved = sessionStorage.getItem("lastNight_mcqs");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [memoryBooster, setMemoryBooster] = useState(() => {
+    const saved = sessionStorage.getItem("lastNight_memoryBooster");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [aiCoach, setAiCoach] = useState(() => {
+    const saved = sessionStorage.getItem("lastNight_aiCoach");
+    return saved ? JSON.parse(saved) : [];
+  });
 
   const [currentStep, setCurrentStep] = useState(-1);
-  const [hasGenerated, setHasGenerated] = useState(false);
+  const [hasGenerated, setHasGenerated] = useState(() => {
+    return sessionStorage.getItem("lastNight_hasGenerated") === "true";
+  });
   const [history, setHistory] = useState([]);
   const [timerMinutes] = useState(30);
   const [timerActive, setTimerActive] = useState(false);
@@ -94,6 +120,60 @@ export default function LastNightBeforeExam() {
     };
     loadHistory();
   }, []);
+
+  // Persist selectedClass to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("lastNight_selectedClass", selectedClass);
+  }, [selectedClass]);
+
+  // Persist selectedSubject to sessionStorage
+  useEffect(() => {
+    if (selectedSubject) {
+      sessionStorage.setItem("lastNight_selectedSubject", selectedSubject);
+    }
+  }, [selectedSubject]);
+
+  // Persist selectedChapter to sessionStorage
+  useEffect(() => {
+    if (selectedChapter) {
+      sessionStorage.setItem("lastNight_selectedChapter", selectedChapter);
+    }
+  }, [selectedChapter]);
+
+  // Persist summary to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("lastNight_summary", summary);
+  }, [summary]);
+
+  // Persist importantTopics to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("lastNight_importantTopics", JSON.stringify(importantTopics));
+  }, [importantTopics]);
+
+  // Persist predictedQuestion to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("lastNight_predictedQuestion", JSON.stringify(predictedQuestion));
+  }, [predictedQuestion]);
+
+  // Persist mcqs to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("lastNight_mcqs", JSON.stringify(mcqs));
+  }, [mcqs]);
+
+  // Persist memoryBooster to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("lastNight_memoryBooster", JSON.stringify(memoryBooster));
+  }, [memoryBooster]);
+
+  // Persist aiCoach to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("lastNight_aiCoach", JSON.stringify(aiCoach));
+  }, [aiCoach]);
+
+  // Persist hasGenerated to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("lastNight_hasGenerated", hasGenerated.toString());
+  }, [hasGenerated]);
 
   // Update the ref whenever any revision data changes
   useEffect(() => {
@@ -301,10 +381,14 @@ export default function LastNightBeforeExam() {
   useEffect(() => {
     const fetchSubjectFun = async () => {
       if (selectedClass) {
-        setSubjects([]);
-        setChapters([]);
-        setSelectedSubject("");
-        setSelectedChapter("");
+        // Only reset if we're changing from a different class (not on initial load)
+        const savedClass = sessionStorage.getItem("lastNight_selectedClass");
+        if (savedClass && savedClass !== selectedClass) {
+          setSubjects([]);
+          setChapters([]);
+          setSelectedSubject("");
+          setSelectedChapter("");
+        }
         try {
           await fetchSubject({ selectedClass });
         } catch (error) {
@@ -320,21 +404,28 @@ export default function LastNightBeforeExam() {
     if (subjectData?.data?.subjects) {
       const subjects = subjectData.data.subjects;
       setSubjects(subjects);
-      if (subjects.length > 0 && !isSubjectLoading) {
+      // Only auto-select if no subject is already selected
+      if (subjects.length > 0 && !isSubjectLoading && !selectedSubject) {
         setSelectedSubject(subjects[0].subject);
       }
     } else if (!isSubjectLoading && subjectData) {
       setSubjects([]);
-      setSelectedSubject("");
+      if (!sessionStorage.getItem("lastNight_selectedSubject")) {
+        setSelectedSubject("");
+      }
     }
-  }, [subjectData, isSubjectLoading]);
+  }, [subjectData, isSubjectLoading, selectedSubject]);
 
   // Fetch chapters when subject changes
   useEffect(() => {
     const fetchChaptersFun = async () => {
       if (selectedSubject && selectedClass) {
-        setChapters([]);
-        setSelectedChapter("");
+        // Only reset if we're changing from a different subject (not on initial load)
+        const savedSubject = sessionStorage.getItem("lastNight_selectedSubject");
+        if (savedSubject && savedSubject !== selectedSubject) {
+          setChapters([]);
+          setSelectedChapter("");
+        }
         try {
           await fetchChapter({ selectedClass, selectedSubject });
         } catch (error) {
@@ -350,14 +441,17 @@ export default function LastNightBeforeExam() {
     if (ChapterData?.data?.chapters) {
       const chapters = ChapterData.data.chapters;
       setChapters(chapters);
-      if (chapters.length > 0 && !isChapterLoading) {
+      // Only auto-select if no chapter is already selected
+      if (chapters.length > 0 && !isChapterLoading && !selectedChapter) {
         setSelectedChapter(chapters[0].chapter);
       }
     } else if (!isChapterLoading && ChapterData) {
       setChapters([]);
-      setSelectedChapter("");
+      if (!sessionStorage.getItem("lastNight_selectedChapter")) {
+        setSelectedChapter("");
+      }
     }
-  }, [ChapterData, isChapterLoading]);
+  }, [ChapterData, isChapterLoading, selectedChapter]);
 
   // Timer logic
   useEffect(() => {
@@ -417,6 +511,16 @@ export default function LastNightBeforeExam() {
       memoryBooster: [],
       aiCoach: []
     };
+    
+    // Clear sessionStorage
+    sessionStorage.removeItem("lastNight_summary");
+    sessionStorage.removeItem("lastNight_importantTopics");
+    sessionStorage.removeItem("lastNight_predictedQuestion");
+    sessionStorage.removeItem("lastNight_mcqs");
+    sessionStorage.removeItem("lastNight_memoryBooster");
+    sessionStorage.removeItem("lastNight_aiCoach");
+    sessionStorage.removeItem("lastNight_hasGenerated");
+    
     setHasGenerated(false);
     setCurrentStep(-1);
     setTimerActive(false);

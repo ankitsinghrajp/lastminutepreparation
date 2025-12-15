@@ -85,7 +85,10 @@ const summarizer = asyncHandler(async (req, res) => {
 const topperStyleAnswer = asyncHandler(async (req, res) => {
   const { user_question, selectedClass, selectedSubject, selectedChapter } = req.body;
 
-
+  console.log(selectedChapter);
+  console.log(selectedClass);
+  console.log(selectedSubject);
+  
   if (!user_question || !selectedClass || !selectedSubject || !selectedChapter) {
     return res.status(400).json(
       new ApiResponse(400, null, "Missing required fields")
