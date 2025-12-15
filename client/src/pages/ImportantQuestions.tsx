@@ -18,11 +18,23 @@ const classes = ["9th", "10th", "11th", "12th"];
 export default function ImportantQuestions() {
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
-  const [selectedClass, setSelectedClass] = useState("12th");
-  const [selectedSubject, setSelectedSubject] = useState("");
-  const [selectedChapter, setSelectedChapter] = useState("");
+  
+  // Initialize from sessionStorage
+  const [selectedClass, setSelectedClass] = useState(() => {
+    return sessionStorage.getItem("importantQuestions_selectedClass") || "12th";
+  });
+  const [selectedSubject, setSelectedSubject] = useState(() => {
+    return sessionStorage.getItem("importantQuestions_selectedSubject") || "";
+  });
+  const [selectedChapter, setSelectedChapter] = useState(() => {
+    return sessionStorage.getItem("importantQuestions_selectedChapter") || "";
+  });
+  
   const [selectedIndex, setSelectedIndex] = useState([]);
-  const [response, setResponse] = useState([]);
+  const [response, setResponse] = useState(() => {
+    const saved = sessionStorage.getItem("importantQuestions_response");
+    return saved ? JSON.parse(saved) : [];
+  });
 
   const [importantQuestions, isImportantQuestionsLoading] = useAsyncMutation(
     useImportantQuestionGeneratorMutation
@@ -36,33 +48,60 @@ export default function ImportantQuestions() {
     { isError: isChapterError, error: chapterError },
   ]);
 
-    const pollImportantQuestion = async (params) => {
-      const interval = setInterval(async () => {
-        try {
-          const res = await importantQuestions(null, params);
-    
-          if (res?.data?.statusCode === 200) {
-            setResponse(res.data.data.data);
-            clearInterval(interval);
-            toast.success("Questions Ready!");
-            
-          }
-        } catch (error) {
-          clearInterval(interval);
-          toast.error("Error fetching questions...");
-        }
-      }, 6000);
-    };
+  // Persist selectedClass to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("importantQuestions_selectedClass", selectedClass);
+  }, [selectedClass]);
 
-  // Fetch subjects when class changes
+  // Persist selectedSubject to sessionStorage
+  useEffect(() => {
+    if (selectedSubject) {
+      sessionStorage.setItem("importantQuestions_selectedSubject", selectedSubject);
+    }
+  }, [selectedSubject]);
+
+  // Persist selectedChapter to sessionStorage
+  useEffect(() => {
+    if (selectedChapter) {
+      sessionStorage.setItem("importantQuestions_selectedChapter", selectedChapter);
+    }
+  }, [selectedChapter]);
+
+  // Persist response to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("importantQuestions_response", JSON.stringify(response));
+  }, [response]);
+
+  const pollImportantQuestion = async (params) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await importantQuestions(null, params);
+
+        if (res?.data?.statusCode === 200) {
+          setResponse(res.data.data.data);
+          clearInterval(interval);
+          toast.success("Questions Ready!");
+        }
+      } catch (error) {
+        clearInterval(interval);
+        toast.error("Error fetching questions...");
+      }
+    }, 6000);
+  };
+
+  // COPY FROM LASTNIGHTBEFOREEXAM - Fetch subjects when class changes
   useEffect(() => {
     const fetchSubjectFun = async () => {
       if (selectedClass) {
-        setSubjects([]);
-        setChapters([]);
-        setSelectedSubject("");
-        setSelectedChapter("");
-        setSelectedIndex([]);
+        // Only reset if we're changing from a different class (not on initial load)
+        const savedClass = sessionStorage.getItem("importantQuestions_selectedClass");
+        if (savedClass && savedClass !== selectedClass) {
+          setSubjects([]);
+          setChapters([]);
+          setSelectedSubject("");
+          setSelectedChapter("");
+          setSelectedIndex([]);
+        }
         try {
           await fetchSubject({ selectedClass });
         } catch (error) {
@@ -73,27 +112,34 @@ export default function ImportantQuestions() {
     fetchSubjectFun();
   }, [selectedClass, fetchSubject]);
 
-  // Update subjects when subject data is loaded
+  // COPY FROM LASTNIGHTBEFOREEXAM - Update subjects list
   useEffect(() => {
     if (subjectData?.data?.subjects) {
       const subjects = subjectData.data.subjects;
       setSubjects(subjects);
-      if (subjects.length > 0 && !isSubjectLoading) {
+      // Only auto-select if no subject is already selected
+      if (subjects.length > 0 && !isSubjectLoading && !selectedSubject) {
         setSelectedSubject(subjects[0].subject);
       }
     } else if (!isSubjectLoading && subjectData) {
       setSubjects([]);
-      setSelectedSubject("");
+      if (!sessionStorage.getItem("importantQuestions_selectedSubject")) {
+        setSelectedSubject("");
+      }
     }
-  }, [subjectData, isSubjectLoading]);
+  }, [subjectData, isSubjectLoading, selectedSubject]);
 
-  // Fetch chapters when subject changes
+  // COPY FROM LASTNIGHTBEFOREEXAM - Fetch chapters when subject changes
   useEffect(() => {
     const fetchChaptersFun = async () => {
       if (selectedSubject && selectedClass) {
-        setChapters([]);
-        setSelectedChapter("");
-        setSelectedIndex([]);
+        // Only reset if we're changing from a different subject (not on initial load)
+        const savedSubject = sessionStorage.getItem("importantQuestions_selectedSubject");
+        if (savedSubject && savedSubject !== selectedSubject) {
+          setChapters([]);
+          setSelectedChapter("");
+          setSelectedIndex([]);
+        }
         try {
           await fetchChapter({ selectedClass, selectedSubject });
         } catch (error) {
@@ -104,13 +150,14 @@ export default function ImportantQuestions() {
     fetchChaptersFun();
   }, [selectedSubject, selectedClass, fetchChapter]);
 
-  // Update chapters when chapter data is loaded
+  // COPY FROM LASTNIGHTBEFOREEXAM - Update chapters list
   useEffect(() => {
     if (ChapterData?.data?.chapters) {
       const chapters = ChapterData.data.chapters;
       setChapters(chapters);
       
-      if (chapters.length > 0 && !isChapterLoading) {
+      // Only auto-select if no chapter is already selected
+      if (chapters.length > 0 && !isChapterLoading && !selectedChapter) {
         const firstChapter = chapters[0].chapter;
         setSelectedChapter(firstChapter);
         const indexArray = chapters[0]?.index || [];
@@ -118,10 +165,12 @@ export default function ImportantQuestions() {
       }
     } else if (!isChapterLoading && ChapterData) {
       setChapters([]);
-      setSelectedChapter("");
-      setSelectedIndex([]);
+      if (!sessionStorage.getItem("importantQuestions_selectedChapter")) {
+        setSelectedChapter("");
+        setSelectedIndex([]);
+      }
     }
-  }, [ChapterData, isChapterLoading]);
+  }, [ChapterData, isChapterLoading, selectedChapter]);
 
   const handleGenerate = async () => {
     if (!selectedClass || !selectedSubject || !selectedChapter) {
@@ -129,18 +178,22 @@ export default function ImportantQuestions() {
       return;
     }
     
+    // Clear previous response
+    setResponse([]);
+    
     const res = await importantQuestions("Generating...", {
       className: selectedClass,
       subject: selectedSubject,
       chapter: selectedChapter,
       index: selectedIndex
     });
-        if (res?.data?.data) {
-        setResponse(res.data.data.data);
-      }
+    
+    if (res?.data?.data) {
+      setResponse(res.data.data.data);
+    }
 
-      if (res?.data?.statusCode === 200) {
-      // 🎉 Summary ready instantly (from Redis)
+    if (res?.data?.statusCode === 200) {
+      // 🎉 Questions ready instantly (from Redis)
       setResponse(res.data.data.data);
     }
 
@@ -148,13 +201,19 @@ export default function ImportantQuestions() {
       // ⏳ Not ready → queued → start polling
       toast.message("Generating Questions...");
       pollImportantQuestion({
-      className: selectedClass,
-      subject: selectedSubject,
-      chapter: selectedChapter,
-      index: selectedIndex
-    });
+        className: selectedClass,
+        subject: selectedSubject,
+        chapter: selectedChapter,
+        index: selectedIndex
+      });
+    }
+  };
 
-      }
+  const handleClear = () => {
+    setResponse([]);
+    setSelectedIndex([]);
+    sessionStorage.removeItem("importantQuestions_response");
+    toast.success("Questions cleared!");
   };
 
   const isGenerateDisabled = isImportantQuestionsLoading || !selectedClass || !selectedSubject || !selectedChapter;
@@ -258,7 +317,7 @@ export default function ImportantQuestions() {
                   className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isChapterLoading ? (
-                    <option>Loading chapters please wait...</option>
+                    <option>Loading chapters...</option>
                   ) : chapters.length > 0 ? (
                     chapters.map((chapter) => (
                       <option key={chapter.chapter} value={chapter.chapter}>
@@ -266,36 +325,53 @@ export default function ImportantQuestions() {
                       </option>
                     ))
                   ) : (
-                    <option>Loading chapters please wait...</option>
+                    <option>Loading Chapters Please wait...</option>
                   )}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
               </div>
             </div>
 
-            {/* Generate Button */}
-            <Button
-              onClick={handleGenerate}
-              disabled={isGenerateDisabled}
-              className="w-full h-12 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isImportantQuestionsLoading ? (
-                <>
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Generating Questions...
-                </>
-              ) : (
-                <>
-                  <Zap className="h-5 w-5 mr-2" />
-                  Generate Questions
-                </>
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <Button
+                onClick={handleGenerate}
+                disabled={isGenerateDisabled}
+                className="flex-1 h-12 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isImportantQuestionsLoading ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    Generating Questions...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-5 w-5 mr-2" />
+                    Generate Questions
+                  </>
+                )}
+              </Button>
+              
+              {response.length > 0 && (
+                <Button
+                  onClick={handleClear}
+                  variant="outline"
+                  className="h-12 px-4 text-destructive border-destructive hover:bg-destructive/10"
+                >
+                  Clear
+                </Button>
               )}
-            </Button>
+            </div>
           </div>
         </Card>
 
         {/* Results */}
-        <QuestionBox response={response} selectedClass={selectedClass} selectedSubject={selectedSubject} selectedChapter={selectedChapter}/>
+        <QuestionBox 
+          response={response} 
+          selectedClass={selectedClass} 
+          selectedSubject={selectedSubject} 
+          selectedChapter={selectedChapter}
+        />
       </div>
       
       <Footer />
