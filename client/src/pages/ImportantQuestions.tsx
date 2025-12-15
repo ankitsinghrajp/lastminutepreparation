@@ -219,7 +219,7 @@ export default function ImportantQuestions() {
                   className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubjectLoading ? (
-                    <option>Loading subjects...</option>
+                    <option>Loading subjects please wait...</option>
                   ) : subjects.length > 0 ? (
                     subjects.map((subject) => (
                       <option key={subject.subject} value={subject.subject}>
@@ -227,7 +227,7 @@ export default function ImportantQuestions() {
                       </option>
                     ))
                   ) : (
-                    <option>No subjects available</option>
+                    <option>Loading subjects please wait...</option>
                   )}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
@@ -258,7 +258,7 @@ export default function ImportantQuestions() {
                   className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isChapterLoading ? (
-                    <option>Loading chapters...</option>
+                    <option>Loading chapters please wait...</option>
                   ) : chapters.length > 0 ? (
                     chapters.map((chapter) => (
                       <option key={chapter.chapter} value={chapter.chapter}>
@@ -266,7 +266,7 @@ export default function ImportantQuestions() {
                       </option>
                     ))
                   ) : (
-                    <option>No chapters available</option>
+                    <option>Loading chapters please wait...</option>
                   )}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />

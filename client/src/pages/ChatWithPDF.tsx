@@ -25,6 +25,7 @@ import "highlight.js/styles/github-dark.css";
 import { server } from "@/constants";
 import { toast } from "sonner";
 import { useSelector } from "react-redux";
+import { Navbar } from "@/components/Navbar";
 
 /* ===================== AI OUTPUT ===================== */
 const AIOutput = ({ content }) => {
@@ -222,6 +223,7 @@ const handlePdfUpload = async (e) => {
       {!pdf ? (
         /* ===================== UPLOAD SCREEN ===================== */
         <div className="flex-1 overflow-y-auto">
+     
           <div className="min-h-full flex items-center justify-center px-4 py-8 sm:py-12">
             <div className="w-full max-w-2xl space-y-8 sm:space-y-10">
               {/* Header */}
@@ -458,7 +460,7 @@ const handlePdfUpload = async (e) => {
           </div>
 
           {/* Fixed Input Bar */}
-          <div className="flex-shrink-0 bg-slate-900/80 backdrop-blur-lg border-t border-slate-800 px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex-shrink-0  bg-slate-900/80 backdrop-blur-lg border-t border-slate-800 px-3 sm:px-4 py-3 sm:py-4">
             <div className="max-w-4xl mx-auto">
               <div className="flex gap-2 items-end">
                 <div className="flex-1 relative">
@@ -469,7 +471,7 @@ const handlePdfUpload = async (e) => {
                     onChange={(e) => setQuestion(e.target.value)}
                     onKeyPress={handleKeyPress}
                     disabled={loading}
-                    className="resize-none min-h-[44px] max-h-[120px] text-sm rounded-xl sm:rounded-2xl px-3.5 py-2.5 sm:px-4 sm:py-3 border-2 border-slate-700 focus:border-orange-500 focus:ring-0 bg-slate-800/50 backdrop-blur-sm text-white placeholder:text-slate-500 shadow-sm disabled:opacity-60 transition-colors"
+                    className="resize-none overflow-hidden min-h-[44px] max-h-[120px] text-sm rounded-xl sm:rounded-2xl px-3.5 py-2.5 sm:px-4 sm:py-3 border-2 border-slate-700 focus:border-orange-500 focus:ring-0 bg-slate-800/50 backdrop-blur-sm text-white placeholder:text-slate-500 shadow-sm disabled:opacity-60 transition-colors"
                     style={{ height: "44px" }}
                   />
                 </div>

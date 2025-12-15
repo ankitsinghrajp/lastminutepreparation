@@ -130,3 +130,30 @@ All colors MUST be HSL.
 }
 
 
+/* ===== Global Scrollbar ===== */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #03245a #0f172a; /* thumb | track (Firefox) */
+}
+
+/* Chrome, Edge, Safari */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0f172a; /* dark primary */
+}
+
+::-webkit-scrollbar-thumb {
+  background: #082046; /* blue secondary */
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15); /* light white border */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #0d2456; /* darker blue on hover */
+}
+
+

@@ -229,7 +229,7 @@ export default function PreviousYearQuestions() {
                       <option key={subject.subject} value={subject.subject}>{subject.subject}</option>
                     ))
                   ) : (
-                    <option>No subjects available</option>
+                    <option>Loading subjects please wait...</option>
                   )}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -252,7 +252,7 @@ export default function PreviousYearQuestions() {
                       <option key={chapter.chapter} value={chapter.chapter}>{chapter.chapter}</option>
                     ))
                   ) : (
-                    <option>No chapters available</option>
+                    <option>Loading chapters please wait...</option>
                   )}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />

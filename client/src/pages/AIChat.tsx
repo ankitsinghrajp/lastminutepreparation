@@ -600,13 +600,13 @@ export default function LastNightBeforeExam() {
                         className="w-full h-11 px-4 pr-10 rounded-lg bg-background border border-input focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
                       >
                         {isSubjectLoading ? (
-                          <option>Loading subjects...</option>
+                          <option>Loading subjects please wait...</option>
                         ) : subjects.length > 0 ? (
                           subjects.map((subject) => (
                             <option key={subject.subject} value={subject.subject}>{subject.subject}</option>
                           ))
                         ) : (
-                          <option>No subjects available</option>
+                          <option>Loading subjects please wait...</option>
                         )}
                       </select>
                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -629,7 +629,7 @@ export default function LastNightBeforeExam() {
                             <option key={chapter.chapter} value={chapter.chapter}>{chapter.chapter}</option>
                           ))
                         ) : (
-                          <option>No chapters available</option>
+                          <option>Loading Chapters Please wait...</option>
                         )}
                       </select>
                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />

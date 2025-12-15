@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Loader2, Brain, Sparkles, Layers, Clock, Trash2, History, X, ChevronDown, HelpCircle } from "lucide-react";
+import { Loader2, Brain, Sparkles, Layers, Clock, Trash2, History, X, ChevronDown, HelpCircle, Loader2Icon } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import {
@@ -577,13 +577,13 @@ export default function ChapterWiseStudy() {
                         className="w-full h-11 px-4 pr-10 rounded-lg bg-background border border-input focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
                       >
                         {isSubjectLoading ? (
-                          <option>Loading subjects...</option>
+                          <option>Loading subjects please wait...</option>
                         ) : subjects.length > 0 ? (
                           subjects.map((subject) => (
                             <option key={subject.subject} value={subject.subject}>{subject.subject}</option>
                           ))
                         ) : (
-                          <option>No subjects available</option>
+                          <option>Loading subjects please wait...</option>
                         )}
                       </select>
                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -600,13 +600,13 @@ export default function ChapterWiseStudy() {
                         className="w-full h-11 px-4 pr-10 rounded-lg bg-background border border-input focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
                       >
                         {isChapterLoading ? (
-                          <option>Loading chapters...</option>
+                          <option>Loading chapters please wait...</option>
                         ) : chapters.length > 0 ? (
                           chapters.map((chapter) => (
                             <option key={chapter.chapter} value={chapter.chapter}>{chapter.chapter}</option>
                           ))
                         ) : (
-                          <option>No chapters available</option>
+                          <option>Loading chapters please wait...</option>
                         )}
                       </select>
                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
