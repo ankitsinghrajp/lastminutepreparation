@@ -3,7 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { inngestHandler } from "./src/inngest/route.js";
 import helmet from "helmet";
-
+import "./src/cron/deleteUploads.js";
 const corsOptions = {
     origin:["http://localhost:5173",
         process.env.FRONTEND_URL

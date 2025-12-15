@@ -54,7 +54,7 @@ export default function ChatWithPDF() {
   const textareaRef = useRef(null);
 
 
-  const pollUploadPdf = async (file, maxRetries = 20) => {
+  const pollUploadPdf = async (file, maxRetries = 5) => {
   const formData = new FormData();
   formData.append("pdf", file);
 
@@ -73,10 +73,10 @@ export default function ChatWithPDF() {
     }
 
     // ⏳ Still processing → wait 2s
-    await new Promise((r) => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, 7000));
   }
 
-  throw new Error("PDF processing timed out");
+  throw new Error("The pdf is corrupted or not readable try different.");
 };
 
 

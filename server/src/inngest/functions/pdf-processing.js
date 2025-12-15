@@ -62,7 +62,7 @@ export const pdfProcessingFn = inngest.createFunction(
       });
 
       if (!extractedText || extractedText.length < 50) {
-        throw new Error("PDF unreadable");
+        throw new Error("Unreadable");
       }
 
       const pdfDoc = await step.run("Save DB", async () => {
@@ -88,12 +88,10 @@ export const pdfProcessingFn = inngest.createFunction(
         );
       });
 
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       await redis.del(pendingKey);
 
       return { success: true };
     } catch (err) {
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       await redis.del(pendingKey);
       throw err;
     }

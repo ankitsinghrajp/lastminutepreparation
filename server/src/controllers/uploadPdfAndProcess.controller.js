@@ -7,16 +7,13 @@ import crypto from "crypto";
 import fs from "fs";
 
 export const uploadPdfAndProcess = asyncHandler(async (req, res) => {
+  try {
   if (!req.file?.path) {
     throw new ApiError(400, "PDF is required");
   }
 
   const fileBuffer = fs.readFileSync(req.file.path);
 
-  // ✅ DELETE FILE AFTER READING (local / server storage cleanup)
-  fs.unlink(req.file.path, (err) => {
-    if (err) console.error("Failed to delete uploaded PDF:", err);
-  });
 
   const jobId = crypto.createHash("sha256").update(fileBuffer).digest("hex");
 
@@ -26,6 +23,7 @@ export const uploadPdfAndProcess = asyncHandler(async (req, res) => {
   // 🔹 FAST PATH
   const cached = await redis.get(cacheKey);
   if (cached) {
+    fs.unlinkSync(req.file.path);
     return res.status(200).json(
       new ApiResponse(200, cached, "PDF processed")
     );
@@ -54,4 +52,9 @@ export const uploadPdfAndProcess = asyncHandler(async (req, res) => {
       "PDF processing queued"
     )
   );
+    
+  } catch (error) {
+    fs.unlinkSync(req.file.path);
+  }
+  
 });
