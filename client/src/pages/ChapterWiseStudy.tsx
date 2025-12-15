@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Loader2, Brain, Sparkles, Layers, Clock, Trash2, History, X, ChevronDown, HelpCircle, Loader2Icon } from "lucide-react";
+import { Loader2, Brain, Sparkles, Layers, Clock, Trash2, History, X, ChevronDown, HelpCircle } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import {
@@ -29,22 +29,45 @@ const GENERATION_STEPS = [
 export default function ChapterWiseStudy() {
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
-  const [selectedClass, setSelectedClass] = useState("12th");
-  const [selectedSubject, setSelectedSubject] = useState("");
-  const [selectedChapter, setSelectedChapter] = useState("");
+  
+  // Initialize from sessionStorage
+  const [selectedClass, setSelectedClass] = useState(() => {
+    return sessionStorage.getItem("chapterWise_selectedClass") || "12th";
+  });
+  const [selectedSubject, setSelectedSubject] = useState(() => {
+    return sessionStorage.getItem("chapterWise_selectedSubject") || "";
+  });
+  const [selectedChapter, setSelectedChapter] = useState(() => {
+    return sessionStorage.getItem("chapterWise_selectedChapter") || "";
+  });
 
-  // Content State
-  const [summary, setSummary] = useState("");
-  const [shortNotes, setShortNotes] = useState([]);
-  const [mindMap, setMindMap] = useState({});
-  const [importantQuestions, setImportantQuestions] = useState({});
+  // Content State - Initialize from sessionStorage
+  const [summary, setSummary] = useState(() => {
+    const saved = sessionStorage.getItem("chapterWise_summary");
+    return saved || "";
+  });
+  const [shortNotes, setShortNotes] = useState(() => {
+    const saved = sessionStorage.getItem("chapterWise_shortNotes");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [mindMap, setMindMap] = useState(() => {
+    const saved = sessionStorage.getItem("chapterWise_mindMap");
+    return saved ? JSON.parse(saved) : {};
+  });
+  const [importantQuestions, setImportantQuestions] = useState(() => {
+    const saved = sessionStorage.getItem("chapterWise_importantQuestions");
+    return saved ? JSON.parse(saved) : {};
+  });
 
   const [currentStep, setCurrentStep] = useState(-1);
-  const [hasGenerated, setHasGenerated] = useState(false);
+  const [hasGenerated, setHasGenerated] = useState(() => {
+    return sessionStorage.getItem("chapterWise_hasGenerated") === "true";
+  });
   const [history, setHistory] = useState([]);
   const [timerMinutes] = useState(30);
   const [timerActive, setTimerActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(timerMinutes * 60);
+  const [showHistory, setShowHistory] = useState(false);
 
   const timerRef = useRef(null);
   const contentEndRef = useRef(null);
@@ -91,6 +114,50 @@ export default function ChapterWiseStudy() {
     };
     loadHistory();
   }, []);
+
+  // Persist selectedClass to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("chapterWise_selectedClass", selectedClass);
+  }, [selectedClass]);
+
+  // Persist selectedSubject to sessionStorage
+  useEffect(() => {
+    if (selectedSubject) {
+      sessionStorage.setItem("chapterWise_selectedSubject", selectedSubject);
+    }
+  }, [selectedSubject]);
+
+  // Persist selectedChapter to sessionStorage
+  useEffect(() => {
+    if (selectedChapter) {
+      sessionStorage.setItem("chapterWise_selectedChapter", selectedChapter);
+    }
+  }, [selectedChapter]);
+
+  // Persist summary to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("chapterWise_summary", summary);
+  }, [summary]);
+
+  // Persist shortNotes to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("chapterWise_shortNotes", JSON.stringify(shortNotes));
+  }, [shortNotes]);
+
+  // Persist mindMap to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("chapterWise_mindMap", JSON.stringify(mindMap));
+  }, [mindMap]);
+
+  // Persist importantQuestions to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("chapterWise_importantQuestions", JSON.stringify(importantQuestions));
+  }, [importantQuestions]);
+
+  // Persist hasGenerated to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("chapterWise_hasGenerated", hasGenerated.toString());
+  }, [hasGenerated]);
 
   // Update the ref whenever any revision data changes
   useEffect(() => {
@@ -283,14 +350,18 @@ export default function ChapterWiseStudy() {
     generateStep(0, params);
   };
 
-  // Fetch subjects when class changes
+  // COPY FROM LASTNIGHTBEFOREEXAM - Fetch subjects when class changes
   useEffect(() => {
     const fetchSubjectFun = async () => {
       if (selectedClass) {
-        setSubjects([]);
-        setChapters([]);
-        setSelectedSubject("");
-        setSelectedChapter("");
+        // Only reset if we're changing from a different class (not on initial load)
+        const savedClass = sessionStorage.getItem("chapterWise_selectedClass");
+        if (savedClass && savedClass !== selectedClass) {
+          setSubjects([]);
+          setChapters([]);
+          setSelectedSubject("");
+          setSelectedChapter("");
+        }
         try {
           await fetchSubject({ selectedClass });
         } catch (error) {
@@ -301,26 +372,33 @@ export default function ChapterWiseStudy() {
     fetchSubjectFun();
   }, [selectedClass, fetchSubject]);
 
-  // Update subjects list
+  // COPY FROM LASTNIGHTBEFOREEXAM - Update subjects list
   useEffect(() => {
     if (subjectData?.data?.subjects) {
       const subjects = subjectData.data.subjects;
       setSubjects(subjects);
-      if (subjects.length > 0 && !isSubjectLoading) {
+      // Only auto-select if no subject is already selected
+      if (subjects.length > 0 && !isSubjectLoading && !selectedSubject) {
         setSelectedSubject(subjects[0].subject);
       }
     } else if (!isSubjectLoading && subjectData) {
       setSubjects([]);
-      setSelectedSubject("");
+      if (!sessionStorage.getItem("chapterWise_selectedSubject")) {
+        setSelectedSubject("");
+      }
     }
-  }, [subjectData, isSubjectLoading]);
+  }, [subjectData, isSubjectLoading, selectedSubject]);
 
-  // Fetch chapters when subject changes
+  // COPY FROM LASTNIGHTBEFOREEXAM - Fetch chapters when subject changes
   useEffect(() => {
     const fetchChaptersFun = async () => {
       if (selectedSubject && selectedClass) {
-        setChapters([]);
-        setSelectedChapter("");
+        // Only reset if we're changing from a different subject (not on initial load)
+        const savedSubject = sessionStorage.getItem("chapterWise_selectedSubject");
+        if (savedSubject && savedSubject !== selectedSubject) {
+          setChapters([]);
+          setSelectedChapter("");
+        }
         try {
           await fetchChapter({ selectedClass, selectedSubject });
         } catch (error) {
@@ -331,19 +409,22 @@ export default function ChapterWiseStudy() {
     fetchChaptersFun();
   }, [selectedSubject, selectedClass, fetchChapter]);
 
-  // Update chapters list
+  // COPY FROM LASTNIGHTBEFOREEXAM - Update chapters list
   useEffect(() => {
     if (ChapterData?.data?.chapters) {
       const chapters = ChapterData.data.chapters;
       setChapters(chapters);
-      if (chapters.length > 0 && !isChapterLoading) {
+      // Only auto-select if no chapter is already selected
+      if (chapters.length > 0 && !isChapterLoading && !selectedChapter) {
         setSelectedChapter(chapters[0].chapter);
       }
     } else if (!isChapterLoading && ChapterData) {
       setChapters([]);
-      setSelectedChapter("");
+      if (!sessionStorage.getItem("chapterWise_selectedChapter")) {
+        setSelectedChapter("");
+      }
     }
-  }, [ChapterData, isChapterLoading]);
+  }, [ChapterData, isChapterLoading, selectedChapter]);
 
   // Timer logic
   useEffect(() => {
@@ -399,6 +480,14 @@ export default function ChapterWiseStudy() {
       mindMap: {},
       importantQuestions: {}
     };
+    
+    // Clear sessionStorage
+    sessionStorage.removeItem("chapterWise_summary");
+    sessionStorage.removeItem("chapterWise_shortNotes");
+    sessionStorage.removeItem("chapterWise_mindMap");
+    sessionStorage.removeItem("chapterWise_importantQuestions");
+    sessionStorage.removeItem("chapterWise_hasGenerated");
+    
     setHasGenerated(false);
     setCurrentStep(-1);
     setTimerActive(false);
@@ -454,7 +543,7 @@ export default function ChapterWiseStudy() {
     <div className="min-h-screen w-full bg-background">
       <Navbar />
 
-      <div className="container mx-auto px-4 pt-20 sm:pt-24 lg:max-w-[90%] xl:max-w-[90%]">
+      <div className="container mx-auto px-2 pt-20 sm:pt-24 lg:max-w-[90%] xl:max-w-[90%]">
         {/* Header */}
         <div className="text-center mb-8 sm:mb-12">
           <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-500 mb-4">
@@ -504,46 +593,66 @@ export default function ChapterWiseStudy() {
             {/* History Section */}
             {history.length > 0 && (
               <Card className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <History className="w-5 h-5 text-blue-500" />
-                  <h3 className="font-semibold text-lg">Recent Chapter Studies</h3>
-                </div>
-                <div className="space-y-2">
-                  {history.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => loadFromHistory(item)}
-                      className="w-full text-left p-4 rounded-lg border border-border hover:border-blue-500 hover:bg-blue-500/5 transition-all group relative"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 pr-8">
-                          <p className="font-medium text-sm">
-                            {item.className} - {item.subject}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {item.chapter}
-                          </p>
+                {/* Header (click to toggle) */}
+                <button
+                  onClick={() => setShowHistory((prev) => !prev)}
+                  className="w-full flex items-center justify-between gap-3 mb-4 text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <History className="w-5 h-5 text-blue-500" />
+                    <h3 className="font-semibold text-lg">Recent Chapter Studies</h3>
+                  </div>
+
+                  <ChevronDown
+                    className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${
+                      showHistory ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {/* Foldable Content */}
+                <div
+                  className={`grid transition-all duration-300 ease-in-out ${
+                    showHistory ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                  }`}
+                >
+                  <div className="overflow-hidden space-y-2">
+                    {history.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => loadFromHistory(item)}
+                        className="w-full text-left p-4 rounded-lg border border-border hover:border-blue-500 hover:bg-blue-500/5 transition-all group relative"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 pr-8">
+                            <p className="font-medium text-sm">
+                              {item.className} - {item.subject}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {item.chapter}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(item.timestamp).toLocaleDateString('en-IN', {
+                                day: 'numeric',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                            <button
+                              onClick={(e) => deleteFromHistory(item.id, e)}
+                              className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-red-500/10 text-red-500 transition-all"
+                              title="Delete from history"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(item.timestamp).toLocaleDateString('en-IN', {
-                              day: 'numeric',
-                              month: 'short',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </p>
-                          <button
-                            onClick={(e) => deleteFromHistory(item.id, e)}
-                            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-red-500/10 text-red-500 transition-all"
-                            title="Delete from history"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </Card>
             )}
@@ -600,13 +709,13 @@ export default function ChapterWiseStudy() {
                         className="w-full h-11 px-4 pr-10 rounded-lg bg-background border border-input focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
                       >
                         {isChapterLoading ? (
-                          <option>Loading chapters please wait...</option>
+                          <option>Loading chapters...</option>
                         ) : chapters.length > 0 ? (
                           chapters.map((chapter) => (
                             <option key={chapter.chapter} value={chapter.chapter}>{chapter.chapter}</option>
                           ))
                         ) : (
-                          <option>Loading chapters please wait...</option>
+                          <option>Loading Chapters Please wait...</option>
                         )}
                       </select>
                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -696,9 +805,7 @@ export default function ChapterWiseStudy() {
                 </div>
               </div>
             )}
-            
-            {/* Scroll anchor */}
-            <div ref={contentEndRef} />
+           
           </div>
         )}
 

@@ -69,6 +69,8 @@ export default function LastNightBeforeExam() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [showHistory, setShowHistory] = useState(false);
+
   const [currentStep, setCurrentStep] = useState(-1);
   const [hasGenerated, setHasGenerated] = useState(() => {
     return sessionStorage.getItem("lastNight_hasGenerated") === "true";
@@ -630,49 +632,70 @@ export default function LastNightBeforeExam() {
           <div className="max-w-2xl lg:max-w-7xl mx-auto space-y-6">
             {/* History Section */}
             {history.length > 0 && (
-              <Card className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <History className="w-5 h-5 text-orange-500" />
-                  <h3 className="font-semibold text-lg">Recent Revisions</h3>
-                </div>
-                <div className="space-y-2">
-                  {history.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => loadFromHistory(item)}
-                      className="w-full text-left p-4 rounded-lg border border-border hover:border-orange-500 hover:bg-orange-500/5 transition-all group relative"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 pr-8">
-                          <p className="font-medium text-sm">
-                            {item.className} - {item.subject}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {item.chapter}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(item.timestamp).toLocaleDateString('en-IN', {
-                              day: 'numeric',
-                              month: 'short',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </p>
-                          <button
-                            onClick={(e) => deleteFromHistory(item.id, e)}
-                            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-red-500/10 text-red-500 transition-all"
-                            title="Delete from history"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </Card>
+             <Card className="p-6">
+  {/* Header (click to toggle) */}
+  <button
+    onClick={() => setShowHistory((prev) => !prev)}
+    className="w-full flex items-center justify-between gap-3 mb-4 text-left"
+  >
+    <div className="flex items-center gap-3">
+      <History className="w-5 h-5 text-orange-500" />
+      <h3 className="font-semibold text-lg">Recent Revisions</h3>
+    </div>
+
+    <ChevronDown
+      className={`w-5 h-5 text-muted-foreground transition-transform duration-300 ${
+        showHistory ? "rotate-180" : ""
+      }`}
+    />
+  </button>
+
+  {/* Foldable Content */}
+  <div
+    className={`grid transition-all duration-300 ease-in-out ${
+      showHistory ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+    }`}
+  >
+    <div className="overflow-hidden space-y-2">
+      {history.map((item) => (
+        <button
+          key={item.id}
+          onClick={() => loadFromHistory(item)}
+          className="w-full text-left p-4 rounded-lg border border-border hover:border-orange-500 hover:bg-orange-500/5 transition-all group relative"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex-1 pr-8">
+              <p className="font-medium text-sm">
+                {item.className} - {item.subject}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {item.chapter}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <p className="text-xs text-muted-foreground">
+                {new Date(item.timestamp).toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
+              <button
+                onClick={(e) => deleteFromHistory(item.id, e)}
+                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-red-500/10 text-red-500 transition-all"
+                title="Delete from history"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </button>
+      ))}
+    </div>
+  </div>
+</Card>
+
             )}
 
             <div className="grid lg:grid-cols-2 gap-6">
@@ -827,9 +850,7 @@ export default function LastNightBeforeExam() {
                 </div>
               </div>
             )}
-            
-            {/* Scroll anchor */}
-            <div ref={contentEndRef} />
+ 
           </div>
         )}
 
