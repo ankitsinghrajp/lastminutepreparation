@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { renderFormula } from './renderFormula';
 import AIOutput from '../AIOutput';
 import { toast } from 'sonner';
+import QuestionOutput from '../QuestionOutput';
 
 const LastNightPredictedQuestions = ({ predictedQuestion, selectedClass, selectedSubject, selectedChapter }) => {
   const [getAnswer] = useAsyncMutation(useTopperStyleMutation);
@@ -92,7 +93,7 @@ const LastNightPredictedQuestions = ({ predictedQuestion, selectedClass, selecte
               </span>
 
               <p className="font-semibold text-sm sm:text-base text-foreground leading-relaxed">
-                {q.question}
+                {<QuestionOutput content={q.question}/>}
               </p>
             </div>
 

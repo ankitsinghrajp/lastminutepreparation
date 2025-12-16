@@ -45,100 +45,133 @@ export const lastNightMCQsFn = inngest.createFunction(
       // -------------------------------------------------------------------
       // 2️⃣ BUILD PROMPT (UNCHANGED)
       // -------------------------------------------------------------------
-  const prompt = `
-You are an API. Output ONLY valid JSON.
-NO markdown, NO backticks, NO extra text.
+const prompt = `
+You are an API that returns ONLY valid JSON.
+No extra text, no explanation outside JSON.
 
-Class ${className} | Subject: ${mainSubject} | Book: ${bookName}
+Class: ${className} | Subject: ${mainSubject} | Book: ${bookName}
 Chapter: ${chapter} | Stream: ${category}
 
-STRICT LANGUAGE RULE:
-- If subject is Hindi → write question and explanation ONLY in Hindi.
-- If subject is Sanskrit → write question and explanation ONLY in Sanskrit.
-- Otherwise → write ONLY in English.
-- Do NOT mix languages.
-
-FORMULA RULE (STRICT SEPARATION):
-- ALL mathematical formulas, equations, algebraic expressions, or symbols MUST appear ONLY in the "formula" field.
-- NEVER write formulas inside:
-  • question
-  • options
-  • explanation
-- The "question" and "explanation" fields must contain ONLY plain verbal text.
-- If a formula is needed for the MCQ, place it ONLY in the "formula" field.
-- If no formula is required, use empty string "".
-
-
-CRITICAL LATEX & SYMBOL RULE (MANDATORY):
-
-- NEVER write any mathematical expression, LaTeX command, or symbol in plain text.
-  This includes (but is not limited to): \\frac, \\sqrt, powers, subscripts, superscripts,
-  Greek symbols, units, or algebraic expressions.
-
-- EVERY mathematical expression MUST be written using proper LaTeX syntax
-  AND MUST be wrapped inside LaTeX math delimiters:
-    • Inline math → $ ... $
-    • Display math → $$ ... $$
-
-- NEVER write symbols like pi, theta, alpha, beta, cm^3, m^2, etc. in plain text.
-  ALWAYS use proper LaTeX commands:
-    • pi → \\pi
-    • theta → \\theta
-    • alpha → \\alpha
-    • beta → \\beta
-    • cm^3 → \\text{ cm}^3
-
-- Examples (CORRECT):
-    ✔️ $2\\pi rh$
-    ✔️ $A = 2\\pi r(h + r)$
-    ✔️ $12\\pi \\text{ cm}^3$
-    ✔️ $\\frac{n}{2}(2a + (n - 1)d)$
-
-- If ANY mathematical content appears outside $...$ or $$...$$,
-  or any symbol is written in plain text,
-  the output is INVALID and MUST be regenerated.
-
-
-
-For questions, options, and explanations:
-- If mathematical expressions are required, write them ONLY using standard LaTeX wrapped in $...$ or $$...$$.
-- Do NOT write raw expressions like x^2 or b^2 - 4ac without LaTeX.
-- The "formula" field must still contain the main formula separately.
-
-
-CBSE PYQ PRIORITY RULE (VERY IMPORTANT):
-- Generate MCQs ONLY from CBSE Previous Year Questions (PYQs), sample papers, and repeatedly asked board exam patterns.
-- Each MCQ must represent a concept that has a VERY HIGH PROBABILITY (≈99%) of appearing in the exam.
-- Avoid rare, tricky, or non-board-oriented questions.
-- Prefer questions commonly asked for 1 mark in CBSE board exams.
-- Think like a CBSE paper setter, not a coaching test creator.
-
-
 TASK:
-Generate EXACTLY 5 MCQs strictly based on the chapter.
-- Questions must be CBSE board level.
-- Options must be clear and unambiguous.
-- Explanation must be short and exam-oriented.
-- Do NOT repeat the formula in explanation or question.
+Generate EXACTLY 5 MOST FREQUENT, MOST IMPORTANT, and VERY HIGH-PROBABILITY
+CBSE Board MCQs strictly from THIS chapter only.
 
-OUTPUT FORMAT (JSON MUST REMAIN EXACTLY SAME):
+These MCQs must be:
+- Based on NCERT back exercises
+- Based on CBSE Previous Year Questions (PYQs)
+- Extremely likely (≈99%) to appear in board exams
+
+LANGUAGE RULE:
+- Hindi → questions, options, explanations ONLY in Hindi.
+- Sanskrit → questions, options, explanations ONLY in Sanskrit.
+- Otherwise → questions, options, explanations ONLY in English.
+- Do NOT mix languages anywhere.
+
+SANSKRIT LANGUAGE LOCK (ABSOLUTE):
+
+- If the subject is Sanskrit:
+  • ALL content MUST be written in PURE CLASSICAL SANSKRIT.
+  • ONLY standard Sanskrit grammar, vocabulary, and sentence structure is allowed.
+  • DO NOT use Hindi words, Hindi grammar, or modern phrasing.
+  • Do NOT mix Hindi and Sanskrit under any circumstances.
+
+- Forbidden in Sanskrit:
+  • Hindi auxiliaries (है, हैं, किया, करेगा, आदि)
+  • Hindi connectors (और, लेकिन, क्योंकि, आदि)
+
+- Required Sanskrit indicators (at least one):
+  • कथयत्, दर्शयत्, लिखत्, सिद्धं कुरुत, प्रश्नान् उत्तरत्, व्याख्यायतु
+  • Proper Sanskrit verb forms and case endings
+
+- If ANY Hindi word or Hindi grammar appears, REGENERATE.
+
+CHAPTER–TOPIC ISOLATION:
+- MCQs MUST belong strictly to the given chapter.
+- Do NOT introduce concepts, formulas, or question types from other chapters.
+- Avoid real-life stories unless explicitly required by NCERT or PYQs.
+
+MCQ QUALITY RULES:
+- Each MCQ must test a CORE concept, formula, or result from this chapter.
+- Avoid trivial or guess-based questions.
+- Options must be plausible and exam-oriented.
+- Exactly ONE correct option per MCQ.
+
+UNIVERSAL FORMULA & MATH RULES (MANDATORY):
+
+1) ABSOLUTE LATEX MANDATE:
+- EVERY mathematical expression MUST be written in LaTeX and wrapped inside:
+  • Inline math → $ ... $
+  • Display math → $$ ... $$
+- NEVER write math in plain text.
+
+2) LATEX DELIMITER RESTRICTION:
+- NEVER use \\( ... \\) or \\[ ... \\].
+- ONLY $...$ or $$...$$ are allowed.
+- If violated, regenerate.
+
+3) LATEX COMMAND CONTAINMENT:
+- ANY LaTeX command starting with \\ is FORBIDDEN outside math mode.
+- This includes:
+  • \\mathbb
+  • \\times
+  • \\to
+  • \\cap
+  • \\cup
+  • \\in
+  • \\subset
+  • \\leq
+  • \\geq
+- All must appear ONLY inside $...$ or $$...$$.
+
+4) PLAIN-TEXT MATH TOKEN BAN:
+- The following MUST NEVER appear outside LaTeX:
+  sin, cos, tan, sec, cosec, cot,
+  sin^-1, cos^-1, tan^-1,
+  frac, sqrt, pi, mu, theta,
+  <=, >=, leq, geq, |x|, mod
+
+5) INEQUALITIES & EQUATIONS:
+- MUST be written using LaTeX symbols only:
+  • \\leq
+  • \\geq
+- NEVER split equations across lines.
+
+6) CHEMICAL EQUATIONS:
+- MUST be written as display math only:
+  $$ ... $$
+
+7) STATISTICS MCQs:
+- If data-based:
+  • Use a PROPER markdown table.
+  • NEVER give raw lists.
+  • Insert exactly ONE blank line after the table.
+
+8) NEWLINES:
+- NEVER use escaped \\n.
+- Use real line breaks only.
+
+OUTPUT JSON (STRICT — DO NOT MODIFY STRUCTURE):
+
 {
-  "mcqs":[
+  "mcqs": [
     {
-      "question":"...",
-      "options":["...","...","...","..."],
-      "correct":"...",
-      "explanation":"...",
-      "formula":""
+      "question": "Complete CBSE-style MCQ question (markdown allowed, math inside $ or $$)",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correct": "Exact matching option text",
+      "explanation": "Short, exam-focused explanation",
+      "formula": "LaTeX formula only, WITHOUT $ or $$, or empty string"
     }
   ]
 }
 
 CRITICAL:
-- Output ONLY the JSON object
 - EXACTLY 5 MCQs
-- NEVER duplicate formulas outside the formula field
-`.trim();
+- Return ONLY valid JSON
+- NO markdown outside fields
+- NO partial math outside LaTeX
+- Output MUST be fully compatible with Markdown + KaTeX renderer
+`;
+
 
       // -------------------------------------------------------------------
       // 3️⃣ CALL OPENAI
