@@ -8,6 +8,7 @@ export const smartChapterSummaryFn = inngest.createFunction(
   {
     name: "Generate Smart Chapter Summary",
     id: "smart-chapter-summary",
+    retries: 1,
   },
   { event: "lmp/generate.smartChapterSummary" },
   async ({ event, step }) => {

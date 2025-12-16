@@ -6,6 +6,7 @@ export const topperStyleAnswerFn = inngest.createFunction(
   {
     id: "topper-style-answer",
     name: "Generate Topper Style Answer",
+    retries:1,
   },
   { event: "lmp/generate.topperAnswer" },
   async ({ event, step }) => {

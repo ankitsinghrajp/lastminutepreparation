@@ -7,6 +7,7 @@ export const askAnyQuestionFn = inngest.createFunction(
   {
     id: "ask-any-question",
     name: "Ask Any Question AI",
+    retries: 1,
   },
   { event: "lmp/generate.askAnyQuestion" },
   async ({ event, step }) => {
@@ -117,7 +118,7 @@ FINAL COMMAND:
 Now answer this question in FULL compliance with ALL rules above:
 ${finalQuestion}
 `;
-      const answer = await step.run("OpenAI", async () =>
+      const answer = await step.run("OpenAI",async () =>
         askOpenAI(prompt, "gpt-5.1")
       );
 

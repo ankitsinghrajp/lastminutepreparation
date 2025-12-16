@@ -16,6 +16,7 @@ export const summarizerFn = inngest.createFunction(
   {
     id: "summarizer-job",
     name: "Generate Topic Summary",
+    retries:1,
   },
   { event: "lmp/generate.summarizer" },
   async ({ event, step }) => {
@@ -151,7 +152,7 @@ OUTPUT: Only the topper-style answer. Nothing else.
 
       const ai = await step.run("OpenAI", async () =>
         openai.responses.create({
-          model: "gpt-4o",
+          model: "gpt-5.1",
           input: safePrompt,
           max_output_tokens: 800,
         })

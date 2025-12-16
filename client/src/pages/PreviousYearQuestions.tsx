@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
-import { BookOpen, Search, Loader2, ChevronDown } from "lucide-react";
+import { BookOpen, Search, Loader2, ChevronDown, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Footer } from "@/components/Footer";
 import {
@@ -29,17 +29,31 @@ interface Question {
 export default function PreviousYearQuestions() {
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
- 
-  const [selectedClass, setSelectedClass] = useState("12th");
-  const [selectedSubject, setSelectedSubject] = useState("");
-  const [selectedChapter, setSelectedChapter] = useState("");
-  const [selectedYear, setSelectedYear] = useState("2025");
+  
+  // Initialize from sessionStorage
+  const [selectedClass, setSelectedClass] = useState(() => {
+    return sessionStorage.getItem("pyqs_selectedClass") || "12th";
+  });
+  const [selectedSubject, setSelectedSubject] = useState(() => {
+    return sessionStorage.getItem("pyqs_selectedSubject") || "";
+  });
+  const [selectedChapter, setSelectedChapter] = useState(() => {
+    return sessionStorage.getItem("pyqs_selectedChapter") || "";
+  });
+  const [selectedYear, setSelectedYear] = useState(() => {
+    return sessionStorage.getItem("pyqs_selectedYear") || "2025";
+  });
 
-
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<Question[]>(() => {
+    const saved = sessionStorage.getItem("pyqs_questions");
+    return saved ? JSON.parse(saved) : [];
+  });
   const [loading, setLoading] = useState(false);
   const [pyqGenerator, pyqGeneratorLoading] = useAsyncMutation(usePyqsGeneratorMutation);
-  const [pyqs, setPyqs] = useState({});
+  const [pyqs, setPyqs] = useState(() => {
+    const saved = sessionStorage.getItem("pyqs_data");
+    return saved ? JSON.parse(saved) : {};
+  });
 
   const [
     fetchSubject,
@@ -56,35 +70,72 @@ export default function PreviousYearQuestions() {
     { isError: isChapterError, error: chapterError },
   ]);
 
-     const pollPyqs = async (params) => {
-      const interval = setInterval(async () => {
-        try {
-          const res = await pyqGenerator(null, params);
-    
-          if (res?.data?.statusCode === 200) {
-            setQuestions(res.data.data.data.pyqs);
-            setPyqs(res.data.data.data);
-            clearInterval(interval);
-            toast.success("Questions Ready!");
-            
-          }
-        } catch (error) {
-          clearInterval(interval);
-          toast.error("Error fetching questions...");
-        }
-      }, 4000);
-    };
+  // Persist selectedClass to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("pyqs_selectedClass", selectedClass);
+  }, [selectedClass]);
 
-  // Fetch subjects when class changes
+  // Persist selectedSubject to sessionStorage
+  useEffect(() => {
+    if (selectedSubject) {
+      sessionStorage.setItem("pyqs_selectedSubject", selectedSubject);
+    }
+  }, [selectedSubject]);
+
+  // Persist selectedChapter to sessionStorage
+  useEffect(() => {
+    if (selectedChapter) {
+      sessionStorage.setItem("pyqs_selectedChapter", selectedChapter);
+    }
+  }, [selectedChapter]);
+
+  // Persist selectedYear to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("pyqs_selectedYear", selectedYear);
+  }, [selectedYear]);
+
+  // Persist questions to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("pyqs_questions", JSON.stringify(questions));
+  }, [questions]);
+
+  // Persist pyqs data to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("pyqs_data", JSON.stringify(pyqs));
+  }, [pyqs]);
+
+  const pollPyqs = async (params) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await pyqGenerator(null, params);
+
+        if (res?.data?.statusCode === 200) {
+          setQuestions(res.data.data.data.pyqs);
+          setPyqs(res.data.data.data);
+          setLoading(false);
+          clearInterval(interval);
+          toast.success("Previous Year Questions Ready!");
+        }
+      } catch (error) {
+        clearInterval(interval);
+        toast.error("Error fetching questions...");
+        setLoading(false);
+      }
+    }, 4000);
+  };
+
+  // COPY FROM LASTNIGHTBEFOREEXAM - Fetch subjects when class changes
   useEffect(() => {
     const fetchSubjectFun = async () => {
       if (selectedClass) {
-        setSubjects([]);
-        setChapters([]);
-        setSelectedSubject("");
-        setSelectedChapter("");
-        setQuestions([]);
-        setPyqs({});
+        // Only reset if we're changing from a different class (not on initial load)
+        const savedClass = sessionStorage.getItem("pyqs_selectedClass");
+        if (savedClass && savedClass !== selectedClass) {
+          setSubjects([]);
+          setChapters([]);
+          setSelectedSubject("");
+          setSelectedChapter("");
+        }
         try {
           await fetchSubject({ selectedClass });
         } catch (error) {
@@ -95,28 +146,33 @@ export default function PreviousYearQuestions() {
     fetchSubjectFun();
   }, [selectedClass, fetchSubject]);
 
-  // Set first subject when subjects are loaded
+  // COPY FROM LASTNIGHTBEFOREEXAM - Update subjects list
   useEffect(() => {
     if (subjectData?.data?.subjects) {
       const subjects = subjectData.data.subjects;
       setSubjects(subjects);
-      if (subjects.length > 0 && !isSubjectLoading) {
+      // Only auto-select if no subject is already selected
+      if (subjects.length > 0 && !isSubjectLoading && !selectedSubject) {
         setSelectedSubject(subjects[0].subject);
       }
     } else if (!isSubjectLoading && subjectData) {
       setSubjects([]);
-      setSelectedSubject("");
+      if (!sessionStorage.getItem("pyqs_selectedSubject")) {
+        setSelectedSubject("");
+      }
     }
-  }, [subjectData, isSubjectLoading]);
+  }, [subjectData, isSubjectLoading, selectedSubject]);
 
-  // Fetch chapters when subject changes
+  // COPY FROM LASTNIGHTBEFOREEXAM - Fetch chapters when subject changes
   useEffect(() => {
     const fetchChaptersFun = async () => {
       if (selectedSubject && selectedClass) {
-        setChapters([]);
-        setSelectedChapter("");
-        setQuestions([]);
-        setPyqs({});
+        // Only reset if we're changing from a different subject (not on initial load)
+        const savedSubject = sessionStorage.getItem("pyqs_selectedSubject");
+        if (savedSubject && savedSubject !== selectedSubject) {
+          setChapters([]);
+          setSelectedChapter("");
+        }
         try {
           await fetchChapter({ selectedClass, selectedSubject });
         } catch (error) {
@@ -127,19 +183,22 @@ export default function PreviousYearQuestions() {
     fetchChaptersFun();
   }, [selectedSubject, selectedClass, fetchChapter]);
 
-  // Set first chapter when chapters are loaded
+  // COPY FROM LASTNIGHTBEFOREEXAM - Update chapters list
   useEffect(() => {
     if (ChapterData?.data?.chapters) {
       const chapters = ChapterData.data.chapters;
       setChapters(chapters);
-      if (chapters.length > 0 && !isChapterLoading) {
+      // Only auto-select if no chapter is already selected
+      if (chapters.length > 0 && !isChapterLoading && !selectedChapter) {
         setSelectedChapter(chapters[0].chapter);
       }
     } else if (!isChapterLoading && ChapterData) {
       setChapters([]);
-      setSelectedChapter("");
+      if (!sessionStorage.getItem("pyqs_selectedChapter")) {
+        setSelectedChapter("");
+      }
     }
-  }, [ChapterData, isChapterLoading]);
+  }, [ChapterData, isChapterLoading, selectedChapter]);
 
   const handleFetchQuestions = async () => {
     if (!selectedClass || !selectedSubject || !selectedChapter) {
@@ -150,28 +209,49 @@ export default function PreviousYearQuestions() {
     // Reset previous questions before fetching new ones
     setQuestions([]);
     setPyqs({});
+    setLoading(true);
 
-    const res = await pyqGenerator(`Fetching year: ${selectedYear} cbse board questions...`,{className:selectedClass, subject:selectedSubject, chapter:selectedChapter, year:selectedYear});
+    const res = await pyqGenerator(`Fetching year: ${selectedYear} CBSE board questions...`, {
+      className: selectedClass, 
+      subject: selectedSubject, 
+      chapter: selectedChapter, 
+      year: selectedYear
+    });
     
     if (res?.data?.data) {
-        setQuestions(res.data.data.data.pyqs);
-        setPyqs(res.data.data.data);
-      }
-
-      if (res?.data?.statusCode === 200) {
-      // 🎉 Summary ready instantly (from Redis)
       setQuestions(res.data.data.data.pyqs);
       setPyqs(res.data.data.data);
+      setLoading(false);
+    }
+
+    if (res?.data?.statusCode === 200) {
+      // 🎉 Questions ready instantly (from Redis)
+      setQuestions(res.data.data.data.pyqs);
+      setPyqs(res.data.data.data);
+      setLoading(false);
     }
 
     if (res?.data?.statusCode === 202) {
       // ⏳ Not ready → queued → start polling
-      toast.message(`Fetching year: ${selectedYear} cbse board questions...`);
-      pollPyqs({className:selectedClass, subject:selectedSubject, chapter:selectedChapter, year:selectedYear});
-
-      }
-
+      toast.message(`Fetching year: ${selectedYear} CBSE board questions...`);
+      pollPyqs({
+        className: selectedClass, 
+        subject: selectedSubject, 
+        chapter: selectedChapter, 
+        year: selectedYear
+      });
+    }
   };
+
+  const handleClear = () => {
+    setQuestions([]);
+    setPyqs({});
+    sessionStorage.removeItem("pyqs_questions");
+    sessionStorage.removeItem("pyqs_data");
+    toast.success("Previous year questions cleared!");
+  };
+
+  const isFetchDisabled = loading || pyqGeneratorLoading || !selectedClass || !selectedSubject || !selectedChapter;
 
   return (
     <div className="min-h-screen bg-background">
@@ -196,6 +276,22 @@ export default function PreviousYearQuestions() {
         </div>
 
         <Card className="p-8 bg-card/50 border-border/50 backdrop-blur-sm mb-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-semibold">Filter Questions</h2>
+            
+            {questions.length > 0 && (
+              <Button
+                onClick={handleClear}
+                variant="outline"
+                size="sm"
+                className="text-destructive border-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear PYQs
+              </Button>
+            )}
+          </div>
+
           <div className="grid md:grid-cols-4 gap-4 mb-6">
             <div>
               <label className="text-sm font-medium mb-2 block">Select Class</label>
@@ -223,7 +319,7 @@ export default function PreviousYearQuestions() {
                   className="w-full px-4 py-2 pr-10 rounded-lg bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
                 >
                   {isSubjectLoading ? (
-                    <option>Loading subjects...</option>
+                    <option>Loading subjects please wait...</option>
                   ) : subjects.length > 0 ? (
                     subjects.map((subject) => (
                       <option key={subject.subject} value={subject.subject}>{subject.subject}</option>
@@ -252,7 +348,7 @@ export default function PreviousYearQuestions() {
                       <option key={chapter.chapter} value={chapter.chapter}>{chapter.chapter}</option>
                     ))
                   ) : (
-                    <option>Loading chapters please wait...</option>
+                    <option>Loading Chapters Please wait...</option>
                   )}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -279,10 +375,10 @@ export default function PreviousYearQuestions() {
           <div className="flex flex-wrap gap-3">
             <Button
               onClick={handleFetchQuestions}
-              disabled={loading || !selectedClass || !selectedSubject || !selectedChapter}
+              disabled={isFetchDisabled}
               className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 flex-1 min-w-[200px]"
             >
-              {loading ? (
+              {(loading || pyqGeneratorLoading) ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Fetching Questions...
@@ -294,14 +390,18 @@ export default function PreviousYearQuestions() {
                 </>
               )}
             </Button>
-
           </div>
         </Card>
 
-  
-              <div className="space-y-4">
-                {pyqs && <PyqsComponent pyqsData={pyqs} selectedClass={selectedClass} selectedSubject={selectedSubject} selectedChapter={selectedChapter}/>}
-      
+        <div className="space-y-4">
+          {pyqs && Object.keys(pyqs).length > 0 && (
+            <PyqsComponent 
+              pyqsData={pyqs} 
+              selectedClass={selectedClass} 
+              selectedSubject={selectedSubject} 
+              selectedChapter={selectedChapter}
+            />
+          )}
         </div>
       </div>
       <Footer/>

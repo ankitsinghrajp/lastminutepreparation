@@ -83,6 +83,9 @@ export default function LastNightBeforeExam() {
   const contentEndRef = useRef(null);
   const pollIntervalRefs = useRef({});
   
+  // Track previous subject to detect changes
+  const prevSubjectRef = useRef(selectedSubject);
+  
   // Create a ref to track revision data for saving to history
   const revisionDataRef = useRef({
     summary: "",
@@ -379,81 +382,127 @@ export default function LastNightBeforeExam() {
     generateStep(0, params);
   };
 
-  // Fetch subjects when class changes
-  useEffect(() => {
-    const fetchSubjectFun = async () => {
-      if (selectedClass) {
-        // Only reset if we're changing from a different class (not on initial load)
-        const savedClass = sessionStorage.getItem("lastNight_selectedClass");
-        if (savedClass && savedClass !== selectedClass) {
-          setSubjects([]);
-          setChapters([]);
-          setSelectedSubject("");
-          setSelectedChapter("");
-        }
-        try {
-          await fetchSubject({ selectedClass });
-        } catch (error) {
-          console.error("Error fetching subjects:", error);
-        }
-      }
-    };
-    fetchSubjectFun();
-  }, [selectedClass, fetchSubject]);
+  // Handle class change
+const handleClassChange = (newClass) => {
+  if (newClass !== selectedClass) {
+    setSelectedClass(newClass);
+    // Clear everything when class changes
+    setSubjects([]);
+    setChapters([]);
+    setSelectedSubject("");
+    setSelectedChapter("");
+  }
+};
 
-  // Update subjects list
-  useEffect(() => {
-    if (subjectData?.data?.subjects) {
-      const subjects = subjectData.data.subjects;
-      setSubjects(subjects);
-      // Only auto-select if no subject is already selected
-      if (subjects.length > 0 && !isSubjectLoading && !selectedSubject) {
-        setSelectedSubject(subjects[0].subject);
-      }
-    } else if (!isSubjectLoading && subjectData) {
-      setSubjects([]);
-      if (!sessionStorage.getItem("lastNight_selectedSubject")) {
-        setSelectedSubject("");
-      }
-    }
-  }, [subjectData, isSubjectLoading, selectedSubject]);
-
-  // Fetch chapters when subject changes
-  useEffect(() => {
-    const fetchChaptersFun = async () => {
-      if (selectedSubject && selectedClass) {
-        // Only reset if we're changing from a different subject (not on initial load)
-        const savedSubject = sessionStorage.getItem("lastNight_selectedSubject");
-        if (savedSubject && savedSubject !== selectedSubject) {
-          setChapters([]);
-          setSelectedChapter("");
-        }
-        try {
-          await fetchChapter({ selectedClass, selectedSubject });
-        } catch (error) {
-          console.error("Error fetching chapters:", error);
-        }
-      }
-    };
-    fetchChaptersFun();
-  }, [selectedSubject, selectedClass, fetchChapter]);
-
-  // Update chapters list
-  useEffect(() => {
-    if (ChapterData?.data?.chapters) {
-      const chapters = ChapterData.data.chapters;
-      setChapters(chapters);
-      // Only auto-select if no chapter is already selected
-      if (chapters.length > 0 && !isChapterLoading && !selectedChapter) {
-        setSelectedChapter(chapters[0].chapter);
-      }
-    } else if (!isChapterLoading && ChapterData) {
+  // Handle subject change
+  const handleSubjectChange = (newSubject) => {
+    if (newSubject !== selectedSubject) {
+      setSelectedSubject(newSubject);
+      // Clear chapters immediately when subject changes
       setChapters([]);
-      if (!sessionStorage.getItem("lastNight_selectedChapter")) {
-        setSelectedChapter("");
+      setSelectedChapter("");
+    }
+  };
+
+  // Fetch subjects when class changes
+useEffect(() => {
+  const fetchSubjectFun = async () => {
+    if (selectedClass && !isSubjectLoading) {
+      try {
+        await fetchSubject({ selectedClass });
+      } catch (error) {
+        console.error("Error fetching subjects:", error);
       }
     }
-  }, [ChapterData, isChapterLoading, selectedChapter]);
+  };
+  
+  // Fetch whenever class changes
+  if (selectedClass) {
+    fetchSubjectFun();
+  }
+}, [selectedClass, fetchSubject]);
+
+// Update subjects list
+useEffect(() => {
+  if (subjectData?.data?.subjects) {
+    const subjectsList = subjectData.data.subjects;
+    setSubjects(subjectsList);
+    
+    // Auto-select first subject when subjects list changes
+    // BUT only if no subject is currently selected (empty string)
+    // This preserves sessionStorage persisted subjects on page reload
+    if (subjectsList.length > 0 && !selectedSubject) {
+      setSelectedSubject(subjectsList[0].subject);
+    } else if (selectedSubject && subjectsList.length > 0) {
+      // Validate that the current selected subject exists in the list
+      const subjectExists = subjectsList.some(s => s.subject === selectedSubject);
+      if (!subjectExists) {
+        // If persisted subject doesn't exist, select first one
+        setSelectedSubject(subjectsList[0].subject);
+      }
+    }
+  } else if (!isSubjectLoading && subjectData) {
+    // If we got a response but no subjects, clear selection
+    setSubjects([]);
+    setSelectedSubject("");
+  }
+}, [subjectData, isSubjectLoading, selectedSubject]);
+// Fetch chapters when subject changes
+useEffect(() => {
+  const fetchChaptersFun = async () => {
+    if (selectedSubject && selectedClass && !isChapterLoading) {
+      try {
+        await fetchChapter({ selectedClass, selectedSubject });
+      } catch (error) {
+        console.error("Error fetching chapters:", error);
+      }
+    }
+  };
+  
+  // Fetch chapters whenever subject or class changes
+  if (selectedSubject && selectedClass) {
+    fetchChaptersFun();
+  }
+}, [selectedSubject, selectedClass]);
+
+// Update chapters list
+useEffect(() => {
+  if (ChapterData?.data?.chapters) {
+    const chaptersList = ChapterData.data.chapters;
+    setChapters(chaptersList);
+    
+    // Check if we have a persisted chapter from sessionStorage
+    const persistedChapter = sessionStorage.getItem("lastNight_selectedChapter");
+    
+    if (chaptersList.length > 0) {
+      // If we have a persisted chapter and it exists in the list, keep it
+      if (persistedChapter) {
+        const chapterExists = chaptersList.some(c => c.chapter === persistedChapter);
+        if (chapterExists && selectedChapter === persistedChapter) {
+          // Chapter is already set correctly, do nothing
+          return;
+        } else if (chapterExists && !selectedChapter) {
+          // Set the persisted chapter
+          setSelectedChapter(persistedChapter);
+        } else {
+          // Persisted chapter doesn't exist or selected is different, set first
+          setSelectedChapter(chaptersList[0].chapter);
+        }
+      } else if (!selectedChapter) {
+        // No persisted chapter and nothing selected, set first
+        setSelectedChapter(chaptersList[0].chapter);
+      } else {
+        // We have a selected chapter, validate it exists
+        const chapterExists = chaptersList.some(c => c.chapter === selectedChapter);
+        if (!chapterExists) {
+          setSelectedChapter(chaptersList[0].chapter);
+        }
+      }
+    }
+  } else if (!isChapterLoading && ChapterData) {
+    setChapters([]);
+  }
+}, [ChapterData, isChapterLoading]);
 
   // Timer logic
   useEffect(() => {
@@ -530,34 +579,95 @@ export default function LastNightBeforeExam() {
     toast.success("Cleared - Ready for new revision");
   };
 
-  const loadFromHistory = (historyItem) => {
-    clearAllPolls();
-    setSelectedClass(historyItem.className);
-    setSelectedSubject(historyItem.subject);
-    setSelectedChapter(historyItem.chapter);
-    setSummary(historyItem.summary || "");
-    setImportantTopics(historyItem.importantTopics || []);
-    setPredictedQuestion(historyItem.predictedQuestion || []);
-    setMcqs(historyItem.mcqs || []);
-    setMemoryBooster(historyItem.memoryBooster || []);
-    setAiCoach(historyItem.aiCoach || []);
-    revisionDataRef.current = {
-      summary: historyItem.summary || "",
-      importantTopics: historyItem.importantTopics || [],
-      predictedQuestion: historyItem.predictedQuestion || [],
-      mcqs: historyItem.mcqs || [],
-      memoryBooster: historyItem.memoryBooster || [],
-      aiCoach: historyItem.aiCoach || []
-    };
-    setHasGenerated(true);
-    setCurrentStep(-1);
-    setTimerActive(false);
-    setTimeLeft(timerMinutes * 60);
-    toast.success("Loaded from history");
-    
-    // Scroll to top to show content
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+const loadFromHistory = (historyItem) => {
+  clearAllPolls();
+  
+  // Set all the data first
+  setSummary(historyItem.summary || "");
+  setImportantTopics(historyItem.importantTopics || []);
+  setPredictedQuestion(historyItem.predictedQuestion || []);
+  setMcqs(historyItem.mcqs || []);
+  setMemoryBooster(historyItem.memoryBooster || []);
+  setAiCoach(historyItem.aiCoach || []);
+  revisionDataRef.current = {
+    summary: historyItem.summary || "",
+    importantTopics: historyItem.importantTopics || [],
+    predictedQuestion: historyItem.predictedQuestion || [],
+    mcqs: historyItem.mcqs || [],
+    memoryBooster: historyItem.memoryBooster || [],
+    aiCoach: historyItem.aiCoach || []
   };
+  setHasGenerated(true);
+  setCurrentStep(-1);
+  setTimerActive(false);
+  setTimeLeft(timerMinutes * 60);
+  
+  // Force clear everything first
+  setSubjects([]);
+  setChapters([]);
+  setSelectedSubject("");
+  setSelectedChapter("");
+  
+  // Set class - this will trigger subject fetch via useEffect
+  setSelectedClass(historyItem.className);
+  
+  // After subjects are fetched, manually fetch for the specific subject and chapter
+  // Use a longer delay to ensure subjects have loaded
+  setTimeout(async () => {
+    try {
+      // Fetch subjects for the class
+      const subjectsRes = await fetchSubject({ selectedClass: historyItem.className });
+      
+      if (subjectsRes?.data?.data?.subjects) {
+        const subjectsList = subjectsRes.data.data.subjects;
+        setSubjects(subjectsList);
+        
+        // Check if the history subject exists in the fetched subjects
+        const subjectExists = subjectsList.some(s => s.subject === historyItem.subject);
+        
+        if (subjectExists) {
+          setSelectedSubject(historyItem.subject);
+          
+          // Now fetch chapters for this specific subject
+          setTimeout(async () => {
+            try {
+              const chaptersRes = await fetchChapter({ 
+                selectedClass: historyItem.className, 
+                selectedSubject: historyItem.subject 
+              });
+              
+              if (chaptersRes?.data?.data?.chapters) {
+                const chaptersList = chaptersRes.data.data.chapters;
+                setChapters(chaptersList);
+                
+                // Check if the history chapter exists
+                const chapterExists = chaptersList.some(c => c.chapter === historyItem.chapter);
+                
+                if (chapterExists) {
+                  setSelectedChapter(historyItem.chapter);
+                } else if (chaptersList.length > 0) {
+                  setSelectedChapter(chaptersList[0].chapter);
+                }
+              }
+            } catch (error) {
+              console.error("Error fetching chapters from history:", error);
+            }
+          }, 300);
+        } else if (subjectsList.length > 0) {
+          // If subject doesn't exist, select first available
+          setSelectedSubject(subjectsList[0].subject);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching subjects from history:", error);
+    }
+  }, 500);
+  
+  toast.success("Loaded from history");
+  
+  // Scroll to top to show content
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
 
   const deleteFromHistory = (itemId, e) => {
     e.stopPropagation(); // Prevent triggering loadFromHistory
@@ -706,7 +816,7 @@ export default function LastNightBeforeExam() {
                     <div className="relative">
                       <select
                         value={selectedClass}
-                        onChange={(e) => setSelectedClass(e.target.value)}
+                        onChange={(e) => handleClassChange(e.target.value)}
                         className="w-full h-11 px-4 pr-10 rounded-lg bg-background border border-input focus:outline-none focus:ring-2 focus:ring-orange-500 appearance-none cursor-pointer"
                       >
                         {classes.map((cls) => (
@@ -722,7 +832,7 @@ export default function LastNightBeforeExam() {
                     <div className="relative">
                       <select
                         value={selectedSubject}
-                        onChange={(e) => setSelectedSubject(e.target.value)}
+                        onChange={(e) => handleSubjectChange(e.target.value)}
                         disabled={isSubjectLoading || subjects.length === 0}
                         className="w-full h-11 px-4 pr-10 rounded-lg bg-background border border-input focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
                       >

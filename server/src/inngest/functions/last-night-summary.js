@@ -10,6 +10,7 @@ export const lastNightSummaryFn = inngest.createFunction(
 
   { name: "Generate LMP Summary",
     id:"last-night-summary",
+    retries:1,
    },
   { event: "lmp/generate.summary" },
   async ({ event, step }) => {
@@ -107,7 +108,7 @@ Stream: ${category}
       });
 
       // 3️⃣ CALL OPENAI
-      const aiRaw = await step.run("Call OpenAI", async () => {
+      const aiRaw = await step.run("Call OpenAI" ,async () => {
         return await askOpenAI(prompt);
       });
 

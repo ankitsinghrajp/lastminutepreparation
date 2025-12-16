@@ -8,6 +8,7 @@ export const lastNightMCQsFn = inngest.createFunction(
   {
     id: "lmp-mcqs",
     name: "Generate LMP MCQs",
+    retries:1,
   },
   { event: "lmp/generate.mcqs" },
   async ({ event, step }) => {
@@ -72,7 +73,7 @@ JSON:
       // -------------------------------------------------------------------
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
-      const aiRaw = await step.run("Call OpenAI", async () => {
+      const aiRaw = await step.run("Call OpenAI",async () => {
         return await askOpenAI(prompt);
       });
 

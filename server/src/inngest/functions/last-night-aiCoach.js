@@ -9,6 +9,7 @@ export const lastNightAICoachFn = inngest.createFunction(
   {
     id: "lmp-ai-coach",
     name: "Generate LMP AI Coach",
+    retries:1,
   },
   { event: "lmp/generate.aiCoach" },
   async ({ event, step }) => {

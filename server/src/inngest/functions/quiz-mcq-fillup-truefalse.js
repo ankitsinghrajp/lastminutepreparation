@@ -8,6 +8,7 @@ export const quizMcqFillupTrueFalseFn = inngest.createFunction(
   {
     name: "Generate Quiz (MCQ, Fillups, True/False)",
     id: "quiz-mcq-fillup-truefalse",
+    retries:1,
   },
   { event: "lmp/generate.quizMcqFillupTrueFalse" },
   async ({ event, step }) => {

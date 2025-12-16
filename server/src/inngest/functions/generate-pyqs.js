@@ -8,6 +8,7 @@ export const generatePYQsFn = inngest.createFunction(
   {
     name: "Generate PYQs",
     id: "generate-pyqs",
+    retries: 1,
   },
   { event: "lmp/generate.pyqs" },
   async ({ event, step }) => {
@@ -89,7 +90,7 @@ RETURN STRICT JSON ONLY.
       // -------------------------------------------------------------------
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
-      const aiRaw = await step.run("Call OpenAI", async () => {
+      const aiRaw = await step.run("Call OpenAI",async () => {
         return await askOpenAI(prompt, "gpt-5.1");
       });
 

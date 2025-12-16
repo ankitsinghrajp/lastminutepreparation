@@ -9,6 +9,7 @@ export const chapterWiseShortNotesFn = inngest.createFunction(
   {
     name: "Generate Chapter Wise Short Notes",
     id: "chapter-wise-short-notes",
+    retries: 1,
   },
   { event: "lmp/generate.chapterWiseShortNotes" },
   async ({ event, step }) => {

@@ -6,7 +6,8 @@ import { redis } from "../../libs/redis.js";
 import { lastMinuteExtractJson as extractJSON } from "./extractJsonForFunctions/lastMinuteExtractJson.js";
 export const lastNightImportantTopicsFn = inngest.createFunction(
   { name: "Generate LMP Important Topics",
-    id: "last-night-important-topics"
+    id: "last-night-important-topics",
+    retries:1,
    },
   { event: "lmp/generate.importantTopics" },
   async ({ event, step }) => {
@@ -99,7 +100,7 @@ CRITICAL:
       // -------------------------------------------------------------------
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
-      const aiRaw = await step.run("Call OpenAI", async () => {
+      const aiRaw = await step.run("Call OpenAI" ,async () => {
         return await askOpenAI(prompt);
       });
 

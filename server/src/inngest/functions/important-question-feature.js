@@ -8,6 +8,7 @@ export const importantQuestionGeneratorFn = inngest.createFunction(
   {
     name: "Generate Important Question Set",
     id: "important-question-generator",
+    retries: 1,
   },
   { event: "lmp/generate.importantQuestions" },
   async ({ event, step }) => {
@@ -120,7 +121,7 @@ Requirements:
       // -------------------------------------------------------------------
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
-      const aiRaw = await step.run("Call OpenAI", async () => {
+      const aiRaw = await step.run("Call OpenAI",async () => {
         return await askOpenAI(prompt);
       });
 

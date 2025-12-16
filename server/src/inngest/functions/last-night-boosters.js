@@ -9,6 +9,7 @@ export const lastNightMemoryBoosterFn = inngest.createFunction(
   {
     id: "lmp-memory-booster",
     name: "Generate LMP Memory Booster",
+    retries: 1,
   },
   { event: "lmp/generate.memoryBooster" },
   async ({ event, step }) => {

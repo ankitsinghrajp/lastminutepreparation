@@ -9,6 +9,7 @@ export const lastNightPredictedQuestionsFn = inngest.createFunction(
   {
     id: "lmp-predicted-questions",
     name: "Generate LMP Predicted Questions",
+    retries:1,
   },
   { event: "lmp/generate.predictedQuestions" },
   async ({ event, step }) => {

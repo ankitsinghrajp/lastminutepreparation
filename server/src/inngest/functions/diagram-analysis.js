@@ -17,6 +17,7 @@ export const diagramImageAnalysisFn = inngest.createFunction(
   {
     id: "diagram-image-analysis",
     name: "Generate Diagram Image Analysis",
+    retries: 1,
   },
   { event: "lmp/generate.diagramAnalysis" },
   async ({ event, step }) => {
@@ -118,7 +119,7 @@ OUTPUT: Only the topper-style diagram explanation. Nothing else.
 `;
 
       // 4️⃣ OpenAI
-      const ai = await step.run("OpenAI Call", async () =>
+      const ai = await step.run("OpenAI Call",async () =>
         openai.responses.create({
           model: "gpt-4o",
           input: prompt,

@@ -44,6 +44,7 @@ export const pdfProcessingFn = inngest.createFunction(
   {
     id: "pdf-processing",
     name: "Process PDF Upload",
+    retries:1,
   },
   { event: "lmp/generate.pdfProcessing" },
   async ({ event, step }) => {
@@ -53,7 +54,7 @@ export const pdfProcessingFn = inngest.createFunction(
     const pendingKey = `lmp:pdf:pending:${jobId}`;
 
     try {
-      let extractedText = await step.run("Extract Text", async () => {
+      let extractedText = await step.run("Extract Text" ,async () => {
         let text = await extractTextFromPDF(filePath);
         if (isScannedPDF(text)) {
           text = await extractTextWithOCR(filePath);

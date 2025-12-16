@@ -8,6 +8,7 @@ export const chapterWiseStudyQuestionsFn = inngest.createFunction(
   {
     name: "Generate Chapter Wise Study Questions",
     id: "chapter-wise-study-questions",
+    retries: 1,
   },
   { event: "lmp/generate.chapterWiseStudyQuestions" },
   async ({ event, step }) => {
