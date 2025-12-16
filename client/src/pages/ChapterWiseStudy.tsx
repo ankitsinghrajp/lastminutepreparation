@@ -30,7 +30,7 @@ export default function ChapterWiseStudy() {
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
   
-  // Initialize from sessionStorage
+  // Initialize from sessionStorage - EXACT COPY
   const [selectedClass, setSelectedClass] = useState(() => {
     return sessionStorage.getItem("chapterWise_selectedClass") || "12th";
   });
@@ -41,7 +41,7 @@ export default function ChapterWiseStudy() {
     return sessionStorage.getItem("chapterWise_selectedChapter") || "";
   });
 
-  // Content State - Initialize from sessionStorage
+  // Content State - Initialize from sessionStorage - EXACT COPY
   const [summary, setSummary] = useState(() => {
     const saved = sessionStorage.getItem("chapterWise_summary");
     return saved || "";
@@ -79,6 +79,9 @@ export default function ChapterWiseStudy() {
     importantQuestions: {}
   });
 
+  // Track previous subject to detect changes - EXACT COPY
+  const prevSubjectRef = useRef(selectedSubject);
+
   const [
     fetchSubject,
     { isLoading: isSubjectLoading, isError: isSubjectError, error: subjectError, data: subjectData },
@@ -100,7 +103,7 @@ export default function ChapterWiseStudy() {
     { isError: isChapterError, error: chapterError },
   ]);
 
-  // Load history from localStorage on mount
+  // Load history from localStorage on mount - EXACT COPY
   useEffect(() => {
     const loadHistory = () => {
       try {
@@ -115,51 +118,51 @@ export default function ChapterWiseStudy() {
     loadHistory();
   }, []);
 
-  // Persist selectedClass to sessionStorage
+  // Persist selectedClass to sessionStorage - EXACT COPY
   useEffect(() => {
     sessionStorage.setItem("chapterWise_selectedClass", selectedClass);
   }, [selectedClass]);
 
-  // Persist selectedSubject to sessionStorage
+  // Persist selectedSubject to sessionStorage - EXACT COPY
   useEffect(() => {
     if (selectedSubject) {
       sessionStorage.setItem("chapterWise_selectedSubject", selectedSubject);
     }
   }, [selectedSubject]);
 
-  // Persist selectedChapter to sessionStorage
+  // Persist selectedChapter to sessionStorage - EXACT COPY
   useEffect(() => {
     if (selectedChapter) {
       sessionStorage.setItem("chapterWise_selectedChapter", selectedChapter);
     }
   }, [selectedChapter]);
 
-  // Persist summary to sessionStorage
+  // Persist summary to sessionStorage - EXACT COPY
   useEffect(() => {
     sessionStorage.setItem("chapterWise_summary", summary);
   }, [summary]);
 
-  // Persist shortNotes to sessionStorage
+  // Persist shortNotes to sessionStorage - EXACT COPY
   useEffect(() => {
     sessionStorage.setItem("chapterWise_shortNotes", JSON.stringify(shortNotes));
   }, [shortNotes]);
 
-  // Persist mindMap to sessionStorage
+  // Persist mindMap to sessionStorage - EXACT COPY
   useEffect(() => {
     sessionStorage.setItem("chapterWise_mindMap", JSON.stringify(mindMap));
   }, [mindMap]);
 
-  // Persist importantQuestions to sessionStorage
+  // Persist importantQuestions to sessionStorage - EXACT COPY
   useEffect(() => {
     sessionStorage.setItem("chapterWise_importantQuestions", JSON.stringify(importantQuestions));
   }, [importantQuestions]);
 
-  // Persist hasGenerated to sessionStorage
+  // Persist hasGenerated to sessionStorage - EXACT COPY
   useEffect(() => {
     sessionStorage.setItem("chapterWise_hasGenerated", hasGenerated.toString());
   }, [hasGenerated]);
 
-  // Update the ref whenever any revision data changes
+  // Update the ref whenever any revision data changes - EXACT COPY
   useEffect(() => {
     revisionDataRef.current = {
       summary,
@@ -169,7 +172,7 @@ export default function ChapterWiseStudy() {
     };
   }, [summary, shortNotes, mindMap, importantQuestions]);
 
-  // Save to history when all steps complete
+  // Save to history when all steps complete - EXACT COPY PATTERN
   const saveToHistory = (className, subject, chapter) => {
     try {
       setHistory((prevHistory) => {
@@ -212,13 +215,13 @@ export default function ChapterWiseStudy() {
     }
   };
 
-  // Clear all polling intervals
+  // Clear all polling intervals - EXACT COPY
   const clearAllPolls = () => {
     Object.values(pollIntervalRefs.current).forEach(interval => clearInterval(interval));
     pollIntervalRefs.current = {};
   };
 
-  // Generic polling function
+  // Generic polling function - EXACT COPY
   const pollData = async (stepKey, fetcher, setter, dataKey, params, pollInterval) => {
     pollIntervalRefs.current[stepKey] = setInterval(async () => {
       try {
@@ -241,7 +244,7 @@ export default function ChapterWiseStudy() {
     }, pollInterval);
   };
 
-  // Generate content step by step
+  // Generate content step by step - EXACT COPY PATTERN
   const generateStep = async (stepIndex, params) => {
     if (stepIndex >= GENERATION_STEPS.length) {
       setCurrentStep(-1);
@@ -325,7 +328,7 @@ export default function ChapterWiseStudy() {
       return;
     }
 
-    // Reset all states before generating new content
+    // Reset all states before generating new content - EXACT COPY PATTERN
     setSummary("");
     setShortNotes([]);
     setMindMap({});
@@ -350,18 +353,32 @@ export default function ChapterWiseStudy() {
     generateStep(0, params);
   };
 
-  // COPY FROM LASTNIGHTBEFOREEXAM - Fetch subjects when class changes
+  // Handle class change - EXACT COPY
+  const handleClassChange = (newClass) => {
+    if (newClass !== selectedClass) {
+      setSelectedClass(newClass);
+      // Clear everything when class changes
+      setSubjects([]);
+      setChapters([]);
+      setSelectedSubject("");
+      setSelectedChapter("");
+    }
+  };
+
+  // Handle subject change - EXACT COPY
+  const handleSubjectChange = (newSubject) => {
+    if (newSubject !== selectedSubject) {
+      setSelectedSubject(newSubject);
+      // Clear chapters immediately when subject changes
+      setChapters([]);
+      setSelectedChapter("");
+    }
+  };
+
+  // Fetch subjects when class changes - EXACT COPY
   useEffect(() => {
     const fetchSubjectFun = async () => {
-      if (selectedClass) {
-        // Only reset if we're changing from a different class (not on initial load)
-        const savedClass = sessionStorage.getItem("chapterWise_selectedClass");
-        if (savedClass && savedClass !== selectedClass) {
-          setSubjects([]);
-          setChapters([]);
-          setSelectedSubject("");
-          setSelectedChapter("");
-        }
+      if (selectedClass && !isSubjectLoading) {
         try {
           await fetchSubject({ selectedClass });
         } catch (error) {
@@ -369,36 +386,43 @@ export default function ChapterWiseStudy() {
         }
       }
     };
-    fetchSubjectFun();
+    
+    // Fetch whenever class changes
+    if (selectedClass) {
+      fetchSubjectFun();
+    }
   }, [selectedClass, fetchSubject]);
 
-  // COPY FROM LASTNIGHTBEFOREEXAM - Update subjects list
+  // Update subjects list - EXACT COPY
   useEffect(() => {
     if (subjectData?.data?.subjects) {
-      const subjects = subjectData.data.subjects;
-      setSubjects(subjects);
-      // Only auto-select if no subject is already selected
-      if (subjects.length > 0 && !isSubjectLoading && !selectedSubject) {
-        setSelectedSubject(subjects[0].subject);
+      const subjectsList = subjectData.data.subjects;
+      setSubjects(subjectsList);
+      
+      // Auto-select first subject when subjects list changes
+      // BUT only if no subject is currently selected (empty string)
+      // This preserves sessionStorage persisted subjects on page reload
+      if (subjectsList.length > 0 && !selectedSubject) {
+        setSelectedSubject(subjectsList[0].subject);
+      } else if (selectedSubject && subjectsList.length > 0) {
+        // Validate that the current selected subject exists in the list
+        const subjectExists = subjectsList.some(s => s.subject === selectedSubject);
+        if (!subjectExists) {
+          // If persisted subject doesn't exist, select first one
+          setSelectedSubject(subjectsList[0].subject);
+        }
       }
     } else if (!isSubjectLoading && subjectData) {
+      // If we got a response but no subjects, clear selection
       setSubjects([]);
-      if (!sessionStorage.getItem("chapterWise_selectedSubject")) {
-        setSelectedSubject("");
-      }
+      setSelectedSubject("");
     }
   }, [subjectData, isSubjectLoading, selectedSubject]);
 
-  // COPY FROM LASTNIGHTBEFOREEXAM - Fetch chapters when subject changes
+  // Fetch chapters when subject changes - EXACT COPY
   useEffect(() => {
     const fetchChaptersFun = async () => {
-      if (selectedSubject && selectedClass) {
-        // Only reset if we're changing from a different subject (not on initial load)
-        const savedSubject = sessionStorage.getItem("chapterWise_selectedSubject");
-        if (savedSubject && savedSubject !== selectedSubject) {
-          setChapters([]);
-          setSelectedChapter("");
-        }
+      if (selectedSubject && selectedClass && !isChapterLoading) {
         try {
           await fetchChapter({ selectedClass, selectedSubject });
         } catch (error) {
@@ -406,27 +430,53 @@ export default function ChapterWiseStudy() {
         }
       }
     };
-    fetchChaptersFun();
-  }, [selectedSubject, selectedClass, fetchChapter]);
+    
+    // Fetch chapters whenever subject or class changes
+    if (selectedSubject && selectedClass) {
+      fetchChaptersFun();
+    }
+  }, [selectedSubject, selectedClass]);
 
-  // COPY FROM LASTNIGHTBEFOREEXAM - Update chapters list
+  // Update chapters list - EXACT COPY
   useEffect(() => {
     if (ChapterData?.data?.chapters) {
-      const chapters = ChapterData.data.chapters;
-      setChapters(chapters);
-      // Only auto-select if no chapter is already selected
-      if (chapters.length > 0 && !isChapterLoading && !selectedChapter) {
-        setSelectedChapter(chapters[0].chapter);
+      const chaptersList = ChapterData.data.chapters;
+      setChapters(chaptersList);
+      
+      // Check if we have a persisted chapter from sessionStorage
+      const persistedChapter = sessionStorage.getItem("chapterWise_selectedChapter");
+      
+      if (chaptersList.length > 0) {
+        // If we have a persisted chapter and it exists in the list, keep it
+        if (persistedChapter) {
+          const chapterExists = chaptersList.some(c => c.chapter === persistedChapter);
+          if (chapterExists && selectedChapter === persistedChapter) {
+            // Chapter is already set correctly, do nothing
+            return;
+          } else if (chapterExists && !selectedChapter) {
+            // Set the persisted chapter
+            setSelectedChapter(persistedChapter);
+          } else {
+            // Persisted chapter doesn't exist or selected is different, set first
+            setSelectedChapter(chaptersList[0].chapter);
+          }
+        } else if (!selectedChapter) {
+          // No persisted chapter and nothing selected, set first
+          setSelectedChapter(chaptersList[0].chapter);
+        } else {
+          // We have a selected chapter, validate it exists
+          const chapterExists = chaptersList.some(c => c.chapter === selectedChapter);
+          if (!chapterExists) {
+            setSelectedChapter(chaptersList[0].chapter);
+          }
+        }
       }
     } else if (!isChapterLoading && ChapterData) {
       setChapters([]);
-      if (!sessionStorage.getItem("chapterWise_selectedChapter")) {
-        setSelectedChapter("");
-      }
     }
-  }, [ChapterData, isChapterLoading, selectedChapter]);
+  }, [ChapterData, isChapterLoading]);
 
-  // Timer logic
+  // Timer logic - EXACT COPY
   useEffect(() => {
     if (timerActive && timeLeft > 0) {
       timerRef.current = setInterval(() => {
@@ -445,7 +495,7 @@ export default function ChapterWiseStudy() {
     return () => clearInterval(timerRef.current);
   }, [timerActive, timeLeft]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount - EXACT COPY
   useEffect(() => {
     return () => {
       clearAllPolls();
@@ -481,7 +531,7 @@ export default function ChapterWiseStudy() {
       importantQuestions: {}
     };
     
-    // Clear sessionStorage
+    // Clear sessionStorage - EXACT COPY PATTERN
     sessionStorage.removeItem("chapterWise_summary");
     sessionStorage.removeItem("chapterWise_shortNotes");
     sessionStorage.removeItem("chapterWise_mindMap");
@@ -495,11 +545,11 @@ export default function ChapterWiseStudy() {
     toast.success("Cleared - Ready for new chapter study");
   };
 
+  // Load from history - EXACT COPY PATTERN WITH ADJUSTED KEYS
   const loadFromHistory = (historyItem) => {
     clearAllPolls();
-    setSelectedClass(historyItem.className);
-    setSelectedSubject(historyItem.subject);
-    setSelectedChapter(historyItem.chapter);
+    
+    // Set all the data first
     setSummary(historyItem.summary || "");
     setShortNotes(historyItem.shortNotes || []);
     setMindMap(historyItem.mindMap || {});
@@ -514,6 +564,68 @@ export default function ChapterWiseStudy() {
     setCurrentStep(-1);
     setTimerActive(false);
     setTimeLeft(timerMinutes * 60);
+    
+    // Force clear everything first
+    setSubjects([]);
+    setChapters([]);
+    setSelectedSubject("");
+    setSelectedChapter("");
+    
+    // Set class - this will trigger subject fetch via useEffect
+    setSelectedClass(historyItem.className);
+    
+    // After subjects are fetched, manually fetch for the specific subject and chapter
+    // Use a longer delay to ensure subjects have loaded
+    setTimeout(async () => {
+      try {
+        // Fetch subjects for the class
+        const subjectsRes = await fetchSubject({ selectedClass: historyItem.className });
+        
+        if (subjectsRes?.data?.data?.subjects) {
+          const subjectsList = subjectsRes.data.data.subjects;
+          setSubjects(subjectsList);
+          
+          // Check if the history subject exists in the fetched subjects
+          const subjectExists = subjectsList.some(s => s.subject === historyItem.subject);
+          
+          if (subjectExists) {
+            setSelectedSubject(historyItem.subject);
+            
+            // Now fetch chapters for this specific subject
+            setTimeout(async () => {
+              try {
+                const chaptersRes = await fetchChapter({ 
+                  selectedClass: historyItem.className, 
+                  selectedSubject: historyItem.subject 
+                });
+                
+                if (chaptersRes?.data?.data?.chapters) {
+                  const chaptersList = chaptersRes.data.data.chapters;
+                  setChapters(chaptersList);
+                  
+                  // Check if the history chapter exists
+                  const chapterExists = chaptersList.some(c => c.chapter === historyItem.chapter);
+                  
+                  if (chapterExists) {
+                    setSelectedChapter(historyItem.chapter);
+                  } else if (chaptersList.length > 0) {
+                    setSelectedChapter(chaptersList[0].chapter);
+                  }
+                }
+              } catch (error) {
+                console.error("Error fetching chapters from history:", error);
+              }
+            }, 300);
+          } else if (subjectsList.length > 0) {
+            // If subject doesn't exist, select first available
+            setSelectedSubject(subjectsList[0].subject);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching subjects from history:", error);
+      }
+    }, 500);
+    
     toast.success("Loaded from history");
     
     // Scroll to top to show content
@@ -590,7 +702,7 @@ export default function ChapterWiseStudy() {
         {/* Input Section - Only show when no content generated */}
         {!hasGenerated && (
           <div className="max-w-2xl lg:max-w-7xl mx-auto space-y-6">
-            {/* History Section */}
+            {/* History Section - EXACT COPY PATTERN */}
             {history.length > 0 && (
               <Card className="p-6">
                 {/* Header (click to toggle) */}
@@ -665,7 +777,7 @@ export default function ChapterWiseStudy() {
                     <div className="relative">
                       <select
                         value={selectedClass}
-                        onChange={(e) => setSelectedClass(e.target.value)}
+                        onChange={(e) => handleClassChange(e.target.value)}
                         className="w-full h-11 px-4 pr-10 rounded-lg bg-background border border-input focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
                       >
                         {classes.map((cls) => (
@@ -681,7 +793,7 @@ export default function ChapterWiseStudy() {
                     <div className="relative">
                       <select
                         value={selectedSubject}
-                        onChange={(e) => setSelectedSubject(e.target.value)}
+                        onChange={(e) => handleSubjectChange(e.target.value)}
                         disabled={isSubjectLoading || subjects.length === 0}
                         className="w-full h-11 px-4 pr-10 rounded-lg bg-background border border-input focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
                       >

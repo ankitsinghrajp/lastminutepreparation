@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 const UPLOADS_DIR = path.join(__dirname, "../../uploads");
 
 // 5 minutes in milliseconds
-const MAX_FILE_AGE = 2 * 60 * 1000;
+const MAX_FILE_AGE = 20 * 60 * 1000;
 
 // runs every 1 minute
 cron.schedule("* * * * *", () => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
@@ -12,6 +12,7 @@ import {
 } from "@/redux/api/api";
 import { useAsyncMutation, useErrors } from "@/hooks/hook";
 import QuizBox from "@/components/specifics/quizGenerator/quizBox";
+import logo from "../assets/logo.png";
 
 const classes = ["9th", "10th", "11th", "12th"];
 
@@ -19,7 +20,6 @@ export default function QuizGenerator() {
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
   
-  // Initialize from sessionStorage
   const [selectedClass, setSelectedClass] = useState(() => {
     return sessionStorage.getItem("quizGenerator_selectedClass") || "12th";
   });
@@ -35,12 +35,13 @@ export default function QuizGenerator() {
     const saved = sessionStorage.getItem("quizGenerator_response");
     return saved ? JSON.parse(saved) : [];
   });
-  const [loading, setLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const pollIntervalRef = useRef(null);
 
   const [fetchSubject, { isLoading: isSubjectLoading, isError: isSubjectError, error: subjectError, data: subjectData }] = useLazyGetSubjectsQuery();
   const [fetchChapter, { isLoading: isChapterLoading, isError: isChapterError, error: chapterError, data: ChapterData }] = useLazyGetChaptersQuery();
 
-  const [quizGenerator, quizGeneratorLoading, quizGeneratorData] = useAsyncMutation(useQuizGeneratorMutation);
+  const [quizGenerator] = useAsyncMutation(useQuizGeneratorMutation);
   
   useErrors([
     { isError: isSubjectError, error: subjectError },
@@ -71,38 +72,43 @@ export default function QuizGenerator() {
     sessionStorage.setItem("quizGenerator_response", JSON.stringify(response));
   }, [response]);
 
-  const pollMCQs = async (params) => {
-    const interval = setInterval(async () => {
-      try {
-        const res = await quizGenerator(null, params);
-
-        if (res?.data?.statusCode === 200) {
-          setResponse(res.data.data.data);
-          clearInterval(interval);
-          toast.success("MCQs Ready!");
-          setLoading(false);
-        }
-      } catch (error) {
-        clearInterval(interval);
-        toast.error("Error fetching MCQs...");
-        setLoading(false);
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
       }
-    }, 5000);
+    };
+  }, []);
+
+  // Handle class change
+  const handleClassChange = (newClass) => {
+    if (newClass !== selectedClass) {
+      setSelectedClass(newClass);
+      // Clear everything when class changes
+      setSubjects([]);
+      setChapters([]);
+      setSelectedSubject("");
+      setSelectedChapter("");
+      setSelectedIndex([]);
+    }
   };
 
-  // COPY FROM LASTNIGHTBEFOREEXAM - Fetch subjects when class changes
+  // Handle subject change
+  const handleSubjectChange = (newSubject) => {
+    if (newSubject !== selectedSubject) {
+      setSelectedSubject(newSubject);
+      // Clear chapters immediately when subject changes
+      setChapters([]);
+      setSelectedChapter("");
+      setSelectedIndex([]);
+    }
+  };
+
+  // Fetch subjects when class changes
   useEffect(() => {
     const fetchSubjectFun = async () => {
-      if (selectedClass) {
-        // Only reset if we're changing from a different class (not on initial load)
-        const savedClass = sessionStorage.getItem("quizGenerator_selectedClass");
-        if (savedClass && savedClass !== selectedClass) {
-          setSubjects([]);
-          setChapters([]);
-          setSelectedSubject("");
-          setSelectedChapter("");
-          setSelectedIndex([]);
-        }
+      if (selectedClass && !isSubjectLoading) {
         try {
           await fetchSubject({ selectedClass });
         } catch (error) {
@@ -110,37 +116,43 @@ export default function QuizGenerator() {
         }
       }
     };
-    fetchSubjectFun();
+    
+    // Fetch whenever class changes
+    if (selectedClass) {
+      fetchSubjectFun();
+    }
   }, [selectedClass, fetchSubject]);
 
-  // COPY FROM LASTNIGHTBEFOREEXAM - Update subjects list
+  // Update subjects list
   useEffect(() => {
     if (subjectData?.data?.subjects) {
-      const subjects = subjectData.data.subjects;
-      setSubjects(subjects);
-      // Only auto-select if no subject is already selected
-      if (subjects.length > 0 && !isSubjectLoading && !selectedSubject) {
-        setSelectedSubject(subjects[0].subject);
+      const subjectsList = subjectData.data.subjects;
+      setSubjects(subjectsList);
+      
+      // Auto-select first subject when subjects list changes
+      // BUT only if no subject is currently selected (empty string)
+      // This preserves sessionStorage persisted subjects on page reload
+      if (subjectsList.length > 0 && !selectedSubject) {
+        setSelectedSubject(subjectsList[0].subject);
+      } else if (selectedSubject && subjectsList.length > 0) {
+        // Validate that the current selected subject exists in the list
+        const subjectExists = subjectsList.some(s => s.subject === selectedSubject);
+        if (!subjectExists) {
+          // If persisted subject doesn't exist, select first one
+          setSelectedSubject(subjectsList[0].subject);
+        }
       }
     } else if (!isSubjectLoading && subjectData) {
+      // If we got a response but no subjects, clear selection
       setSubjects([]);
-      if (!sessionStorage.getItem("quizGenerator_selectedSubject")) {
-        setSelectedSubject("");
-      }
+      setSelectedSubject("");
     }
   }, [subjectData, isSubjectLoading, selectedSubject]);
 
-  // COPY FROM LASTNIGHTBEFOREEXAM - Fetch chapters when subject changes
+  // Fetch chapters when subject changes
   useEffect(() => {
     const fetchChaptersFun = async () => {
-      if (selectedSubject && selectedClass) {
-        // Only reset if we're changing from a different subject (not on initial load)
-        const savedSubject = sessionStorage.getItem("quizGenerator_selectedSubject");
-        if (savedSubject && savedSubject !== selectedSubject) {
-          setChapters([]);
-          setSelectedChapter("");
-          setSelectedIndex([]);
-        }
+      if (selectedSubject && selectedClass && !isChapterLoading) {
         try {
           await fetchChapter({ selectedClass, selectedSubject });
         } catch (error) {
@@ -148,30 +160,91 @@ export default function QuizGenerator() {
         }
       }
     };
-    fetchChaptersFun();
-  }, [selectedSubject, selectedClass, fetchChapter]);
+    
+    // Fetch chapters whenever subject or class changes
+    if (selectedSubject && selectedClass) {
+      fetchChaptersFun();
+    }
+  }, [selectedSubject, selectedClass]);
 
-  // COPY FROM LASTNIGHTBEFOREEXAM - Update chapters list
+  // Update chapters list
   useEffect(() => {
     if (ChapterData?.data?.chapters) {
-      const chapters = ChapterData.data.chapters;
-      setChapters(chapters);
+      const chaptersList = ChapterData.data.chapters;
+      setChapters(chaptersList);
       
-      // Only auto-select if no chapter is already selected
-      if (chapters.length > 0 && !isChapterLoading && !selectedChapter) {
-        const firstChapter = chapters[0].chapter;
-        setSelectedChapter(firstChapter);
-        const indexArray = chapters[0]?.index || [];
-        setSelectedIndex(indexArray);
+      // Check if we have a persisted chapter from sessionStorage
+      const persistedChapter = sessionStorage.getItem("quizGenerator_selectedChapter");
+      
+      if (chaptersList.length > 0) {
+        // If we have a persisted chapter and it exists in the list, keep it
+        if (persistedChapter) {
+          const chapterExists = chaptersList.some(c => c.chapter === persistedChapter);
+          if (chapterExists && selectedChapter === persistedChapter) {
+            // Chapter is already set correctly, set index
+            const chapterObj = chaptersList.find(c => c.chapter === persistedChapter);
+            if (chapterObj && selectedIndex.length === 0) {
+              setSelectedIndex(chapterObj.index || []);
+            }
+            return;
+          } else if (chapterExists && !selectedChapter) {
+            // Set the persisted chapter
+            setSelectedChapter(persistedChapter);
+            const chapterObj = chaptersList.find(c => c.chapter === persistedChapter);
+            setSelectedIndex(chapterObj?.index || []);
+          } else {
+            // Persisted chapter doesn't exist or selected is different, set first
+            setSelectedChapter(chaptersList[0].chapter);
+            setSelectedIndex(chaptersList[0].index || []);
+          }
+        } else if (!selectedChapter) {
+          // No persisted chapter and nothing selected, set first
+          setSelectedChapter(chaptersList[0].chapter);
+          setSelectedIndex(chaptersList[0].index || []);
+        } else {
+          // We have a selected chapter, validate it exists
+          const chapterExists = chaptersList.some(c => c.chapter === selectedChapter);
+          if (!chapterExists) {
+            setSelectedChapter(chaptersList[0].chapter);
+            setSelectedIndex(chaptersList[0].index || []);
+          } else {
+            // Chapter exists, make sure index is set
+            const chapterObj = chaptersList.find(c => c.chapter === selectedChapter);
+            if (chapterObj && selectedIndex.length === 0) {
+              setSelectedIndex(chapterObj.index || []);
+            }
+          }
+        }
       }
     } else if (!isChapterLoading && ChapterData) {
       setChapters([]);
-      if (!sessionStorage.getItem("quizGenerator_selectedChapter")) {
-        setSelectedChapter("");
-        setSelectedIndex([]);
-      }
     }
-  }, [ChapterData, isChapterLoading, selectedChapter]);
+  }, [ChapterData, isChapterLoading]);
+
+  const pollMCQs = async (params) => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+    }
+
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const res = await quizGenerator(null, params);
+
+        if (res?.data?.statusCode === 200) {
+          setResponse(res.data.data.data);
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+          setIsGenerating(false);
+          toast.success("MCQs Ready!");
+        }
+      } catch (error) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+        setIsGenerating(false);
+        toast.error("Error fetching MCQs...");
+      }
+    }, 5000);
+  };
 
   const handleGenerate = async () => {
     if (!selectedClass || !selectedSubject || !selectedChapter) {
@@ -179,49 +252,51 @@ export default function QuizGenerator() {
       return;
     }
     
-    // Clear previous response
+    // Clear previous response and set generating state
     setResponse([]);
-    setLoading(true);
-     
-    const res = await quizGenerator("Generating...", {
+    setIsGenerating(true);
+    
+    const params = {
       className: selectedClass, 
       subject: selectedSubject, 
       chapter: selectedChapter, 
       index: selectedIndex
-    });
+    };
 
-    if (res?.data?.data) {
-      setResponse(res.data.data.data);
-      setLoading(false);
-    }
+    try {
+      const res = await quizGenerator("Generating...", params);
 
-    if (res?.data?.statusCode === 200) {
-      // 🎉 MCQs ready instantly (from Redis)
-      setResponse(res.data.data.data);
-      setLoading(false);
-    }
-
-    if (res?.data?.statusCode === 202) {
-      // ⏳ Not ready → queued → start polling
-      toast.message("Generating MCQs...");
-      pollMCQs({
-        className: selectedClass,
-        subject: selectedSubject,
-        chapter: selectedChapter,
-        index: selectedIndex
-      });
+      if (res?.data?.statusCode === 200) {
+        // MCQs ready instantly (from Redis)
+        setResponse(res.data.data.data);
+        setIsGenerating(false);
+        toast.success("MCQs Ready!");
+      } else if (res?.data?.statusCode === 202) {
+        // Not ready → queued → start polling
+        toast.message("Generating MCQs...");
+        pollMCQs(params);
+      } else {
+        setIsGenerating(false);
+      }
+    } catch (error) {
+      setIsGenerating(false);
+      toast.error("Failed to generate MCQs");
     }
   };
 
   const handleClear = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
     setResponse([]);
     setSelectedIndex([]);
+    setIsGenerating(false);
     sessionStorage.removeItem("quizGenerator_response");
-    setLoading(false);
     toast.success("MCQs cleared!");
   };
 
-  const isGenerateDisabled = loading || quizGeneratorLoading || !selectedClass || !selectedSubject || !selectedChapter;
+  const isGenerateDisabled = isGenerating || !selectedClass || !selectedSubject || !selectedChapter;
 
   return (
     <div className="min-h-screen bg-background">
@@ -274,7 +349,7 @@ export default function QuizGenerator() {
                 <div className="relative">
                   <select
                     value={selectedClass}
-                    onChange={(e) => setSelectedClass(e.target.value)}
+                    onChange={(e) => handleClassChange(e.target.value)}
                     className="w-full px-3 py-3 md:px-4 md:py-3.5 text-base rounded-lg bg-background border-2 border-border text-foreground appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
                   >
                     {classes.map((cls) => (
@@ -295,7 +370,7 @@ export default function QuizGenerator() {
                 <div className="relative">
                   <select
                     value={selectedSubject}
-                    onChange={(e) => setSelectedSubject(e.target.value)}
+                    onChange={(e) => handleSubjectChange(e.target.value)}
                     disabled={isSubjectLoading || subjects.length === 0}
                     className="w-full px-3 py-3 md:px-4 md:py-3.5 text-base rounded-lg bg-background border-2 border-border text-foreground appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -328,9 +403,7 @@ export default function QuizGenerator() {
                       setSelectedChapter(newChapter);
                       
                       const chapterObj = chapters.find(
-                        (item) =>
-                          item.chapter.trim().toLowerCase() ===
-                          newChapter.trim().toLowerCase()
+                        (item) => item.chapter === newChapter
                       );
                       const indexArray = chapterObj?.index || [];
                       setSelectedIndex(indexArray);
@@ -360,7 +433,7 @@ export default function QuizGenerator() {
                 disabled={isGenerateDisabled}
                 className="w-full h-12 md:h-13 lg:h-14 text-base md:text-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
               >
-                {(loading || quizGeneratorLoading) ? (
+                {isGenerating ? (
                   <>
                     <Loader2 className="h-5 w-5 md:h-6 md:w-6 mr-2 animate-spin" />
                     Generating MCQs...
@@ -374,6 +447,23 @@ export default function QuizGenerator() {
               </Button>
             </div>
           </Card>
+
+          {/* Loading Indicator - Shows while generating */}
+          {isGenerating && response.length === 0 && (
+            <div className="flex items-start gap-3 p-4 mt-6">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                <img className="h-8 w-8" src={logo} alt="" />
+              </div>
+              <div className="flex-1">
+                <div className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl rounded-tl-sm bg-muted/50 border border-border/50">
+                  <Loader2 className="w-4 h-4 text-amber-500 animate-spin" />
+                  <span className="text-sm text-muted-foreground">
+                    Generating MCQs, Fill Ups & True/False Questions...
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Quiz Box */}
           <div className="mt-6 md:mt-8 lg:mt-10">
