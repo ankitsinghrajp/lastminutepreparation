@@ -45,18 +45,83 @@ export const lastNightMCQsFn = inngest.createFunction(
       // -------------------------------------------------------------------
       // 2️⃣ BUILD PROMPT (UNCHANGED)
       // -------------------------------------------------------------------
-   const prompt = `
+  const prompt = `
 You are an API. Output ONLY valid JSON.
+NO markdown, NO backticks, NO extra text.
 
 Class ${className} | Subject: ${mainSubject} | Book: ${bookName}
 Chapter: ${chapter} | Stream: ${category}
 
-Formula Rule: pure LaTeX only.
+STRICT LANGUAGE RULE:
+- If subject is Hindi → write question and explanation ONLY in Hindi.
+- If subject is Sanskrit → write question and explanation ONLY in Sanskrit.
+- Otherwise → write ONLY in English.
+- Do NOT mix languages.
+
+FORMULA RULE (STRICT SEPARATION):
+- ALL mathematical formulas, equations, algebraic expressions, or symbols MUST appear ONLY in the "formula" field.
+- NEVER write formulas inside:
+  • question
+  • options
+  • explanation
+- The "question" and "explanation" fields must contain ONLY plain verbal text.
+- If a formula is needed for the MCQ, place it ONLY in the "formula" field.
+- If no formula is required, use empty string "".
+
+
+CRITICAL LATEX & SYMBOL RULE (MANDATORY):
+
+- NEVER write any mathematical expression, LaTeX command, or symbol in plain text.
+  This includes (but is not limited to): \\frac, \\sqrt, powers, subscripts, superscripts,
+  Greek symbols, units, or algebraic expressions.
+
+- EVERY mathematical expression MUST be written using proper LaTeX syntax
+  AND MUST be wrapped inside LaTeX math delimiters:
+    • Inline math → $ ... $
+    • Display math → $$ ... $$
+
+- NEVER write symbols like pi, theta, alpha, beta, cm^3, m^2, etc. in plain text.
+  ALWAYS use proper LaTeX commands:
+    • pi → \\pi
+    • theta → \\theta
+    • alpha → \\alpha
+    • beta → \\beta
+    • cm^3 → \\text{ cm}^3
+
+- Examples (CORRECT):
+    ✔️ $2\\pi rh$
+    ✔️ $A = 2\\pi r(h + r)$
+    ✔️ $12\\pi \\text{ cm}^3$
+    ✔️ $\\frac{n}{2}(2a + (n - 1)d)$
+
+- If ANY mathematical content appears outside $...$ or $$...$$,
+  or any symbol is written in plain text,
+  the output is INVALID and MUST be regenerated.
+
+
+
+For questions, options, and explanations:
+- If mathematical expressions are required, write them ONLY using standard LaTeX wrapped in $...$ or $$...$$.
+- Do NOT write raw expressions like x^2 or b^2 - 4ac without LaTeX.
+- The "formula" field must still contain the main formula separately.
+
+
+CBSE PYQ PRIORITY RULE (VERY IMPORTANT):
+- Generate MCQs ONLY from CBSE Previous Year Questions (PYQs), sample papers, and repeatedly asked board exam patterns.
+- Each MCQ must represent a concept that has a VERY HIGH PROBABILITY (≈99%) of appearing in the exam.
+- Avoid rare, tricky, or non-board-oriented questions.
+- Prefer questions commonly asked for 1 mark in CBSE board exams.
+- Think like a CBSE paper setter, not a coaching test creator.
+
 
 TASK:
-Generate EXACTLY 5 MCQs.
+Generate EXACTLY 5 MCQs strictly based on the chapter.
+- Questions must be CBSE board level.
+- Options must be clear and unambiguous.
+- Explanation must be short and exam-oriented.
+- Do NOT repeat the formula in explanation or question.
 
-JSON:
+OUTPUT FORMAT (JSON MUST REMAIN EXACTLY SAME):
 {
   "mcqs":[
     {
@@ -68,6 +133,11 @@ JSON:
     }
   ]
 }
+
+CRITICAL:
+- Output ONLY the JSON object
+- EXACTLY 5 MCQs
+- NEVER duplicate formulas outside the formula field
 `.trim();
 
       // -------------------------------------------------------------------

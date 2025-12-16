@@ -1,78 +1,46 @@
 import { CheckCircle, Lightbulb } from "lucide-react";
 import { renderFormula } from "./renderFormula";
+import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import AIOutput from "../AIOutput";
 
+const MCQMarkdown = ({ content }) => {
+  if (!content || typeof content !== "string") return null;
+
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkMath]}
+      rehypePlugins={[rehypeKatex]}
+      components={{
+        p: ({ children }) => (
+          <span className="leading-relaxed">{children}</span>
+        ),
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+};
+
+
+/* -------------------- Helpers -------------------- */
+
 const normalizeLatex = (text) => {
-  if (!text || typeof text !== 'string') return text;
-
-  return text
-    .replace(/\\\\/g, "\\")
-    .replace(/\\\[/g, "\\[")
-    .replace(/\\\]/g, "\\]")
-    .replace(/\\\(/g, "\\(")
-    .replace(/\\\)/g, "\\)")
-    .trim();
+  if (!text || typeof text !== "string") return "";
+  return text.replace(/\\\\/g, "\\").trim();
 };
 
-const convertMarkdownBold = (text) => {
-  if (!text || typeof text !== 'string') return text;
-  
-  const parts = text.split(/(\*\*.*?\*\*)/g);
-  return parts.map((part, idx) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={idx}>{part.slice(2, -2)}</strong>;
-    }
-    return part;
-  });
-};
-
-const renderTextWithFormulas = (rawText) => {
-  if (!rawText || typeof rawText !== 'string') return rawText || null;
-
-  const text = normalizeLatex(rawText);
-
-  const formulaRegex =
-    /(\\\[.*?\\\]|\\\(.*?\\\)|\$\$.*?\$\$|\$.*?\$|\\frac\{[^}]*\}\{[^}]*\}|\\sqrt\{[^}]*\}|[A-Za-z0-9_]+\s*=\s*[^,\.\n]+)/g;
-
-  const matches = [...text.matchAll(formulaRegex)];
-
-  if (matches.length === 0) {
-    return <span>{convertMarkdownBold(text)}</span>;
-  }
-
-  const parts = [];
-  let last = 0;
-
-  matches.forEach((match) => {
-    const index = match.index;
-
-    if (index > last) {
-      const before = text.substring(last, index);
-      parts.push(<span key={`t-${last}`}>{convertMarkdownBold(before)}</span>);
-    }
-
-    const formula = match[0];
-    parts.push(<span key={`f-${index}`}>{renderFormula(formula)}</span>);
-
-    last = index + formula.length;
-  });
-
-  if (last < text.length) {
-    const after = text.substring(last);
-    parts.push(<span key={`t-${last}-end`}>{convertMarkdownBold(after)}</span>);
-  }
-
-  return <>{parts}</>;
-};
+/* -------------------- Component -------------------- */
 
 const LastNightMcqs = ({ mcqs }) => {
-  // Safety check for mcqs array
-  if (!mcqs || !Array.isArray(mcqs) || mcqs.length === 0) {
+  if (!Array.isArray(mcqs) || mcqs.length === 0) {
     return (
       <div className="rounded-lg shadow-sm border overflow-hidden">
         <div className="bg-gradient-to-r from-blue-500 to-cyan-500 p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg">
+            <div className="p-2 bg-white/20 rounded-lg">
               <CheckCircle className="h-5 w-5 text-white" />
             </div>
             <h3 className="font-bold text-lg text-white">
@@ -89,9 +57,10 @@ const LastNightMcqs = ({ mcqs }) => {
 
   return (
     <div className="rounded-none shadow-sm border-y overflow-hidden">
+      {/* Header */}
       <div className="bg-gradient-to-r from-blue-500 to-cyan-500 p-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg">
+          <div className="p-2 bg-white/20 rounded-lg">
             <CheckCircle className="h-5 w-5 text-white" />
           </div>
           <h3 className="font-bold text-lg text-white">
@@ -100,86 +69,88 @@ const LastNightMcqs = ({ mcqs }) => {
         </div>
       </div>
 
+      {/* MCQs */}
       <div className="py-4 space-y-4">
         {mcqs.map((mcq, idx) => {
-          // Safety checks for each MCQ object
-          if (!mcq || typeof mcq !== 'object') return null;
+          if (!mcq || typeof mcq !== "object") return null;
 
-          const question = mcq.question || "Question not available";
-          const options = Array.isArray(mcq.options) ? mcq.options : [];
-          const correct = mcq.correct || "";
-          const formula = mcq.formula || "";
-          const explanation = mcq.explanation || "No explanation provided";
+          const {
+            question = "Question not available",
+            options = [],
+            correct = "",
+            explanation = "No explanation provided",
+            formula = "",
+          } = mcq;
 
           return (
             <div
               key={idx}
-              className="bg-muted/50 rounded-xl p-4 border border-border overflow-hidden"
+              className="bg-muted/50 rounded-xl p-4 border border-border"
             >
               {/* Question */}
               <div className="flex gap-3 mb-4">
-                <span className="font-bold text-foreground/70 shrink-0 text-base">
+                <span className="font-bold text-foreground/70 shrink-0">
                   Q{idx + 1}.
                 </span>
-                <div className="font-semibold text-base text-foreground break-words overflow-hidden">
-                  {renderTextWithFormulas(question)}
+                <div className="font-semibold text-base text-foreground">
+                  <MCQMarkdown content={question} />
                 </div>
               </div>
 
               {/* Options */}
-              {options.length > 0 && (
-                <div className="space-y-2 mb-4 ml-1 overflow-hidden">
-                  {options.map((opt, i) => (
-                    <div
-                      key={i}
-                      className={`p-3 rounded-lg text-sm transition-all ${
-                        opt === correct
-                          ? "bg-green-500/10 border-2 border-green-500/40 shadow-sm"
-                          : "bg-background/50 border border-border"
-                      }`}
-                    >
-                      <div className="flex items-start gap-2 overflow-hidden">
-                        <span className="font-bold text-foreground/70 shrink-0">
-                          {String.fromCharCode(65 + i)}.
-                        </span>
-                        <span
-                          className={`min-w-0 break-words block leading-normal ${
-                            opt === correct
-                              ? "font-medium text-green-700 dark:text-green-300"
-                              : "text-foreground/90"
-                          }`}
-                        >
-                          <span className="inline-block align-middle overflow-visible">
-                            {renderTextWithFormulas(opt)}
+              {Array.isArray(options) && options.length > 0 && (
+                <div className="space-y-2 mb-4 ml-1">
+                  {options.map((opt, i) => {
+                    const isCorrect = opt === correct;
+                    return (
+                      <div
+                        key={i}
+                        className={`p-3 rounded-lg transition-all ${
+                          isCorrect
+                            ? "bg-green-500/10 border-2 border-green-500/40"
+                            : "bg-background/50 border border-border"
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className="font-bold text-foreground/70 shrink-0">
+                            {String.fromCharCode(65 + i)}.
                           </span>
-                        </span>
+                          <div
+                            className={`leading-relaxed ${
+                              isCorrect
+                                ? "font-medium text-green-700 dark:text-green-300"
+                                : "text-foreground/90"
+                            }`}
+                          >
+                            <MCQMarkdown content={opt} />
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
-      
               {/* Explanation */}
-              <div className="p-4 mb-4 bg-blue-500/5 rounded-lg border-l-4 border-blue-500 ml-2 overflow-hidden">
+              <div className="p-4 mb-4 bg-blue-500/5 rounded-lg border-l-4 border-blue-500 ml-2">
                 <div className="flex items-center gap-2 mb-2">
-                  <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <p className="text-blue-600 dark:text-blue-400 font-bold text-xs uppercase tracking-wide">
+                  <Lightbulb className="h-4 w-4 text-blue-600" />
+                  <p className="text-blue-600 font-bold text-xs uppercase tracking-wide">
                     Explanation
                   </p>
                 </div>
-                <div className="text-sm text-foreground/80 leading-relaxed break-words overflow-hidden">
-                  {renderTextWithFormulas(explanation)}
+                <div className="text-sm text-foreground/80 leading-relaxed">
+                  <MCQMarkdown content={explanation} />
                 </div>
               </div>
 
-               {/* Formula Block */}
-              {formula && (
+              {/* Formula (ONLY SOURCE OF FORMULAS) */}
+              {formula && typeof formula === "string" && formula.trim() !== "" && (
                 <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20 mb-3 ml-2 overflow-x-auto">
-                  <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-2">
+                  <p className="text-xs font-semibold text-blue-600 mb-2">
                     Formula:
                   </p>
-                  {renderFormula(normalizeLatex(formula))}
+                  {<AIOutput content={formula}/>}
                 </div>
               )}
             </div>

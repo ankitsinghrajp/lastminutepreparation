@@ -48,52 +48,115 @@ export const lastNightImportantTopicsFn = inngest.createFunction(
       // -------------------------------------------------------------------
       const prompt = await step.run("Build Prompt", async () => {
         return `
+You are a CBSE Board exam expert.
+Think internally first, but DO NOT show your thinking.
+You are an API that returns ONLY valid JSON.
 
-You are an API that returns ONLY valid JSON. No extra text, no markdown, no explanation outside JSON.
+Class: ${className}
+Subject: ${mainSubject}
+Book: ${bookName}
+Chapter: ${chapter}
+Stream: ${category}
 
-Class: ${className} | Subject: ${mainSubject} | Book: ${bookName}
-Chapter: ${chapter} | Stream: ${category}
+STRICT LANGUAGE RULE (ABSOLUTE):
+- If subject is Hindi → read the chapter deeply and write topic names and explanations ONLY in Hindi.
+- If subject is Sanskrit → read the chapter deeply and write topic names and explanations ONLY in Sanskrit.
+- Otherwise → write topic names and explanations ONLY in English.
+- DO NOT mix languages.
+- If violated, regenerate the output.
 
-STRICT LANGUAGE RULE:
-If the subject is Hindi or Sanskrit → topic names and explanations must be written ONLY in Hindi.
-Otherwise → topics and explanations ONLY in English. DO NOT USE Hindi for English or any other subject.
-If this rule is violated, regenerate the answer.
+SUBJECT TYPE SAFETY (CRITICAL):
+- If subject is a LANGUAGE SUBJECT (English, Hindi, Sanskrit):
+  → The "formula" field MUST ALWAYS be an empty string "".
+  → NEVER include formulas, equations, symbols, LaTeX, or mathematical expressions.
+- If subject is NOT a language subject:
+  → Include a formula ONLY if it is:
+     • commonly asked in CBSE exams
+     • directly linked to that topic
+  → Do NOT force formulas where they are not needed.
 
 TASK:
-List EXACTLY 6 most important CBSE Board exam topics from this chapter that are frequently asked and carry high marks.
+Select EXACTLY 6 MOST IMPORTANT, HIGH-SCORING, and FREQUENTLY ASKED
+CBSE Board exam topics from this chapter.
 
-RULES:
-- Focus on topics that appear most in CBSE question papers
-- Include derivations, numericals, definitions, and theory-based topics as per CBSE pattern
-- Explanation must be 1-2 lines maximum — crisp and exam-focused
-- Formula field rules:
-  * Use pure LaTeX syntax only (e.g., \\frac{a}{b}, \\sqrt{x}, \\alpha, \\theta, etc.)
-  * Write formulas WITHOUT any $$ or $ symbols
-  * If no formula is needed, use empty string ""
-  * Example: "F = ma" or "v = u + at" or "\\frac{1}{2}mv^2"
+SELECTION INTELLIGENCE (VERY IMPORTANT):
+- Prefer topics that:
+  • Appear repeatedly in PYQs
+  • Are asked for 3–5 marks
+  • Are derivation / numerical / law / definition based (non-language subjects)
+  • Are themes, character traits, literary devices, grammar rules (language subjects)
+- Avoid:
+  • Rarely asked theory
+  • Overly generic or vague topics
 
-OUTPUT FORMAT (strict JSON only):
+CONTENT RULES:
+- EXACTLY 6 topics (strict)
+- Explanation must be 1–2 lines only
+- Write like a topper: direct, exam-focused, no extra theory
+- No introductions, no background story
+- No subtopic lists inside topic names
+
+FORMULA FIELD RULES (STRICT AND SUBJECT-AWARE):
+
+- If subject is a LANGUAGE SUBJECT (English, Hindi, Sanskrit):
+  → The "formula" field MUST ALWAYS be an empty string "".
+  → NEVER include formulas, symbols, equations, or LaTeX.
+
+- If subject is Mathematics:
+  → ALWAYS include a standard mathematical expression, notation, or formula
+    if the topic has ANY of the following:
+      • definition-based mathematical notation
+      • functional notation
+      • set notation
+      • symbolic representation
+  → Examples you MUST include when applicable:
+      • A × B
+      • f(x)
+      • f⁻¹(x)
+      • (f ∘ g)(x) = f(g(x))
+      • Domain = { x | condition }
+  → Use empty string "" ONLY if absolutely no standard notation exists (very rare).
+
+- If subject is Physics or Chemistry:
+  → Include formula ONLY when a standard CBSE formula is directly linked to the topic.
+  → Do NOT force formulas for pure theory topics.
+
+- For Mathematics subjects:
+- If a topic has a standard symbolic representation, definition using symbols, or commonly written mathematical form in NCERT or CBSE answers, you MUST include at least one appropriate formula or notation.
+- Do NOT restrict formulas only to numericals or derivations.
+- Use empty string "" ONLY when the topic is purely verbal and no standard mathematical notation is used in exams.
+
+
+LATEX RULE (NON-LANGUAGE SUBJECTS):
+- Use ONLY pure LaTeX syntax
+- NO $$, NO $, NO markdown
+
+
+OUTPUT FORMAT (STRICT JSON ONLY):
 {
   "topics": [
     {
-      "topic": "Topic name here",
-      "explanation": "Short exam-focused explanation in 1-2 lines",
-      "formula": "LaTeX formula without $$ wrapper or empty string"
-    },
-    {
-      "topic": "Second topic name",
-      "explanation": "Brief explanation",
+      "topic": "High probability CBSE topic name",
+      "explanation": "1–2 line crisp, scoring-oriented explanation",
       "formula": ""
     }
   ]
 }
 
-CRITICAL:
-- Return ONLY the JSON object
-- NO markdown code blocks
-- NO backticks
+IMPORTANT FORMULA SEPARATION RULE (STRICT):
+- NEVER write any mathematical formula, equation, algebraic expression, or symbolic notation inside the "explanation" field.
+- ALL formulas, equations, identities, and mathematical symbols MUST appear ONLY inside the "formula" field.
+- The "explanation" field must contain ONLY verbal description in plain text.
+- If a formula appears in the explanation, regenerate the output.
+
+
+CRITICAL CONSTRAINTS:
+- Output ONLY the JSON object
 - NO extra text before or after JSON
-- Ensure all 6 topics are CBSE exam relevant
+- EXACTLY 6 topics
+- Language subjects must NEVER contain formulas
+- Do NOT invent formulas
+- Every topic must be exam-relevant and high scoring
 `.trim();
       });
 
