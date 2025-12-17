@@ -1,6 +1,6 @@
 import { inngest } from "../../libs/inngest.js";
 import { McqModel } from "../../models/ImportantMcqsTrueFalse/mcq.model.js"; 
-import { parseSubject } from "../../utils/helper.js";
+import { detectCategory, parseSubject } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
 
@@ -14,6 +14,7 @@ export const quizMcqFillupTrueFalseFn = inngest.createFunction(
   async ({ event, step }) => {
     const { className, subject, chapter, index } = event.data;
     const { mainSubject, bookName } = parseSubject(subject);
+    const category = detectCategory(mainSubject);
 
     const topics =
       Array.isArray(index) && index.length > 0
@@ -49,18 +50,173 @@ export const quizMcqFillupTrueFalseFn = inngest.createFunction(
       }
 
      // 3️⃣ RAW PROMPT (UNTOUCHED)
-  const prompt = `You are a CBSE Board exam question generator.
+ const prompt = `
+You are an API that returns ONLY valid JSON. No extra text, no explanation outside JSON.
 
-You MUST return ONLY valid JSON.
-NO markdown.
-NO backticks.
-NO explanation.
-NO text before or after JSON.
+Class: ${className}
+Subject: ${mainSubject}
+Book: ${bookName}
+Chapter: ${chapter}
+Stream: ${category}
 
-🚨 OUTPUT MUST MATCH THIS STRUCTURE EXACTLY 🚨  
-(Do NOT add fields, do NOT remove fields, do NOT rename anything)
+====================================================
+TASK (ABSOLUTE)
+====================================================
+Generate ONLY the MOST FREQUENT, MOST IMPORTANT, and MOST SCORING CBSE BOARD QUESTIONS
+STRICTLY from THIS chapter only.
 
-REQUIRED JSON FORMAT:
+⚠️ Accuracy Requirement: 99.9999%
+Questions MUST be:
+- Repeated in PYQs
+- NCERT-aligned
+- Teacher-predicted
+- Almost guaranteed to appear in exams
+
+❌ Do NOT generate rare, creative, or low-probability questions.
+
+====================================================
+QUESTION COUNT
+====================================================
+- Generate questions exactly as required by the current system.
+- Do NOT change JSON structure.
+- Do NOT add or remove keys.
+- Do NOT add extra objects or fields.
+
+====================================================
+DIFFICULTY LEVEL APPLICATION (MANDATORY)
+====================================================
+If Difficulty = Easy:
+- Direct questions
+- Basic concepts
+- Simple logic
+
+If Difficulty = Medium:
+- Standard CBSE board-level depth
+- Concept + application
+
+If Difficulty = Hard:
+- High-rigor, exam-trap questions
+- Multi-step thinking
+
+⚠️ Difficulty affects ONLY:
+- Depth
+- Complexity
+
+⚠️ Difficulty MUST NOT affect:
+- Language rules
+- JSON structure
+- LaTeX rules
+- Frontend rendering rules
+
+====================================================
+LANGUAGE POLICY (ABSOLUTE — SUBJECT-LOCKED)
+====================================================
+
+- Language MUST match the subject EXACTLY.
+- Cross-language output is STRICTLY FORBIDDEN.
+- Sanskrit and Hindi MUST NEVER be mixed.
+
+SUBJECT → LANGUAGE MAPPING (MANDATORY):
+
+1) If Subject is "Hindi":
+   - ALL content MUST be written ONLY in PURE, STANDARD HINDI.
+   - Use formal CBSE/NCERT academic Hindi only.
+   - ❌ DO NOT include Sanskrit words or Sanskrit sentence structure.
+   - ❌ DO NOT include English words.
+   - ❌ DO NOT use Hinglish or transliteration.
+
+2) If Subject is "Sanskrit":
+   - ALL content MUST be written ONLY in PURE CLASSICAL SANSKRIT.
+   - Use correct Sanskrit grammar, vocabulary, विभक्ति, and verb forms.
+   - ❌ DO NOT use Hindi words (जैसे: है, नहीं, किया, प्रश्न).
+   - ❌ DO NOT use Hindi sentence structure.
+   - ❌ DO NOT include English words or transliteration.
+   - ❌ DO NOT use modern Hindi/Sanskrit mix.
+   - Sanskrit MUST look like a grammar textbook, NOT Hindi.
+
+3) For ALL OTHER subjects (Mathematics, Science, Physics, Chemistry, Biology, SST, etc.):
+   - ALL content MUST be written ONLY in STANDARD ACADEMIC ENGLISH.
+   - ❌ DO NOT include Hindi or Sanskrit words.
+   - ❌ DO NOT use Hinglish or translated phrases.
+
+FORBIDDEN (ZERO TOLERANCE):
+- Mixing Hindi and Sanskrit in any form.
+- Transliteration (kya, arth, vidhya, etc.).
+- Subject-language mismatch.
+- Bilingual phrasing.
+
+AUTO-REGENERATION RULE:
+If ANY word, phrase, grammar pattern, or sentence structure
+violates the subject-language rule
+→ IMMEDIATELY discard and regenerate the entire output.
+
+====================================================
+QUESTION TYPE RULES (STRONG — SUBJECT-AWARE)
+====================================================
+- type MUST be one of: "mcq", "fillup", "true_false"
+
+MCQ RULES:
+- options field is REQUIRED ONLY for "mcq"
+- options MUST NOT appear for fillup or true_false
+- Exactly ONE correct option
+- Options language MUST follow subject language strictly
+
+TRUE/FALSE ANSWER VOCABULARY (MANDATORY):
+
+If Subject is "English / Maths / Science / SST":
+- answer MUST be EXACTLY one of:
+  "True" or "False"
+
+If Subject is "Hindi":
+- answer MUST be EXACTLY one of:
+  "सत्य" or "असत्य"
+
+If Subject is "Sanskrit":
+- answer MUST be EXACTLY one of:
+  "आम्" or "न"
+
+❌ Do NOT use:
+- true / false (lowercase)
+- हाँ / नहीं
+- Yes / No
+- Any mixed-language form
+
+FILLUP RULES:
+- answer MUST be a single word or short phrase
+- Must follow subject language strictly
+
+====================================================
+UNIVERSAL FORMULA & FRONTEND RENDERING RULES
+====================================================
+
+ABSOLUTE LATEX MANDATE:
+- EVERY mathematical expression MUST be written using LaTeX
+- Wrap ONLY in:
+  • Inline math → $ ... $
+  • Display math → $$ ... $$
+
+LATEX DELIMITER RESTRICTION:
+- NEVER use \\( ... \\) or \\[ ... \\]
+- Inline math ONLY → $...$
+- Display math ONLY → $$...$$
+
+LATEX COMMAND CONTAINMENT RULE:
+- ANY LaTeX command starting with \\ is FORBIDDEN outside math mode
+
+====================================================
+QUESTION COUNT & DISTRIBUTION (ABSOLUTE)
+====================================================
+- mcq → 7
+- fillup → 4
+- true_false → 4
+- TOTAL questions = EXACTLY 15
+- questions array MUST contain exactly 15 objects
+- If count mismatches → REGENERATE
+
+====================================================
+OUTPUT JSON STRUCTURE (STRICT — DO NOT CHANGE)
+====================================================
+
 {
   "chapter": "<chapter name>",
   "class": "<class name>",
@@ -70,74 +226,40 @@ REQUIRED JSON FORMAT:
       "id": 1,
       "type": "mcq | fillup | true_false",
       "question": "<question text>",
-      "options": ["A", "B", "C", "D"],   // REQUIRED ONLY FOR MCQ
+      "options": ["A", "B", "C", "D"],
       "answer": "<correct answer>"
     }
   ]
 }
 
-STRICT RULES (NON-NEGOTIABLE):
+====================================================
+FINAL SELF-VALIDATION (MANDATORY)
+====================================================
+Before returning JSON:
+- Check JSON validity
+- Check NO extra keys
+- Check Sanskrit ≠ Hindi strictly
+- Check true/false vocabulary per subject
+- Check LaTeX safety
+- Check question type vs options rule
 
-1. The root object MUST contain EXACTLY these keys:
-   - chapter
-   - class
-   - subject
-   - questions
+If ANY rule is violated → REGENERATE INTERNALLY.
 
-2. "questions" MUST be an array of objects.
+====================================================
+OUTPUT
+====================================================
+Return ONLY valid JSON. NOTHING ELSE.
+`;
 
-3. Each question object MUST contain:
-   - id (number, starting from 1, continuous, no gaps)
-   - type ("mcq", "fillup", or "true_false")
-   - question (string)
-   - answer (string)
 
-4. For "mcq":
-   - MUST contain "options"
-   - "options" MUST have EXACTLY 4 strings
-   - "answer" MUST EXACTLY match one option
-
-5. For "fillup":
-   - MUST NOT contain "options"
-   - Question MUST contain "______"
-
-6. For "true_false":
-   - MUST NOT contain "options"
-   - "answer" MUST be EXACTLY "True" or "False"
-
-7. TOTAL QUESTIONS:
-   - Minimum 15
-   - Maximum 20
-   - Include ALL THREE TYPES
-
-8. LANGUAGE:
-   - If subject is Hindi → Hindi only
-   - If subject is Sanskrit → Sanskrit only
-   - Otherwise → English only
-
-9. CONTENT:
-   - Questions must be CBSE exam relevant
-   - Based on NCERT
-   - High probability board questions only
-
-10. JSON MUST be parseable using JSON.parse().
-    If any rule is violated → regenerate silently and fix.
-
-INPUT DATA:
-Class: ${className}
-Subject: ${mainSubject}
-Chapter: ${chapter}
-Book: ${bookName}
-Topics: ${topics}
-
-RETURN ONLY THE JSON OBJECT.
-`.trim();
 
       // -------------------------------------------------------------------
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
       const aiRaw = await step.run("Call OpenAI", async () => {
-        return await askOpenAI(prompt);
+        return await askOpenAI(prompt, "gpt-5.1", {
+  response_format: { type: "json_object" }
+     });
       });
 
       // -------------------------------------------------------------------

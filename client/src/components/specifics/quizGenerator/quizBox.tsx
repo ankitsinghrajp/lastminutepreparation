@@ -10,6 +10,147 @@ import {
   FileText
 } from 'lucide-react';
 
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeRaw from "rehype-raw";
+import rehypeKatex from "rehype-katex";
+import rehypeHighlight from "rehype-highlight";
+import "katex/dist/katex.min.css";
+import "highlight.js/styles/github.css";
+
+const normalizeContent = (content) => {
+  if (typeof content !== "string") return content;
+
+  return content
+    .replace(/\\\\/g, "\\")
+    .replace(/\\n/g, "\n")
+    .replace(/\n\s*\|/g, "\n|")
+    .trim();
+};
+
+// Function to wrap mathematical formulas with $ signs for KaTeX rendering
+const wrapMathFormulas = (text) => {
+  if (!text || typeof text !== "string") return text;
+
+  // Patterns to detect mathematical notation
+  const patterns = [
+    // Superscripts like x^2, x^3, etc.
+    /\b([a-zA-Z])\^(\{[^}]+\}|\d+)/g,
+    // Subscripts like x_1, x_2, etc.
+    /\b([a-zA-Z])_(\{[^}]+\}|\d+)/g,
+    // Fractions in parentheses like (x - 4)/3
+    /\(([^)]+)\)\/(\d+|[a-zA-Z]+)/g,
+    // Greek letters and mathematical symbols
+    /[∈∉⊂⊆∪∩∅≤≥≠±∞∑∏√∫∂]/g,
+    // Function inverses like f^{-1}
+    /([a-zA-Z])\^\{-1\}/g,
+  ];
+
+  let result = text;
+  let hasMatch = false;
+
+  patterns.forEach(pattern => {
+    if (pattern.test(result)) {
+      hasMatch = true;
+    }
+  });
+
+  // If any mathematical pattern is found, process the text
+  if (hasMatch) {
+    // Don't wrap if already wrapped with $
+    if (result.includes('$')) {
+      return result;
+    }
+
+    // Wrap superscripts: x^2 -> $x^2$
+    result = result.replace(/\b([a-zA-Z])\^(\{[^}]+\}|\d+)/g, (match) => {
+      if (result.charAt(result.indexOf(match) - 1) !== '$') {
+        return `$${match}$`;
+      }
+      return match;
+    });
+
+    // Wrap subscripts: x_1 -> $x_1$
+    result = result.replace(/\b([a-zA-Z])_(\{[^}]+\}|\d+)/g, (match) => {
+      if (result.charAt(result.indexOf(match) - 1) !== '$') {
+        return `$${match}$`;
+      }
+      return match;
+    });
+
+    // Wrap function inverses: f^{-1} -> $f^{-1}$
+    result = result.replace(/([a-zA-Z])\^\{-1\}/g, (match) => {
+      if (result.charAt(result.indexOf(match) - 1) !== '$') {
+        return `$${match}$`;
+      }
+      return match;
+    });
+
+    // Wrap fractions: (x - 4)/3 -> $(x - 4)/3$
+    result = result.replace(/\(([^)]+)\)\/(\d+|[a-zA-Z]+)/g, (match) => {
+      if (result.charAt(result.indexOf(match) - 1) !== '$') {
+        return `$${match}$`;
+      }
+      return match;
+    });
+
+    // Wrap standalone mathematical symbols
+    result = result.replace(/([∈∉⊂⊆∪∩∅≤≥≠±∞∑∏√∫∂])/g, (match, offset) => {
+      if (result.charAt(offset - 1) !== '$') {
+        return `$${match}$`;
+      }
+      return match;
+    });
+  }
+
+  return result;
+};
+
+const MCQMarkdown = ({ content }) => {
+  if (!content || typeof content !== "string") return null;
+
+  // First wrap math formulas, then normalize
+  const withMath = wrapMathFormulas(content);
+  const normalized = normalizeContent(withMath);
+
+  return (
+    <div
+      className="
+        prose prose-sm max-w-none text-[14px] leading-relaxed
+
+        [&>p]:my-1
+        [&>ul]:my-3
+        [&>ol]:my-3
+        [&_li]:my-1
+
+        [&_table]:my-4
+        [&_table]:border
+        [&_table]:border-border
+        [&_th]:border [&_td]:border
+        [&_th]:bg-muted [&_th]:px-2 [&_th]:py-1
+        [&_td]:px-2 [&_td]:py-1
+
+        [&_.katex]:text-[15px]
+        [&_.katex-display]:my-4
+        [&_.katex-display]:px-3
+        [&_.katex-display]:py-2
+        [&_.katex-display]:bg-muted/30
+        [&_.katex-display]:rounded-lg
+
+        [&_pre]:my-3 [&_pre]:p-3 [&_pre]:rounded-lg
+        [&_code]:text-[13px]
+      "
+    >
+      <ReactMarkdown
+        children={normalized}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
+      />
+    </div>
+  );
+};
+
 const QuizBox = ({ response }) => {
   const [showAnswers, setShowAnswers] = useState({});
   const [expandedSections, setExpandedSections] = useState({
@@ -68,7 +209,6 @@ const QuizBox = ({ response }) => {
               </div>
             </div>
           </div>
-         
         </div>
       </Card>
 
@@ -99,7 +239,9 @@ const QuizBox = ({ response }) => {
                       <span className="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center flex-shrink-0 mt-0.5">
                         <span className="text-white text-xs font-bold">{idx + 1}</span>
                       </span>
-                      <p className="text-sm font-medium flex-1">{q.question}</p>
+                      <div className="text-sm font-medium flex-1">
+                        <MCQMarkdown content={q.question} />
+                      </div>
                     </div>
                   </div>
 
@@ -109,8 +251,7 @@ const QuizBox = ({ response }) => {
                         key={optIdx}
                         className="p-2.5 sm:p-3 bg-background/50 rounded-lg text-xs sm:text-sm border border-border/30"
                       >
-                        <span className="font-medium mr-2">{String.fromCharCode(65 + optIdx)}.</span>
-                        {option}
+                        <MCQMarkdown content={option} />
                       </div>
                     ))}
                   </div>
@@ -139,7 +280,9 @@ const QuizBox = ({ response }) => {
                       <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-1">
                         Correct Answer:
                       </p>
-                      <p className="text-sm font-medium">{q.answer}</p>
+                      <div className="text-sm font-medium">
+                        <MCQMarkdown content={q.answer} />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -176,7 +319,9 @@ const QuizBox = ({ response }) => {
                       <span className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0 mt-0.5">
                         <span className="text-white text-xs font-bold">{idx + 1}</span>
                       </span>
-                      <p className="text-sm font-medium flex-1">{q.question}</p>
+                      <div className="text-sm font-medium flex-1">
+                        <MCQMarkdown content={q.question} />
+                      </div>
                     </div>
                   </div>
 
@@ -204,7 +349,9 @@ const QuizBox = ({ response }) => {
                       <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-1">
                         Answer:
                       </p>
-                      <p className="text-sm">{q.answer}</p>
+                      <div className="text-sm">
+                        <MCQMarkdown content={q.answer} />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -241,7 +388,9 @@ const QuizBox = ({ response }) => {
                       <span className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0 mt-0.5">
                         <span className="text-white text-xs font-bold">{idx + 1}</span>
                       </span>
-                      <p className="text-sm font-medium flex-1">{q.question}</p>
+                      <div className="text-sm font-medium flex-1">
+                        <MCQMarkdown content={q.question} />
+                      </div>
                     </div>
                   </div>
 
@@ -270,7 +419,7 @@ const QuizBox = ({ response }) => {
                         Answer:
                       </p>
                       <p className={`text-sm font-medium ${
-                        q.answer === 'True' 
+                        q.answer.toLowerCase() === 'true' 
                           ? 'text-emerald-600 dark:text-emerald-400' 
                           : 'text-red-600 dark:text-red-400'
                       }`}>
