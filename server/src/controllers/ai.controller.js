@@ -1,7 +1,6 @@
 import { ApiError } from "../utils/APIError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { askOpenAI ,openai } from "../utils/OpenAI.js";
 import { configDotenv } from "dotenv";
 import { parseSubject } from "../utils/helper.js";
 import crypto from "crypto"
@@ -115,21 +114,25 @@ const topperStyleAnswer = asyncHandler(async (req, res) => {
   }
 
   // 2️⃣ IF NOT PENDING → QUEUE IT
-  const pending = await redis.get(pendingKey);
-  if (!pending) {
-    await redis.set(pendingKey, "1", { EX: 120 }); // 2 min safety
+ const lockAcquired = await redis.set(
+  pendingKey,
+  "1",
+  { NX: true, EX: 300 } // 5 min safety
+);
 
-    await inngest.send({
-      name: "lmp/generate.topperAnswer",
-      data: {
-        jobId,
-        user_question,
-        selectedClass,
-        selectedSubject,
-        selectedChapter,
-      },
-    });
-  }
+if (lockAcquired) {
+  await inngest.send({
+    name: "lmp/generate.topperAnswer",
+    data: {
+      jobId,
+      user_question,
+      selectedClass,
+      selectedSubject,
+      selectedChapter,
+    },
+  });
+}
+
 
   // 3️⃣ RETURN PROCESSING
   return res.status(202).json(
