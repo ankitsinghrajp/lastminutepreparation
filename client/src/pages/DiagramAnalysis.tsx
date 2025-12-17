@@ -17,36 +17,268 @@ import rehypeHighlight from "rehype-highlight";
 import "katex/dist/katex.min.css";
 import "highlight.js/styles/github.css";
 
-const AIOutput = ({ content }) => {
-  const cleanedContent = content
-    ?.replace(/\n\s*\n\s*\n+/g, "\n\n") // remove triple blank lines
-    ?.replace(/^\s+|\s+$/g, "");        // trim edges
 
-  return (
-    <div
-      className="
-        text-[18px] leading-[1.45]
 
-        /* remove margins everywhere */
-        [&_*]:m-0 [&_*]:p-0
+// utils/validateAIOutput.ts
 
-        /* lists compact */
-        [&_li]:my-0.5
+ function validateAIOutput(content: string) {
+  if (!content || typeof content !== "string") {
+    return { valid: false, reason: "Empty AI response" };
+  }
 
-        /* katex compact */
-        [&_.katex-display]:my-1
-      "
-    >
-      <ReactMarkdown
-        children={cleanedContent}
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
-      />
-    </div>
-  );
+  const errors: string[] = [];
+
+  /* ---------------- LANGUAGE MIX CHECK ---------------- */
+
+  const hindiRegex = /[अ-ह]/;
+  const englishRegex = /[a-zA-Z]/;
+
+  if (hindiRegex.test(content) && englishRegex.test(content)) {
+    errors.push("Mixed Hindi and English detected");
+  }
+
+  /* ---------------- FORBIDDEN MARKDOWN ---------------- */
+
+  if (/```/.test(content)) errors.push("Code blocks are forbidden");
+  if (/^#+\s/m.test(content)) errors.push("Markdown headings detected");
+  if (/{\s*".*":/.test(content)) errors.push("JSON detected");
+
+  /* ---------------- MATH SAFETY ---------------- */
+
+  const rawMathTokens = [
+    "\\vec{",
+    "\\theta",
+    "\\Phi",
+    "\\cos",
+    "\\sin",
+    "\\sqrt",
+    "\\frac",
+  ];
+
+  rawMathTokens.forEach((token) => {
+    const regex = new RegExp(`(?<!\\$)${token}`, "g");
+    if (regex.test(content)) {
+      errors.push(`Math token ${token} used outside LaTeX`);
+    }
+  });
+
+  /* ---------------- DISPLAY MATH RULE ---------------- */
+
+  if (/\\Phi\s*=/.test(content) && !/\$\$[\s\S]*\\Phi\s*=/.test(content)) {
+    errors.push("Flux formula must be in display math ($$ $$)");
+  }
+
+  /* ---------------- BULLET STRUCTURE ---------------- */
+
+  const bulletCount = (content.match(/^\s*[-•]/gm) || []).length;
+  if (bulletCount < 3) {
+    errors.push("Too few bullet points for diagram explanation");
+  }
+
+  /* ---------------- WORD COUNT ---------------- */
+
+  const wordCount = content.trim().split(/\s+/).length;
+  if (wordCount < 50 || wordCount > 70) {
+    errors.push(`Word count violation (${wordCount} words)`);
+  }
+
+  /* ---------------- MEMORY RULE ---------------- */
+
+  if (!/memory|remember|trick|mnemonic/i.test(content)) {
+    errors.push("Memory trick missing");
+  }
+
+  if (!/revision|quick|summary/i.test(content)) {
+    errors.push("Quick revision line missing");
+  }
+
+  /* ---------------- FINAL RESULT ---------------- */
+
+  if (errors.length > 0) {
+    return {
+      valid: false,
+      reason: errors.join(" | "),
+    };
+  }
+
+  return { valid: true };
+}
+
+
+const normalizeContent = (content) => {
+  if (typeof content !== "string") return content;
+
+  return content
+    .replace(/\\\\/g, "\\")
+    .replace(/\\n/g, "\n")
+    .replace(/\n\s*\|/g, "\n|")
+    .trim();
 };
 
+// Function to wrap mathematical formulas with $ signs for KaTeX rendering
+const wrapMathFormulas = (text) => {
+  if (!text || typeof text !== "string") return text;
 
+  // Patterns to detect mathematical notation
+  const patterns = [
+    // Superscripts like x^2, x^3, etc.
+    /\b([a-zA-Z])\^(\{[^}]+\}|\d+)/g,
+    // Subscripts like x_1, x_2, etc.
+    /\b([a-zA-Z])_(\{[^}]+\}|\d+)/g,
+    // Fractions in parentheses like (x - 4)/3
+    /\(([^)]+)\)\/(\d+|[a-zA-Z]+)/g,
+    // Greek letters and mathematical symbols
+    /[∈∉⊂⊆∪∩∅≤≥≠±∞∑∏√∫∂]/g,
+    // Function inverses like f^{-1}
+    /([a-zA-Z])\^\{-1\}/g,
+  ];
+
+  let result = text;
+  let hasMatch = false;
+
+  patterns.forEach(pattern => {
+    if (pattern.test(result)) {
+      hasMatch = true;
+    }
+  });
+
+  // If any mathematical pattern is found, process the text
+  if (hasMatch) {
+    // Don't wrap if already wrapped with $
+    if (result.includes('$')) {
+      return result;
+    }
+
+    // Wrap superscripts: x^2 -> $x^2$
+    result = result.replace(/\b([a-zA-Z])\^(\{[^}]+\}|\d+)/g, (match) => {
+      if (result.charAt(result.indexOf(match) - 1) !== '$') {
+        return `$${match}$`;
+      }
+      return match;
+    });
+
+    // Wrap subscripts: x_1 -> $x_1$
+    result = result.replace(/\b([a-zA-Z])_(\{[^}]+\}|\d+)/g, (match) => {
+      if (result.charAt(result.indexOf(match) - 1) !== '$') {
+        return `$${match}$`;
+      }
+      return match;
+    });
+
+    // Wrap function inverses: f^{-1} -> $f^{-1}$
+    result = result.replace(/([a-zA-Z])\^\{-1\}/g, (match) => {
+      if (result.charAt(result.indexOf(match) - 1) !== '$') {
+        return `$${match}$`;
+      }
+      return match;
+    });
+
+    // Wrap fractions: (x - 4)/3 -> $(x - 4)/3$
+    result = result.replace(/\(([^)]+)\)\/(\d+|[a-zA-Z]+)/g, (match) => {
+      if (result.charAt(result.indexOf(match) - 1) !== '$') {
+        return `$${match}$`;
+      }
+      return match;
+    });
+
+    // Wrap standalone mathematical symbols
+    result = result.replace(/([∈∉⊂⊆∪∩∅≤≥≠±∞∑∏√∫∂])/g, (match, offset) => {
+      if (result.charAt(offset - 1) !== '$') {
+        return `$${match}$`;
+      }
+      return match;
+    });
+  }
+
+  return result;
+};
+
+const AIOutput = ({ content }) => {
+  if (!content || typeof content !== "string") return null;
+
+  // First wrap math formulas, then normalize
+  const withMath = wrapMathFormulas(content);
+  const normalized = normalizeContent(withMath);
+
+  return (
+    <>
+      <style>{`
+        .question-output-wrapper .katex-display {
+          overflow: visible !important;
+        }
+
+        .question-output-wrapper .katex-display > .katex {
+          max-width: 100%;
+          display: inline-block;
+          text-align: left;
+        }
+
+        @media (max-width: 640px) {
+          .question-output-wrapper .katex {
+            font-size: 0.9em !important;
+          }
+
+          .question-output-wrapper .katex-display > .katex {
+            font-size: 0.8em !important;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .question-output-wrapper .katex {
+            font-size: 0.85em !important;
+          }
+
+          .question-output-wrapper .katex-display > .katex {
+            font-size: 0.75em !important;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .question-output-wrapper .katex {
+            font-size: 0.8em !important;
+          }
+
+          .question-output-wrapper .katex-display > .katex {
+            font-size: 0.7em !important;
+          }
+        }
+      `}</style>
+
+      <div
+        className="question-output-wrapper
+          prose max-w-none text-[16px] leading-[1.75]
+
+          [&>p]:mt-1 [&>p]:mb-1
+          [&>ul]:mt-5 [&>ul]:mb-5
+          [&>ol]:mt-5 [&>ol]:mb-5
+          [&_li]:my-1.5
+
+          [&_.katex-display]:mt-6 [&_.katex-display]:mb-6
+          [&_.katex-display]:py-3 [&_.katex-display]:px-4
+          [&_.katex-display]:bg-muted/30 [&_.katex-display]:rounded-xl shadow-sm
+
+          [&_.katex]:text-[17px]
+
+          [&_pre]:mt-6 [&_pre]:mb-6 [&_pre]:p-4 [&_pre]:rounded-xl
+          [&_code]:text-[14px]
+
+          [&_table]:my-4
+          [&_table]:border
+          [&_table]:border-border
+          [&_th]:border [&_td]:border
+          [&_th]:bg-muted [&_th]:px-3 [&_th]:py-2
+          [&_td]:px-3 [&_td]:py-2
+        "
+      >
+        <ReactMarkdown
+          children={normalized}
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
+        />
+      </div>
+    </>
+  );
+};
 
 
 export default function DiagramAnalysis() {
@@ -287,9 +519,7 @@ export default function DiagramAnalysis() {
               {analysis && (
                 <Card className="p-4 mt-4 bg-background border border-border">
                   <h2 className="text-lg font-semibold mb-2">AI Explanation:</h2>
-                  <p className="whitespace-pre-wrap text-sm text-muted-foreground">
                     <AIOutput content={analysis}/>
-                  </p>
                 </Card>
               )}
             </div>

@@ -50,7 +50,7 @@ export const diagramImageAnalysisFn = inngest.createFunction(
       else if (!extractedText.trim()) mode = "fallback";
 
       // 3️⃣ PROMPT (UNCHANGED)
-      const prompt = `
+  const prompt = `
 You are a CBSE Board exam expert. Think internally first, but DO NOT show your thinking. Your ONLY task is to explain the uploaded diagram exactly the way toppers understand diagrams — clean, simple, direct, and only what is required to score full marks in **50–70 words only**.
 
 STRICT LANGUAGE RULE:
@@ -109,14 +109,57 @@ ADDITIONAL VALIDATIONS:
 ✔ No empty headings — every point must have meaning.
 ✔ Never add irrelevant content.
 
+--------------------------------------------------
+🚨 HARD REJECTION RULES (ABSOLUTE — NO EXCEPTIONS)
+--------------------------------------------------
+
+❌ FORBIDDEN OUTPUT PATTERNS (IF ANY APPEAR → REGENERATE ENTIRE ANSWER):
+
+1) ANY heading-style labels such as:
+   - "Electric Field:"
+   - "Area:"
+   - "Angle:"
+   - "Flux Formula:"
+   - "Exam Outcome:"
+   Headings are STRICTLY FORBIDDEN.
+
+2) ANY label written in the form:
+   Label (math):
+   Example:
+   ❌ Electric Field (\\vec{E}):
+   ❌ Angle (\\theta):
+   ❌ Flux (\\Phi = EA\\cos(\\theta)):
+
+3) ANY mathematical symbol appearing outside $...$ or $$...$$.
+   This includes \\vec{E}, \\theta, \\Phi, \\cos, subscripts, superscripts.
+
+4) ANY paragraph-style explanation.
+   Every explanatory line MUST be a bullet point.
+   Notes-style writing is STRICTLY FORBIDDEN.
+
+5) ANY output that looks like classroom notes instead of exam bullets.
+   If the explanation does not look like something a student can directly copy in the exam → REGENERATE.
+
+6) ANY excessive blank lines or visual gaps between points.
+   Output must be compact, continuous, and tightly packed.
+
+--------------------------------------------------
 BEFORE SENDING FINAL ANSWER:
+--------------------------------------------------
 🟢 Re-check language rule.
-🟢 Re-check formula formatting.
-🟢 Ensure explanation is short, crisp, topper-style, and complete.
+🟢 Re-check bullet-only structure.
+🟢 Re-check that NO label-style headings exist.
+🟢 Re-check that ALL math is inside LaTeX.
+🟢 Ensure explanation is short, crisp, topper-style, and memorable.
 🟢 Memory trick + revision line MUST be included.
+
+If ANY rule above is violated, DISCARD the answer and REGENERATE internally until FULLY COMPLIANT.
 
 OUTPUT: Only the topper-style diagram explanation. Nothing else.
 `;
+
+
+
 
       // 4️⃣ OpenAI
       const ai = await step.run("OpenAI Call",async () =>
