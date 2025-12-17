@@ -5,6 +5,7 @@ import { useAsyncMutation } from '@/hooks/hook';
 import { useTopperStyleMutation } from '@/redux/api/api';
 import { renderFormula } from '../LastNightBeforeExam/renderFormula';
 import { toast } from 'sonner';
+import QuestionOutput from '../QuestionOutput';
 
 const ChapterWiseImportantQuestionSection = ({ 
   importantQuestions, 
@@ -92,7 +93,7 @@ const ChapterWiseImportantQuestionSection = ({
               </span>
 
               <p className="font-semibold text-sm sm:text-base text-foreground leading-relaxed">
-                {q.question}
+                <QuestionOutput content={q.question}/>
               </p>
             </div>
 
