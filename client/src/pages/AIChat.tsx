@@ -24,7 +24,7 @@ const classes = ["9th", "10th", "11th", "12th"];
 const GENERATION_STEPS = [
   { key: "summary", label: "Chapter Summary", pollInterval: 2000 },
   { key: "importantTopics", label: "Important Topics", pollInterval: 3000 },
-  { key: "predictedQuestion", label: "Predicted Questions", pollInterval: 3000 },
+  { key: "predictedQuestion", label: "Predicted Questions", pollInterval: 6000 },
   { key: "mcqs", label: "Practice MCQs", pollInterval: 3000 },
   { key: "memoryBooster", label: "Memory Boosters", pollInterval: 3000 },
   { key: "aiCoach", label: "AI Study Coach", pollInterval: 3000 },

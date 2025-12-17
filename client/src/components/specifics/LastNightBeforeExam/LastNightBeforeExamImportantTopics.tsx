@@ -26,33 +26,93 @@ const Output = ({ content }) => {
   const normalized = normalizeContent(content);
 
   return (
-    <div
-      className="
-        prose max-w-none text-[18px] leading-[1.85]
+    <>
+      <style>{`
+        /* Prevent KaTeX formulas from being cut off */
+        .formula-output-wrapper .katex-display {
+          overflow-x: visible !important;
+          overflow-y: visible !important;
+          overflow: visible !important;
+        }
+        
+        .formula-output-wrapper .katex-display > .katex {
+          max-width: 100%;
+          display: inline-block;
+          text-align: left;
+        }
+        
+        .formula-output-wrapper .katex {
+          max-width: 100%;
+          display: inline-block;
+          line-height: 1.4;
+        }
+        
+        .formula-output-wrapper p {
+          line-height: 1.7;
+          margin: 0.4rem 0;
+        }
+        
+        /* Responsive font scaling for mobile */
+        @media (max-width: 640px) {
+          .formula-output-wrapper .katex {
+            font-size: 0.9em !important;
+          }
+          
+          .formula-output-wrapper .katex-display > .katex {
+            font-size: 0.8em !important;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          .formula-output-wrapper .katex {
+            font-size: 0.85em !important;
+          }
+          
+          .formula-output-wrapper .katex-display > .katex {
+            font-size: 0.75em !important;
+          }
+        }
+        
+        @media (max-width: 380px) {
+          .formula-output-wrapper .katex {
+            font-size: 0.8em !important;
+          }
+          
+          .formula-output-wrapper .katex-display > .katex {
+            font-size: 0.7em !important;
+          }
+        }
+      `}</style>
+      
+      <div
+        className="formula-output-wrapper
+          prose max-w-none text-[14px] leading-relaxed
 
-        [&>p]:mt-1 [&>p]:mb-1
-        [&>ul]:mt-6 [&>ul]:mb-6
-        [&>ol]:mt-6 [&>ol]:mb-6
-        [&_li]:my-2
+          [&>p]:my-1.5
+          [&>ul]:mt-4 [&>ul]:mb-4
+          [&>ol]:mt-4 [&>ol]:mb-4
+          [&_li]:my-1.5
 
-        [&_.katex-display]:mt-8 [&_.katex-display]:mb-8
-        [&_.katex-display]:py-4 [&_.katex-display]:px-4
-        [&_.katex-display]:bg-muted/30 [&_.katex-display]:rounded-xl shadow-sm
+          [&_.katex-display]:my-4
+          [&_.katex-display]:py-2 [&_.katex-display]:px-3
+          [&_.katex-display]:bg-muted/30 [&_.katex-display]:rounded-xl
 
-        [&_.katex]:text-[19px]
+          [&_.katex]:text-[15px] [&_.katex]:align-middle
 
-        [&_pre]:mt-8 [&_pre]:mb-8 [&_pre]:p-4 [&_pre]:rounded-xl
-        [&_code]:text-[16px]
-      "
-    >
-      <ReactMarkdown
-        children={normalized}
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
-      />
-    </div>
+          [&_pre]:mt-6 [&_pre]:mb-6 [&_pre]:p-3 [&_pre]:rounded-xl
+          [&_code]:text-[13px]
+        "
+      >
+        <ReactMarkdown
+          children={normalized}
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
+        />
+      </div>
+    </>
   );
 };
+
 
 
 const LastNightBeforeExamImportantTopics = ({importantTopics}) => {
@@ -79,12 +139,10 @@ const LastNightBeforeExamImportantTopics = ({importantTopics}) => {
                   </p>
 
                   {topic.formula && (
-                    <div className="ml-0 bg-gray-800 rounded-md p-3 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-600/30 scrollbar-track-transparent hover:scrollbar-thumb-gray-600/50">
-                      <p className="mb-2">
-                        Formula:
-                      </p>
-                      <div className="min-w-max">
-                        {<Output content={`$${topic.formula}$`}/>}
+                    <div className="ml-0  rounded-md">
+                     
+                      <div className="min-w-0">
+                        <Output content={`$$${topic.formula}$$`}/>
                       </div>
                     </div>
                   )}

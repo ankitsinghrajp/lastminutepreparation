@@ -47,20 +47,30 @@ export const lastNightImportantTopicsFn = inngest.createFunction(
       // 2️⃣ BUILD PROMPT (UNCHANGED)
       // -------------------------------------------------------------------
       const prompt = await step.run("Build Prompt", async () => {
-       return  `
-You are a CBSE Board exam expert.
-Think internally first, but DO NOT show your thinking.
-You are an API that returns ONLY valid JSON. No extra text, no explanation outside JSON.
+      return `
+You are an API that returns ONLY valid JSON.
+No extra text, no explanation outside JSON.
 
-Class: ${className}
-Subject: ${mainSubject}
-Book: ${bookName}
-Chapter: ${chapter}
-Stream: ${category}
+Class: ${className} | Subject: ${mainSubject} | Book: ${bookName}
+Chapter: ${chapter} | Stream: ${category}
 
-────────────────────────────────────────────────────────
+TASK:
+Generate EXACTLY 6 MOST FREQUENT and MOST IMPORTANT
+CBSE Board exam IMPORTANT TOPICS strictly from THIS chapter only.
+
+Each topic must:
+- Be a syllabus-defined Physics concept
+- Be frequently asked or high-weightage in CBSE exams
+- Represent a concept students revise the night before exam
+
+For EACH topic:
+- Give the topic name
+- Give a short definition (1–2 lines)
+- Give ONE standard CBSE formula directly related to that topic
+
+────────────────────────────────────────
 LANGUAGE POLICY (ABSOLUTE — SUBJECT-LOCKED)
-────────────────────────────────────────────────────────
+────────────────────────────────────────
 
 - Language of topics and explanations is STRICTLY determined by the subject.
 - Language MUST match the subject exactly.
@@ -72,147 +82,150 @@ SUBJECT → LANGUAGE MAPPING (MANDATORY):
    - ALL topics and explanations MUST be written ONLY in PURE, STANDARD HINDI.
    - Use formal CBSE/NCERT academic Hindi only.
    - DO NOT include any English or Sanskrit words.
-   - DO NOT use Hinglish or transliterated English.
+   - Formula MUST be empty string "".
 
 2) If Subject is "Sanskrit":
    - ALL topics and explanations MUST be written ONLY in PURE CLASSICAL SANSKRIT.
    - Use correct Sanskrit grammar, vocabulary, विभक्ति, and verb forms.
-   - DO NOT use Hindi words, Hindi sentence structure, or modern phrasing.
    - DO NOT include English words or transliteration.
+   - Formula MUST be empty string "".
 
-3) For ALL OTHER subjects (Science, Maths, SST, Physics, Chemistry, Biology, etc.):
+3) For ALL OTHER subjects (Physics, Chemistry, Maths, etc.):
    - ALL topics and explanations MUST be written ONLY in STANDARD ACADEMIC ENGLISH.
-   - DO NOT include Hindi, Sanskrit, or any regional language.
-   - DO NOT use Hinglish or translated phrases.
+   - DO NOT include Hindi, Sanskrit, or Hinglish.
+
+FORBIDDEN (ZERO TOLERANCE):
+
+- Mixing languages in any form.
+- Transliteration.
+- Subject-language mismatch.
+- Bilingual phrasing.
 
 AUTO-REGENERATION RULE (MANDATORY):
-- If ANY word, phrase, grammar pattern, or sentence structure
-  violates the subject-language rule,
+
+- If ANY language rule is violated,
   → IMMEDIATELY discard and regenerate the entire output.
 
-────────────────────────────────────────────────────────
-TASK
-────────────────────────────────────────────────────────
+────────────────────────────────────────
+CHAPTER–TOPIC ISOLATION (STRICT)
+────────────────────────────────────────
 
-Select EXACTLY 6 MOST IMPORTANT, HIGH-SCORING, and FREQUENTLY ASKED
-CBSE Board exam topics STRICTLY from THIS chapter only.
+- Topics MUST belong strictly to the given chapter and its syllabus.
+- DO NOT introduce topics, laws, or formulas from other chapters or classes.
 
-────────────────────────────────────────────────────────
-CONTENT RULES
-────────────────────────────────────────────────────────
+────────────────────────────────────────
+TOPIC CONTENT RULES
+────────────────────────────────────────
 
-- EXACTLY 6 topics (strict)
-- Explanation must be 1–2 lines only
-- Write like a topper: direct, exam-focused
-- No introductions, no background theory
-- No subtopic lists inside topic names
+- EXACTLY 6 topics.
+- Topic name must be short and precise (e.g., "Electric Flux").
+- Explanation must be a definition or meaning (1–2 lines only).
+- NO questions.
+- NO derivations.
+- NO examples.
+- NO extra theory.
 
+────────────────────────────────────────
+UNIVERSAL FORMULA & MATH RULES (MANDATORY)
+────────────────────────────────────────
 
-────────────────────────────────────────────────────────
-FORMULA-SUBJECTS FOR CLASSES 9–12 (DEEP-SYLLABUS CHECK)
-────────────────────────────────────────────────────────
+1) ABSOLUTE LATEX MANDATE:
+- EVERY mathematical or physical expression MUST be written using LaTeX.
+- Inline math → $ ... $
+- Display math → $$ ... $$
 
-For CBSE Classes 9 through 12, ONLY the following subjects are considered
-formula-subjects and MUST have a non-empty "formula" field (when subject
-matches exactly):
+────────────────────────────────────────
+LATEX DELIMITER RESTRICTION
+────────────────────────────────────────
 
-- Mathematics
-- Physics
-- Chemistry
-- Accountancy
-- Economics
+- NEVER use \\( ... \\) or \\[ ... \\].
+- Use ONLY $...$ or $$...$$.
 
-Rules:
-1. If the "Subject" (case-sensitive match) equals one of the five above,
-   → FORCE a non-empty LaTeX "formula" for EVERY one of the 6 topics (no exceptions).
-2. If the "Subject" is any other CBSE subject (English, Hindi, Sanskrit,
-   Biology, Computer Science, Informatics Practices, Business Studies,
-   History, Geography, Political Science, Physical Education, etc.) →
-   DO NOT force formulas. For language subjects, formula MUST be "".
-3. Biology is treated as a non-formula subject by default. ONLY include a
-   formula for Biology if the chapter explicitly contains a standard
-   symbolic expression or equation that CBSE commonly expects (e.g.,
-   a clearly textbook-listed symbolic relation). If such a formula is absent,
-   return formula as "".
-4. If the subject equals one of the five formula-subjects but a topic has
-   genuinely no symbolic representation in NCERT/CBSE, still provide the
-   most basic standard notation possible — do NOT return empty string.
-5. After generation, STRICTLY validate:
-   - If Subject is in the five-formula list → confirm all 6 topics have non-empty "formula".
-   - If any topic lacks a formula → REGENERATE until compliant.
-────────────────────────────────────────────────────────
-
-
-ALLOWED FORMULA TYPES (USE AT LEAST ONE PER TOPIC):
-- Definitions written symbolically
-- Laws or principles in equation form
-- Standard NCERT / CBSE expressions
-- Identities, relations, inequalities
-- Set notation, functional notation
-- Chemical equations
-- Physics relations
-- Biology symbolic representations (if standard)
-
-If a topic has NO obvious formula:
-- Use the MOST BASIC standard representation used in CBSE answers.
-- It may be simple, repetitive, or foundational.
-- DO NOT skip.
-
-────────────────────────────────────────────────────────
-UNIVERSAL LATEX RULE (STRICT)
-────────────────────────────────────────────────────────
-
-- Use ONLY pure LaTeX syntax inside the "formula" field.
-- DO NOT use $ or $$ inside the formula field.
-- DO NOT use markdown.
-- ONLY LaTeX expressions.
-
-FORBIDDEN:
-- Plain-text math
-- Escaped delimiters \\( \\)
-- Any backslash-command outside LaTeX context
-
-────────────────────────────────────────────────────────
+────────────────────────────────────────
 FORMULA SEPARATION RULE (STRICT)
-────────────────────────────────────────────────────────
+────────────────────────────────────────
 
-- NEVER write formulas, symbols, or equations in the "explanation" field.
-- ALL mathematical content MUST appear ONLY in the "formula" field.
-- Explanation must be purely verbal text.
+- NEVER write formulas or symbols in the "explanation" field.
+- ALL formulas MUST appear ONLY inside the "formula" field.
+
+────────────────────────────────────────
+FORMULA FIELD RULE (VERY IMPORTANT)
+────────────────────────────────────────
+
+- Formula field MUST contain:
+  ✔ ONE standard CBSE formula related to THAT topic
+  ✔ PURE LaTeX expression only
+- DO NOT include:
+  ✖ text
+  ✖ explanations
+  ✖ multiple formulas
+- DO NOT use $ or $$ inside the formula field.
+
+Example (CORRECT for Electric Flux):
+\\Phi_E = \\vec{E} \\cdot \\vec{A}
+
+Example (WRONG):
+Electric flux is given by Φ = E·A
+
+
+
+FORMULA HARD CONSTRAINT (ABSOLUTE):
+
+- Formula MUST contain EXACTLY ONE mathematical or chemical expression.
+- NEVER include definitions, labels, headings, or words inside formula.
+- NEVER use \\text{}, \\quad, commas, semicolons, or explanations.
+- NEVER combine multiple formulas in one field.
+- If a topic has multiple cases, choose ONLY the MOST STANDARD CBSE formula.
 - If violated → REGENERATE.
 
-────────────────────────────────────────────────────────
-OUTPUT FORMAT (STRICT JSON ONLY)
-────────────────────────────────────────────────────────
+
+KATEX COMPATIBILITY RULE (ABSOLUTE):
+
+- Formula MUST use ONLY standard, widely supported LaTeX commands.
+- Allowed examples: \\lim, \\frac, \\sin, \\cos, \\tan, \\to, \\cdot, ^, _, =, +, -
+- FORBIDDEN: any invented or uncommon commands such as \\uim, \\ulim, \\ltext, \\eqn, etc.
+- If any non-standard command appears → REGENERATE.
+
+
+────────────────────────────────────────
+FINAL SELF-VALIDATION (MANDATORY)
+────────────────────────────────────────
+
+Before returning JSON:
+- Confirm EXACTLY 6 topics
+- Confirm explanation is definition-style
+- Confirm formula belongs to the topic
+- Confirm no formula appears in explanation
+- Confirm LaTeX correctness
+
+Return output ONLY after passing ALL checks.
+
+────────────────────────────────────────
+OUTPUT JSON (STRICT)
+────────────────────────────────────────
 
 {
   "topics": [
     {
-      "topic": "High probability CBSE topic name",
-      "explanation": "1–2 line crisp, scoring-oriented explanation",
-      "formula": "COMPULSORY for non-language subjects"
+      "topic": "Topic name",
+      "explanation": "1–2 line definition of the topic",
+      "formula": "Pure LaTeX formula related to the topic"
     }
   ]
 }
 
-────────────────────────────────────────────────────────
-FINAL SELF-VALIDATION (MANDATORY)
-────────────────────────────────────────────────────────
+────────────────────────────────────────
+CRITICAL
+────────────────────────────────────────
 
-Before returning the JSON:
-- Confirm EXACTLY 6 topics
-- Confirm ALL non-language topics have NON-EMPTY formulas
-- Confirm NO formula appears in explanation
-- Confirm LaTeX correctness
-- If ANY rule is violated → REGENERATE internally
-
-CRITICAL:
-- Output ONLY JSON
+- EXACTLY 6 topics
+- Output ONLY valid JSON
+- NO extra fields
 - NO extra text
-- NO missing formulas
-- Must be 100% compatible with Markdown + KaTeX renderer
+- Must render correctly in Markdown + KaTeX
 `;
-;
+
+
 
       });
 

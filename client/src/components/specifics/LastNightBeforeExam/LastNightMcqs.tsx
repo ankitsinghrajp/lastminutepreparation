@@ -31,7 +31,7 @@ const MCQMarkdown = ({ content }) => {
   return (
     <div
       className="
-        prose prose-sm max-w-none
+        prose prose-sm max-w-none text-[14px] leading-relaxed
 
         [&>p]:my-1
         [&>ul]:my-3
@@ -45,7 +45,7 @@ const MCQMarkdown = ({ content }) => {
         [&_th]:bg-muted [&_th]:px-2 [&_th]:py-1
         [&_td]:px-2 [&_td]:py-1
 
-        [&_.katex]:text-[16px]
+        [&_.katex]:text-[15px]
         [&_.katex-display]:my-4
         [&_.katex-display]:px-3
         [&_.katex-display]:py-2
@@ -53,7 +53,7 @@ const MCQMarkdown = ({ content }) => {
         [&_.katex-display]:rounded-lg
 
         [&_pre]:my-3 [&_pre]:p-3 [&_pre]:rounded-lg
-        [&_code]:text-[14px]
+        [&_code]:text-[13px]
       "
     >
       <ReactMarkdown
@@ -64,6 +64,7 @@ const MCQMarkdown = ({ content }) => {
     </div>
   );
 };
+
 
 
 

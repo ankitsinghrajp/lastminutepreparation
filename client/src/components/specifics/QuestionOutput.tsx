@@ -11,11 +11,8 @@ const normalizeContent = (content) => {
   if (typeof content !== "string") return content;
 
   return content
-    // 🔥 FIX: convert double-escaped LaTeX to single (\\\\ → \\)
     .replace(/\\\\/g, "\\")
-    // 🔥 convert escaped newlines to real newlines
     .replace(/\\n/g, "\n")
-    // 🔥 clean table pipe alignment
     .replace(/\n\s*\|/g, "\n|")
     .trim();
 };
@@ -24,31 +21,75 @@ const QuestionOutput = ({ content }) => {
   const normalized = normalizeContent(content);
 
   return (
-    <div
-      className="
-        prose max-w-none text-[18px] leading-[1.85]
+    <>
+      <style>{`
+        .question-output-wrapper .katex-display {
+          overflow: visible !important;
+        }
 
-        [&>p]:mt-1 [&>p]:mb-1
-        [&>ul]:mt-6 [&>ul]:mb-6
-        [&>ol]:mt-6 [&>ol]:mb-6
-        [&_li]:my-2
+        .question-output-wrapper .katex-display > .katex {
+          max-width: 100%;
+          display: inline-block;
+          text-align: left;
+        }
 
-        [&_.katex-display]:mt-8 [&_.katex-display]:mb-8
-        [&_.katex-display]:py-4 [&_.katex-display]:px-4
-        [&_.katex-display]:bg-muted/30 [&_.katex-display]:rounded-xl shadow-sm
+        @media (max-width: 640px) {
+          .question-output-wrapper .katex {
+            font-size: 0.9em !important;
+          }
 
-        [&_.katex]:text-[19px]
+          .question-output-wrapper .katex-display > .katex {
+            font-size: 0.8em !important;
+          }
+        }
 
-        [&_pre]:mt-8 [&_pre]:mb-8 [&_pre]:p-4 [&_pre]:rounded-xl
-        [&_code]:text-[16px]
-      "
-    >
-      <ReactMarkdown
-        children={normalized}
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
-      />
-    </div>
+        @media (max-width: 480px) {
+          .question-output-wrapper .katex {
+            font-size: 0.85em !important;
+          }
+
+          .question-output-wrapper .katex-display > .katex {
+            font-size: 0.75em !important;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .question-output-wrapper .katex {
+            font-size: 0.8em !important;
+          }
+
+          .question-output-wrapper .katex-display > .katex {
+            font-size: 0.7em !important;
+          }
+        }
+      `}</style>
+
+      <div
+        className="question-output-wrapper
+          prose max-w-none text-[16px] leading-[1.75]
+
+          [&>p]:mt-1 [&>p]:mb-1
+          [&>ul]:mt-5 [&>ul]:mb-5
+          [&>ol]:mt-5 [&>ol]:mb-5
+          [&_li]:my-1.5
+
+          [&_.katex-display]:mt-6 [&_.katex-display]:mb-6
+          [&_.katex-display]:py-3 [&_.katex-display]:px-4
+          [&_.katex-display]:bg-muted/30 [&_.katex-display]:rounded-xl shadow-sm
+
+          [&_.katex]:text-[17px]
+
+          [&_pre]:mt-6 [&_pre]:mb-6 [&_pre]:p-4 [&_pre]:rounded-xl
+          [&_code]:text-[14px]
+        "
+      >
+        <ReactMarkdown
+          children={normalized}
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
+        />
+      </div>
+    </>
   );
 };
 

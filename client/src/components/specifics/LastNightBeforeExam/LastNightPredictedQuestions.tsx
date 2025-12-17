@@ -92,9 +92,9 @@ const LastNightPredictedQuestions = ({ predictedQuestion, selectedClass, selecte
                 Q.{idx + 1}
               </span>
 
-              <p className="font-semibold text-sm sm:text-base text-foreground leading-relaxed">
-                {<QuestionOutput content={q.question}/>}
-              </p>
+              <div className="flex-1 min-w-0">
+                <QuestionOutput content={q.question}/>
+              </div>
             </div>
 
             {q?.formula && (
@@ -106,7 +106,9 @@ const LastNightPredictedQuestions = ({ predictedQuestion, selectedClass, selecte
                       Key Formula
                     </p>
                   </div>
-                  {renderFormula(q.formula)}
+                  <div className="break-words">
+                    {renderFormula(q.formula)}
+                  </div>
                 </div>
               </div>
             )}
@@ -118,7 +120,7 @@ const LastNightPredictedQuestions = ({ predictedQuestion, selectedClass, selecte
                     key={i}
                     className="px-2.5 sm:px-3 py-1 sm:py-1.5 bg-purple-500/10 
                     text-purple-700 dark:text-purple-300 rounded-full text-xs font-semibold 
-                    border border-purple-500/20"
+                    border border-purple-500/20 break-words"
                   >
                     {keyword}
                   </span>
@@ -179,7 +181,9 @@ const LastNightPredictedQuestions = ({ predictedQuestion, selectedClass, selecte
                         </p>
                       </div>
 
-                      <AIOutput content={answers[idx]} />
+                      <div className="min-w-0">
+                        <AIOutput content={answers[idx]} />
+                      </div>
                     </div>
                   )}
                 </div>
