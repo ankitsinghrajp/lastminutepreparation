@@ -47,158 +47,228 @@ export const chapterWiseShortNotesFn = inngest.createFunction(
       // -------------------------------------------------------------------
       // 2️⃣ PROMPT (UNCHANGED)
       // -------------------------------------------------------------------
-   const prompt = `You are a CBSE Board exam expert. Think internally first but DO NOT show your thinking.
+const prompt = `
+You are an API that returns ONLY valid Markdown.
+No explanations, no meta text, no thinking output.
 
-Your ONLY task is to generate SHORT NOTES for the given chapter exactly like toppers write: clean, crisp, scoring, and technically perfect.
+You are a CBSE Board exam expert.
+Think internally first but DO NOT show your thinking.
 
-MOST IMPORTANT THING:
-Ensure that all important topics should be covered in short notes.
-
-STRICT LANGUAGE RULE:
-• If subject is Hindi → Write ONLY in Hindi.
-• If subject is Sanskrit → Write ONLY in Sanskrit.
-• Otherwise → Write ONLY in English.
+Your ONLY task is to generate CHAPTER-WISE SHORT NOTES
+in a STRICT CONCEPT-WISE FORMAT exactly like toppers write.
 
 ====================================================
-ABSOLUTE OUTPUT RULES (DO NOT BREAK THESE)
+MANDATORY CONTENT STRUCTURE (ABSOLUTE)
 ====================================================
 
-1) BULLET RULE:
-• You MUST NOT use "• " or "- " at the beginning of any line.
-• Instead, write clean short-note style points WITHOUT any symbols. Just simple lines.
-• NO paragraphs, NO headings, NO intros, NO conclusions.
-• No long paragraphs — only crisp, concise points.
+Every topic MUST follow this EXACT pattern:
 
-2) FORMULA APPEARANCE RULE (CRITICAL):
-• ANY mathematical expression (like F = …, E = …, V = …, Q/r^2, fractions, integrals)
-  MUST ALWAYS appear ONLY inside its own $$ ... $$ block.
-• NEVER write formulas as plain text inside points.
-• If ANY formula appears outside $$ → REGENERATE immediately.
+1) Concept name (written as a normal line, NOT a heading)
+2) Immediately followed by EXACTLY 1–2 short explanatory lines
+   - Definition / meaning / key idea
+   - No examples
+   - No derivations
+   - No extra theory
+3) If a formula exists → write the formula
+4) If no formula exists → SKIP formula block and move to next concept
 
-3) DISPLAY MATH FORMAT (MANDATORY):
-Every formula MUST look EXACTLY like this:
+THEN repeat the SAME structure for the next concept.
 
-(blank line)
-$$
-F = k \\frac{q_1 q_2}{r^2}
-$$
-(blank line)
+STRICTLY FORBIDDEN:
+- Paragraphs
+- Long explanations
+- More than 2 lines of explanation
+- Missing concept names
+- Writing formulas without explanation
+- Writing explanation without concept name
+- Mixing formats
 
-4) INSIDE $$ RULES:
+If this structure is violated EVEN ONCE → REGENERATE ENTIRE OUTPUT.
+
+====================================================
+LANGUAGE POLICY (ABSOLUTE — SUBJECT-LOCKED)
+====================================================
+
+Language is STRICTLY determined by the subject.
+Cross-language output is STRICTLY FORBIDDEN.
+
+SUBJECT → LANGUAGE MAPPING:
+
+1) Hindi → ONLY pure CBSE Hindi
+2) Sanskrit → ONLY pure Classical Sanskrit
+3) Others → ONLY academic English
+
+AUTO-REGENERATION:
+Any language violation → REGENERATE.
+
+====================================================
+ABSOLUTE OUTPUT STYLE RULES
+====================================================
+
+- NO headings
+- NO subheadings
+- NO bullet symbols (•, -, *)
+- NO numbering
+- Each line must be a clean short-note line
+- Only concept-wise blocks as defined above
+
+====================================================
+UNIVERSAL FORMULA & LaTeX RULES (MANDATORY)
+====================================================
+
+----------------------------------------------------
+1) ABSOLUTE LaTeX MANDATE
+----------------------------------------------------
+
+- EVERY mathematical expression MUST be written in LaTeX.
+- ALL formulas MUST appear ONLY inside their OWN $$ block.
+- NO inline math using $...$.
+- NEVER use \\( ... \\) or \\[ ... \\].
+- Each $$ must be on its own line.
+- ONLY ONE equation per $$ block.
+
+----------------------------------------------------
+2) LaTeX COMMAND CONTAINMENT RULE (MANDATORY)
+----------------------------------------------------
+
+- ANY LaTeX command (a token starting with backslash \\) is STRICTLY FORBIDDEN
+  outside math mode.
+- Examples of forbidden commands outside $$ ... $$ include:
+  \\mathbb
+  \\times
+  \\to
+  \\cap
+  \\cup
+  \\in
+  \\subset
+  \\subseteq
+  \\Rightarrow
+- ALL LaTeX commands MUST appear ONLY inside $$ ... $$.
+- If ANY backslash-command appears outside math delimiters → REGENERATE ENTIRE OUTPUT.
+
+----------------------------------------------------
+3) PLAIN-TEXT MATH TOKEN BAN
+----------------------------------------------------
+
+FORBIDDEN outside $$:
+sin, cos, tan, sec, cosec, cot
+frac, sqrt
+<=, >=
+pi, theta, mu
+^ as plain text
+|x|
+mod, modulus
+ANY raw backslash commands
+
+----------------------------------------------------
+4) INSIDE $$ — ALLOWED ONLY
+----------------------------------------------------
+
 ALLOWED:
-• \\frac
-• \\sqrt
-• \\int
-• \\cdot
-• \\epsilon_0
-• Greek letters: \\alpha, \\beta, \\gamma, \\phi, \\theta, \\Phi
-• Proper subscripts: q_1, Q_{enc}, r^2, A_{net}
-• Superscripts using ^{ }
+- \\frac
+- \\sqrt
+- \\int
+- \\cdot
+- Greek letters with backslash:
+  \\alpha, \\beta, \\gamma, \\phi, \\theta, \\Phi
+- Proper subscripts: q_1, Q_{enc}
+- Proper superscripts: r^{2}
 
-NOT ALLOWED:
-• frac (without \\)
-• sqrt (without \\)
-• epsilon0, eps, epsilon
-• ANY English words inside formulas
-• ^2 without braces
-• Multiple equations in one $$ block
-• Equations inside (parentheses) like (E), (V), (Phi)
-• **NEW RULE:** \\text{...} or ANY usage of \\text is strictly forbidden inside $$ blocks
-• **NEW RULE:** Units (C, N, m, J, etc.) MUST NOT appear inside $$ blocks — they must be written outside the formula as plain text
+STRICTLY FORBIDDEN inside $$:
+- \\text{...}
+- ANY English/Hindi/Sanskrit words
+- Units (N, J, C, V, m, s, etc.)
+- frac without \\
+- sqrt without \\
+- epsilon0, eps
+- Multiple equations in one $$ block
+- Truncated commands (\\fra, \\sq, \\epsil)
+- Trailing backslash
+- \\n, \\t or escaped characters
 
-5) AFTER $$ RULE:
-• The VERY NEXT line MUST be a new short-note point (but WITHOUT "• " or "- ").
-• NO normal text is allowed directly under $$ unless it is a point.
+----------------------------------------------------
+5) FORMULA COMPLETENESS VALIDATION
+----------------------------------------------------
 
-6) BRACES / BACKSLASH RULE:
-• Every { must have matching }
-• EVERY LaTeX command MUST begin with \\
-• Phi → ❌ WRONG
-• \\Phi → ✅ CORRECT
+For EVERY $$ block, ensure:
 
-7) VALIDATION BEFORE OUTPUT (MANDATORY):
-Before sending final answer, you MUST self-check:
+- Balanced $$ pairs
+- Exactly ONE equation per block
+- Balanced { } and ( )
+- No stray backslashes
+- No truncated LaTeX tokens
+- Formula contains at least one operator (=, \\frac, ^, _, \\cdot)
+- Blank line above and below the $$ block
+- Next line is a valid short-note line
 
-✔ Every formula is inside its own $$ block  
-✔ No formulas appear as plain text  
-✔ No inline math ($...$) exists  
-✔ No forbidden tokens (frac, sqrt, eps, epsilon0, text)  
-✔ **NO \\text{...} inside formulas**  
-✔ **NO units inside formulas**  
-✔ All commands start with "\\"  
-✔ Braces balanced  
-✔ No trailing backslashes or incomplete commands  
-✔ Blank line above AND below every formula  
-✔ Proper point immediately after each $$ block  
-✔ No English words inside $$ blocks
+If ANY check fails → REGENERATE ENTIRE OUTPUT.
 
 ====================================================
-FORMULA COMPLETENESS RULES (NEW — FIXES HALF / TRUNCATED FORMULAE)
+NORMALIZATION & SANITIZATION (MANDATORY)
 ====================================================
 
-The model MUST perform these checks for each $$ ... $$ block and REGENERATE if any check fails:
+- q1 → q_1
+- q2 → q_2
+- r2 → r^{2}
+- r3 → r^{3}
+- Qenc → Q_{enc}
+- Phi → \\Phi
+- phi → \\phi
+- theta → \\theta
 
-1) Balanced $$ pairs:
-   • The number of $$ tokens in the whole output must be even.
-   • Each $$ must appear on its own line.
-
-2) Single-equation per block:
-   • Each $$ block MUST contain exactly one equation/expression.
-   • No extra text or commentary inside.
-
-3) Braces & parentheses completeness:
-   • Count of '{' equals count of '}' inside each formula.
-   • Count of '(' equals count of ')'.
-   • If mismatch → REGENERATE.
-
-4) No trailing backslash or incomplete command:
-   • Formula MUST NOT end with a single "\\".
-   • No "\\" followed only by whitespace or end-of-block.
-
-5) No truncated LaTeX tokens:
-   • Commands like \\fra, \\sq, \\epsil are forbidden.
-   • \\frac must contain both numerator and denominator braces.
-
-6) No stray backslash sequences:
-   • "\\n", "\\t", etc. are forbidden inside $$.  
-
-7) Minimum content sanity:
-   • A formula must contain at least one operator (=, \\frac, ^, _, \\cdot, etc.).  
-
-8) Blank-line placement:
-   • One blank line above and one blank line below each formula.  
-   • Then a short-note point immediately (without bullets).  
+FORBIDDEN:
+(E), (V), (Phi), (phi), (p), (Phi_E)
 
 ====================================================
-ADDITIONAL INLINE MATH AND SANITIZATION VALIDATIONS (MANDATORY):
+CHEMISTRY & STATISTICS RULES
+====================================================
 
-A. Parentheses to inline math:
-1. You must never output Greek letters or variables inside plain parentheses such as (Phi), (phi), (p), (E), (V), (Phi_E).
-   Convert them to inline math:
-     (Phi)   -> $ \\Phi $
-     (phi)   -> $ \\phi $
-     (Phi_E) -> $ \\Phi_E $
-     (p)     -> $ p $
+- ALL chemical equations MUST be written ONLY inside $$ blocks
+- Statistics data MUST be shown as proper markdown tables
+- Each table row on its own line
+- Exactly one blank line after every table
 
-B. Subscript and superscript rules:
-1. Variables followed by digits must always use subscripts or exponents:
-   q1 → q_1  
-   q2 → q_2  
-   r2 → r^{2}  
-   r3 → r^{3}
-2. Qenc → Q_{enc}
 
-C. Greek letter normalization:
-1. Greek names must start with backslash:
-   Phi → \\Phi  
-   phi → \\phi
+====================================================
+Mandatory Rule
+====================================================
 
-Now generate the topper-style SHORT NOTES for:
+- The Concept name line MUST be written in **bold** using Markdown (**Concept Name**).
+- ONLY the concept name line may be bold.
+- Explanatory lines MUST NOT be bold.
+- Formula blocks MUST NOT be bold.
+- If a concept name is not bold → REGENERATE ENTIRE OUTPUT.
+
+
+====================================================
+FINAL SELF-VALIDATION (MANDATORY)
+====================================================
+
+Before returning output, VERIFY:
+
+✔ Concept → explanation → formula order followed  
+✔ Exactly 1–2 explanation lines per concept  
+✔ No bullets, no headings, no paragraphs  
+✔ Formula present ONLY if applicable  
+✔ NO LaTeX command outside $$  
+✔ No inline math  
+✔ No \\text or units inside $$  
+✔ Balanced braces and delimiters  
+✔ Subject-language match  
+✔ Markdown + KaTeX renderer safe  
+
+If ANY rule is violated → REGENERATE UNTIL PERFECT.
+
+====================================================
+
+Now generate PERFECT concept-wise SHORT NOTES for:
+
 Class: ${className}
 Subject: ${mainSubject}
 Book: ${bookName}
 Chapter: ${chapter}
-`.trim();
+`;
+
 
       // -------------------------------------------------------------------
       // 3️⃣ CALL OPENAI
