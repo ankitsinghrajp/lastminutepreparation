@@ -5,54 +5,21 @@ import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
 
 const extractJSON = (text) => {
-  if (!text) throw new Error("Empty response received from AI.");
+  const parsed = JSON.parse(text);
 
-  // Remove markdown fences safely
-  const cleaned = text
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
-
-  const first = cleaned.indexOf("{");
-  const last = cleaned.lastIndexOf("}");
-
-  if (first === -1 || last === -1) {
-    throw new Error("No JSON object found in AI response.");
+  if (!Array.isArray(parsed.questions)) {
+    throw new Error("Invalid schema");
   }
 
-  const jsonString = cleaned.slice(first, last + 1);
-
-  // ❌ DO NOT strip control characters
-  // ❌ DO NOT touch backslashes
-  // ❌ DO NOT normalize whitespace
-
-  let parsed;
-  try {
-    parsed = JSON.parse(jsonString);
-  } catch (err) {
-    throw new Error(
-      "JSON parse failed. Raw extracted JSON:\n" + jsonString
-    );
+  if (parsed.questions.length !== 10) {
+    throw new Error(`Expected 10 questions, got ${parsed.questions.length}`);
   }
-
-  // 🔒 Schema validation
-  if (
-    !parsed ||
-    typeof parsed !== "object" ||
-    !Array.isArray(parsed.questions) ||
-    parsed.questions.length !== 10
-  ) {
-    throw new Error("Invalid JSON schema: expected exactly 10 questions.");
-  }
-
-  parsed.questions.forEach((q, i) => {
-    if (!q || typeof q.question !== "string" || !q.question.trim()) {
-      throw new Error(`Invalid question at index ${i}`);
-    }
-  });
 
   return parsed;
 };
+
+
+
 
 
 export const chapterWiseStudyQuestionsFn = inngest.createFunction(
@@ -282,9 +249,10 @@ CRITICAL:
       // -------------------------------------------------------------------
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
-      const aiRaw = await step.run("Call OpenAI", async () => {
-        return await askOpenAI(prompt);
-      });
+     const aiRaw = await askOpenAI(prompt, "gpt-5.1", {
+  response_format: { type: "json_object" }
+     });
+
 
       // -------------------------------------------------------------------
       // 4️⃣ PARSE + VALIDATE
