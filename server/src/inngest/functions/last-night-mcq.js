@@ -61,57 +61,96 @@ These MCQs must be:
 - Based on CBSE Previous Year Questions (PYQs)
 - Extremely likely (≈99%) to appear in board exams
 
-LANGUAGE RULE:
-- Hindi → questions, options, explanations ONLY in Hindi.
-- Sanskrit → questions, options, explanations ONLY in Sanskrit.
-- Otherwise → questions, options, explanations ONLY in English.
-- Do NOT mix languages anywhere.
+────────────────────────────────────────
+LANGUAGE POLICY (ABSOLUTE — SUBJECT LOCKED)
+────────────────────────────────────────
 
-SANSKRIT LANGUAGE LOCK (ABSOLUTE):
+Language MUST strictly follow the subject.
+NO cross-language mixing is allowed.
 
-- If the subject is Sanskrit:
-  • ALL content MUST be written in PURE CLASSICAL SANSKRIT.
-  • ONLY standard Sanskrit grammar, vocabulary, and sentence structure is allowed.
-  • DO NOT use Hindi words, Hindi grammar, or modern phrasing.
-  • Do NOT mix Hindi and Sanskrit under any circumstances.
+1) If Subject is "Hindi":
+   - ALL content (question, options, explanation) MUST be ONLY in PURE, FORMAL HINDI.
+   - Use CBSE / NCERT academic Hindi.
+   - NO English words.
+   - NO Sanskrit words.
+   - NO Hinglish or transliteration.
 
-- Forbidden in Sanskrit:
-  • Hindi auxiliaries (है, हैं, किया, करेगा, आदि)
-  • Hindi connectors (और, लेकिन, क्योंकि, आदि)
+2) If Subject is "Sanskrit":
+   - ALL content MUST be ONLY in PURE CLASSICAL SANSKRIT.
+   - Use correct Sanskrit grammar, vocabulary, verb forms, and case endings (विभक्ति).
+   - NO Hindi words.
+   - NO Hindi sentence structure.
+   - NO English words.
+   - NO transliteration.
 
-- Required Sanskrit indicators (at least one):
-  • कथयत्, दर्शयत्, लिखत्, सिद्धं कुरुत, प्रश्नान् उत्तरत्, व्याख्यायतु
-  • Proper Sanskrit verb forms and case endings
+   Forbidden in Sanskrit:
+   • Hindi auxiliaries (है, हैं, किया, करेगा, आदि)
+   • Hindi connectors (और, लेकिन, क्योंकि, आदि)
+   • Modern conversational tone
 
-- If ANY Hindi word or Hindi grammar appears, REGENERATE.
+   Required Sanskrit indicators (at least one must appear):
+   • कथयत्, दर्शयत्, लिखत्, सिद्धं कुरुत, प्रश्नान् उत्तरत्, व्याख्यायतु
+   • Proper Sanskrit verb forms and विभक्ति usage
 
-CHAPTER–TOPIC ISOLATION:
-- MCQs MUST belong strictly to the given chapter.
-- Do NOT introduce concepts, formulas, or question types from other chapters.
-- Avoid real-life stories unless explicitly required by NCERT or PYQs.
+   If ANY Hindi or English word or grammar appears → IMMEDIATELY regenerate.
 
-MCQ QUALITY RULES:
-- Each MCQ must test a CORE concept, formula, or result from this chapter.
-- Avoid trivial or guess-based questions.
+3) For ALL OTHER subjects (Maths, Science, Physics, Chemistry, Biology, SST, etc.):
+   - ALL content MUST be ONLY in STANDARD ACADEMIC ENGLISH.
+   - NO Hindi.
+   - NO Sanskrit.
+   - NO Hinglish or translated phrasing.
+
+AUTO-REGENERATION RULE:
+- If ANY subject-language rule is violated, discard and regenerate completely.
+
+────────────────────────────────────────
+CHAPTER–TOPIC ISOLATION (STRICT)
+────────────────────────────────────────
+
+- MCQs MUST belong strictly to the given chapter and its syllabus.
+- DO NOT introduce topics, formulas, reactions, or question styles
+  from other chapters or classes.
+- Avoid unnecessary narrative unless NCERT or PYQs explicitly use it.
+
+────────────────────────────────────────
+MCQ QUALITY RULES
+────────────────────────────────────────
+
+- EXACTLY ONE correct option per MCQ.
+- Each MCQ must test a CORE concept, law, formula, or result.
 - Options must be plausible and exam-oriented.
-- Exactly ONE correct option per MCQ.
+- Avoid trivial, vague, or guess-based questions.
 
-UNIVERSAL FORMULA & MATH RULES (MANDATORY):
+────────────────────────────────────────
+UNIVERSAL FORMULA & MATH RULES (MANDATORY)
+────────────────────────────────────────
 
 1) ABSOLUTE LATEX MANDATE:
-- EVERY mathematical expression MUST be written in LaTeX and wrapped inside:
-  • Inline math → $ ... $
-  • Display math → $$ ... $$
-- NEVER write math in plain text.
+- EVERY mathematical expression (equations, formulas, fractions, powers,
+  subscripts, trigonometric functions, inequalities, derivatives, integrals,
+  chemical equations, units) MUST be written using LaTeX.
+- Inline math → $ ... $
+- Display math → $$ ... $$
+- NEVER output mathematical tokens or operators as plain text.
 
-2) LATEX DELIMITER RESTRICTION:
-- NEVER use \\( ... \\) or \\[ ... \\].
-- ONLY $...$ or $$...$$ are allowed.
-- If violated, regenerate.
+────────────────────────────────────────
+LATEX DELIMITER RESTRICTION (MANDATORY)
+────────────────────────────────────────
 
-3) LATEX COMMAND CONTAINMENT:
-- ANY LaTeX command starting with \\ is FORBIDDEN outside math mode.
-- This includes:
+- NEVER use escaped LaTeX delimiters \\( ... \\) or \\[ ... \\].
+- Inline mathematics MUST be written ONLY using:
+  • $ ... $
+- Display mathematics MUST be written ONLY using:
+  • $$ ... $$
+- Any occurrence of \\(, \\), \\[, or \\] is STRICTLY FORBIDDEN.
+- If such delimiters appear, regenerate the output.
+
+────────────────────────────────────────
+LATEX COMMAND CONTAINMENT RULE (MANDATORY)
+────────────────────────────────────────
+
+- ANY LaTeX command (a token starting with backslash \\) is FORBIDDEN outside math mode.
+- Examples of forbidden commands outside $...$ or $$...$$ include:
   • \\mathbb
   • \\times
   • \\to
@@ -119,43 +158,82 @@ UNIVERSAL FORMULA & MATH RULES (MANDATORY):
   • \\cup
   • \\in
   • \\subset
-  • \\leq
-  • \\geq
-- All must appear ONLY inside $...$ or $$...$$.
+  • \\subseteq
+  • \\Rightarrow
+- ALL such commands MUST appear ONLY inside $...$ or $$...$$.
+- If any backslash-command appears outside math delimiters, regenerate the output.
 
-4) PLAIN-TEXT MATH TOKEN BAN:
-- The following MUST NEVER appear outside LaTeX:
+────────────────────────────────────────
+PLAIN-TEXT MATH TOKEN BAN (MANDATORY)
+────────────────────────────────────────
+
+- The following tokens are STRICTLY FORBIDDEN outside LaTeX math delimiters:
   sin, cos, tan, sec, cosec, cot,
-  sin^-1, cos^-1, tan^-1,
-  frac, sqrt, pi, mu, theta,
-  <=, >=, leq, geq, |x|, mod
+  sin^-1, cos^-1, tan^-1, sec^-1, cosec^-1, cot^-1,
+  frac, sqrt, leq, geq, <=, >=,
+  pi, mu, theta, degree,
+  ^ (as plain text),
+  |x|, mod, modulus,
+  any raw backslash-commands not inside $...$ or $$...$$.
 
-5) INEQUALITIES & EQUATIONS:
-- MUST be written using LaTeX symbols only:
-  • \\leq
-  • \\geq
+- Fractions MUST use \\frac{a}{b}.
+- Roots MUST use \\sqrt{}.
+- Trigonometric functions MUST use \\sin, \\cos, etc.
+- Absolute value MUST use \\lvert x \\rvert or \\left| x \\right| inside LaTeX.
+
+────────────────────────────────────────
+INEQUALITIES & SYSTEMS
+────────────────────────────────────────
+
+- Inequalities MUST use LaTeX symbols only: \\leq, \\geq.
+- NEVER use <= or >=.
 - NEVER split equations across lines.
 
-6) CHEMICAL EQUATIONS:
-- MUST be written as display math only:
+────────────────────────────────────────
+CHEMICAL EQUATIONS
+────────────────────────────────────────
+
+- ALL chemical reactions MUST be written as DISPLAY math only:
   $$ ... $$
+- NEVER use inline math or plain text.
 
-7) STATISTICS MCQs:
-- If data-based:
-  • Use a PROPER markdown table.
-  • NEVER give raw lists.
-  • Insert exactly ONE blank line after the table.
+────────────────────────────────────────
+STATISTICS / DATA MCQs
+────────────────────────────────────────
 
-8) NEWLINES:
-- NEVER use escaped \\n.
+- If data is involved (mean, median, mode, variance, SD, frequency):
+  • ALWAYS present data in a proper markdown table.
+  • If data is ungrouped, FIRST convert it to a frequency table.
+  • After every table, insert EXACTLY ONE blank line before text.
+
+────────────────────────────────────────
+NEWLINES & ESCAPED CHARACTERS
+────────────────────────────────────────
+
+- NEVER use escaped newlines like \\n.
 - Use real line breaks only.
+- NEVER include escaped math delimiters.
 
-OUTPUT JSON (STRICT — DO NOT MODIFY STRUCTURE):
+
+FINAL SELF-VALIDATION (MANDATORY):
+
+Before returning the JSON:
+- Scan the ENTIRE output.
+- If ANY backslash-command (\\mathbb, \\cap, \\emptyset, \\text, etc.)
+  appears OUTSIDE $...$ or $$...$$ → REGENERATE.
+- If ANY mathematical symbol appears outside LaTeX → REGENERATE.
+- If ANY rule is violated → REGENERATE internally until compliant.
+
+Return output ONLY after passing ALL checks.
+
+────────────────────────────────────────
+OUTPUT JSON (STRICT — DO NOT MODIFY)
+────────────────────────────────────────
 
 {
   "mcqs": [
     {
-      "question": "Complete CBSE-style MCQ question (markdown allowed, math inside $ or $$)",
+      "question": "Complete CBSE-style MCQ question in markdown (math inside $...$ or $$...$$)",
       "options": ["Option A", "Option B", "Option C", "Option D"],
       "correct": "Exact matching option text",
       "explanation": "Short, exam-focused explanation",
@@ -164,20 +242,30 @@ OUTPUT JSON (STRICT — DO NOT MODIFY STRUCTURE):
   ]
 }
 
-CRITICAL:
+
+
+
+────────────────────────────────────────
+CRITICAL (NON-NEGOTIABLE)
+────────────────────────────────────────
+
 - EXACTLY 5 MCQs
 - Return ONLY valid JSON
-- NO markdown outside fields
+- NO extra fields
+- NO stray punctuation
+- NO markdown outside JSON fields
 - NO partial math outside LaTeX
+- Subject-based language compliance has HIGHEST priority
 - Output MUST be fully compatible with Markdown + KaTeX renderer
 `;
+
 
 
       // -------------------------------------------------------------------
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
       const aiRaw = await step.run("Call OpenAI",async () => {
-        return await askOpenAI(prompt);
+        return await askOpenAI(prompt, "gpt-5.1");
       });
 
       // -------------------------------------------------------------------

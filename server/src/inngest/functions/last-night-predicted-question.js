@@ -55,32 +55,44 @@ Generate EXACTLY 6 MOST FREQUENT and MOST IMPORTANT CBSE board exam questions
 STRICTLY from THIS chapter only. Questions must be exam-ready, complete, and in
 the same style and rigor as NCERT back exercises and official CBSE PYQs.
 
-LANGUAGE RULE:
-- Hindi → questions ONLY in Hindi.
-- Sanskrit → questions ONLY in Sanskrit.
-- Otherwise → questions ONLY in English.
-- Do NOT mix languages.
+LANGUAGE POLICY (ABSOLUTE — SUBJECT-LOCKED):
 
-SANSKRIT LANGUAGE LOCK (ABSOLUTE):
+- Language of questions is STRICTLY determined by the subject.
+- Language MUST match the subject exactly.
+- Cross-language output is STRICTLY FORBIDDEN.
 
-- If the subject is Sanskrit:
-  • ALL questions MUST be written in PURE CLASSICAL SANSKRIT.
-  • ONLY standard Sanskrit grammar, vocabulary, and sentence structure is allowed.
-  • DO NOT use Hindi words, Hindi sentence structure, or modern Hindi phrasing.
-  • DO NOT mix Hindi and Sanskrit under any circumstances.
-  • The question MUST be understandable to a Sanskrit grammar student, not a Hindi reader.
+SUBJECT → LANGUAGE MAPPING (MANDATORY):
 
-- Forbidden in Sanskrit questions:
-  • Hindi auxiliary verbs (है, हैं, किया, करेगा, आदि)
-  • Hindi connectors (और, लेकिन, क्योंकि, आदि)
-  • Modern conversational Hindi tone
+1) If Subject is "Hindi":
+   - ALL questions MUST be written ONLY in PURE, STANDARD HINDI.
+   - Use formal CBSE/NCERT academic Hindi only.
+   - DO NOT include any English or Sanskrit words.
+   - DO NOT use Hinglish or transliterated English.
 
-- Required Sanskrit indicators (at least one must appear):
-  • Words like: कथयत्, दर्शयत्, लिखत्, सिद्धं कुरुत, प्रश्नान् उत्तरत्, व्याख्यायतु
-  • Use of proper Sanskrit case endings (विभक्ति) and verb forms
+2) If Subject is "Sanskrit":
+   - ALL questions MUST be written ONLY in PURE CLASSICAL SANSKRIT.
+   - Use correct Sanskrit grammar, vocabulary, विभक्ति, and verb forms.
+   - DO NOT use Hindi words, Hindi sentence structure, or modern phrasing.
+   - DO NOT include English words or transliteration.
 
-- If ANY Hindi word or Hindi sentence structure appears in a Sanskrit question,
-  IMMEDIATELY regenerate the output.
+3) For ALL OTHER subjects (Science, Maths, SST, Physics, Chemistry, Biology, etc.):
+   - ALL questions MUST be written ONLY in STANDARD ACADEMIC ENGLISH.
+   - DO NOT include Hindi, Sanskrit, or any regional language.
+   - DO NOT use Hinglish or translated phrases.
+
+FORBIDDEN (ZERO TOLERANCE):
+
+- Mixing languages in any form.
+- Transliteration (e.g., "kya", "arth", "vidhya", "kathan", etc.).
+- Subject-language mismatch (e.g., English questions for Hindi subject).
+- Bilingual phrasing or explanations.
+
+AUTO-REGENERATION RULE (MANDATORY):
+
+- If ANY word, phrase, grammar pattern, or sentence structure
+  violates the subject-language rule,
+  → IMMEDIATELY discard and regenerate the entire output.
+
 
 
 CHAPTER–TOPIC ISOLATION:
@@ -167,10 +179,26 @@ LATEX COMMAND CONTAINMENT RULE (MANDATORY):
 7) SUB-PARTS:
 - Each sub-part (a),(b),(c) MUST begin on its own line and be clearly numbered.
 
+
+
+
 MARKDOWN RULE:
 - Markdown is allowed only for line breaks, sub-parts and markdown tables.
 - Do NOT use code blocks or headings.
 - Tables MUST be proper markdown tables with each row on its own line.
+
+
+
+FINAL SELF-VALIDATION (MANDATORY):
+
+Before returning the JSON:
+- Scan the ENTIRE output.
+- If ANY backslash-command (\\mathbb, \\cap, \\emptyset, \\text, etc.)
+  appears OUTSIDE $...$ or $$...$$ → REGENERATE.
+- If ANY mathematical symbol appears outside LaTeX → REGENERATE.
+- If ANY rule is violated → REGENERATE internally until compliant.
+
+Return output ONLY after passing ALL checks.
 
 OUTPUT JSON (STRICT):
 Return ONLY this exact JSON structure, with exactly 6 questions:
@@ -199,7 +227,7 @@ CRITICAL:
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
       const aiRaw = await step.run("Call OpenAI", async () => {
-        return await askOpenAI(prompt);
+        return await askOpenAI(prompt, "gpt-5.1");
       });
 
       // -------------------------------------------------------------------

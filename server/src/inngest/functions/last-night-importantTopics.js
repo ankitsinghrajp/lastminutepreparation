@@ -47,10 +47,10 @@ export const lastNightImportantTopicsFn = inngest.createFunction(
       // 2️⃣ BUILD PROMPT (UNCHANGED)
       // -------------------------------------------------------------------
       const prompt = await step.run("Build Prompt", async () => {
-        return `
+       return  `
 You are a CBSE Board exam expert.
 Think internally first, but DO NOT show your thinking.
-You are an API that returns ONLY valid JSON.
+You are an API that returns ONLY valid JSON. No extra text, no explanation outside JSON.
 
 Class: ${className}
 Subject: ${mainSubject}
@@ -58,113 +58,169 @@ Book: ${bookName}
 Chapter: ${chapter}
 Stream: ${category}
 
-STRICT LANGUAGE RULE (ABSOLUTE):
-- If subject is Hindi → read the chapter deeply and write topic names and explanations ONLY in Hindi.
-- If subject is Sanskrit → read the chapter deeply and write topic names and explanations ONLY in Sanskrit.
-- Otherwise → write topic names and explanations ONLY in English.
-- DO NOT mix languages.
-- If violated, regenerate the output.
+────────────────────────────────────────────────────────
+LANGUAGE POLICY (ABSOLUTE — SUBJECT-LOCKED)
+────────────────────────────────────────────────────────
 
-SUBJECT TYPE SAFETY (CRITICAL):
-- If subject is a LANGUAGE SUBJECT (English, Hindi, Sanskrit):
-  → The "formula" field MUST ALWAYS be an empty string "".
-  → NEVER include formulas, equations, symbols, LaTeX, or mathematical expressions.
-- If subject is NOT a language subject:
-  → Include a formula ONLY if it is:
-     • commonly asked in CBSE exams
-     • directly linked to that topic
-  → Do NOT force formulas where they are not needed.
+- Language of topics and explanations is STRICTLY determined by the subject.
+- Language MUST match the subject exactly.
+- Cross-language output is STRICTLY FORBIDDEN.
 
-TASK:
+SUBJECT → LANGUAGE MAPPING (MANDATORY):
+
+1) If Subject is "Hindi":
+   - ALL topics and explanations MUST be written ONLY in PURE, STANDARD HINDI.
+   - Use formal CBSE/NCERT academic Hindi only.
+   - DO NOT include any English or Sanskrit words.
+   - DO NOT use Hinglish or transliterated English.
+
+2) If Subject is "Sanskrit":
+   - ALL topics and explanations MUST be written ONLY in PURE CLASSICAL SANSKRIT.
+   - Use correct Sanskrit grammar, vocabulary, विभक्ति, and verb forms.
+   - DO NOT use Hindi words, Hindi sentence structure, or modern phrasing.
+   - DO NOT include English words or transliteration.
+
+3) For ALL OTHER subjects (Science, Maths, SST, Physics, Chemistry, Biology, etc.):
+   - ALL topics and explanations MUST be written ONLY in STANDARD ACADEMIC ENGLISH.
+   - DO NOT include Hindi, Sanskrit, or any regional language.
+   - DO NOT use Hinglish or translated phrases.
+
+AUTO-REGENERATION RULE (MANDATORY):
+- If ANY word, phrase, grammar pattern, or sentence structure
+  violates the subject-language rule,
+  → IMMEDIATELY discard and regenerate the entire output.
+
+────────────────────────────────────────────────────────
+TASK
+────────────────────────────────────────────────────────
+
 Select EXACTLY 6 MOST IMPORTANT, HIGH-SCORING, and FREQUENTLY ASKED
-CBSE Board exam topics from this chapter.
+CBSE Board exam topics STRICTLY from THIS chapter only.
 
-SELECTION INTELLIGENCE (VERY IMPORTANT):
-- Prefer topics that:
-  • Appear repeatedly in PYQs
-  • Are asked for 3–5 marks
-  • Are derivation / numerical / law / definition based (non-language subjects)
-  • Are themes, character traits, literary devices, grammar rules (language subjects)
-- Avoid:
-  • Rarely asked theory
-  • Overly generic or vague topics
+────────────────────────────────────────────────────────
+CONTENT RULES
+────────────────────────────────────────────────────────
 
-CONTENT RULES:
 - EXACTLY 6 topics (strict)
 - Explanation must be 1–2 lines only
-- Write like a topper: direct, exam-focused, no extra theory
-- No introductions, no background story
+- Write like a topper: direct, exam-focused
+- No introductions, no background theory
 - No subtopic lists inside topic names
 
-FORMULA FIELD RULES (STRICT AND SUBJECT-AWARE):
 
-- If subject is a LANGUAGE SUBJECT (English, Hindi, Sanskrit):
-  → The "formula" field MUST ALWAYS be an empty string "".
-  → NEVER include formulas, symbols, equations, or LaTeX.
+────────────────────────────────────────────────────────
+FORMULA-SUBJECTS FOR CLASSES 9–12 (DEEP-SYLLABUS CHECK)
+────────────────────────────────────────────────────────
 
-- If subject is Mathematics:
-  → ALWAYS include a standard mathematical expression, notation, or formula
-    if the topic has ANY of the following:
-      • definition-based mathematical notation
-      • functional notation
-      • set notation
-      • symbolic representation
-  → Examples you MUST include when applicable:
-      • A × B
-      • f(x)
-      • f⁻¹(x)
-      • (f ∘ g)(x) = f(g(x))
-      • Domain = { x | condition }
-  → Use empty string "" ONLY if absolutely no standard notation exists (very rare).
+For CBSE Classes 9 through 12, ONLY the following subjects are considered
+formula-subjects and MUST have a non-empty "formula" field (when subject
+matches exactly):
 
-- If subject is Physics or Chemistry:
-  → Include formula ONLY when a standard CBSE formula is directly linked to the topic.
-  → Do NOT force formulas for pure theory topics.
+- Mathematics
+- Physics
+- Chemistry
+- Accountancy
+- Economics
 
-- For Mathematics subjects:
-- If a topic has a standard symbolic representation, definition using symbols, or commonly written mathematical form in NCERT or CBSE answers, you MUST include at least one appropriate formula or notation.
-- Do NOT restrict formulas only to numericals or derivations.
-- Use empty string "" ONLY when the topic is purely verbal and no standard mathematical notation is used in exams.
+Rules:
+1. If the "Subject" (case-sensitive match) equals one of the five above,
+   → FORCE a non-empty LaTeX "formula" for EVERY one of the 6 topics (no exceptions).
+2. If the "Subject" is any other CBSE subject (English, Hindi, Sanskrit,
+   Biology, Computer Science, Informatics Practices, Business Studies,
+   History, Geography, Political Science, Physical Education, etc.) →
+   DO NOT force formulas. For language subjects, formula MUST be "".
+3. Biology is treated as a non-formula subject by default. ONLY include a
+   formula for Biology if the chapter explicitly contains a standard
+   symbolic expression or equation that CBSE commonly expects (e.g.,
+   a clearly textbook-listed symbolic relation). If such a formula is absent,
+   return formula as "".
+4. If the subject equals one of the five formula-subjects but a topic has
+   genuinely no symbolic representation in NCERT/CBSE, still provide the
+   most basic standard notation possible — do NOT return empty string.
+5. After generation, STRICTLY validate:
+   - If Subject is in the five-formula list → confirm all 6 topics have non-empty "formula".
+   - If any topic lacks a formula → REGENERATE until compliant.
+────────────────────────────────────────────────────────
 
 
-LATEX RULE (NON-LANGUAGE SUBJECTS):
-- Use ONLY pure LaTeX syntax
-- NO $$, NO $, NO markdown
+ALLOWED FORMULA TYPES (USE AT LEAST ONE PER TOPIC):
+- Definitions written symbolically
+- Laws or principles in equation form
+- Standard NCERT / CBSE expressions
+- Identities, relations, inequalities
+- Set notation, functional notation
+- Chemical equations
+- Physics relations
+- Biology symbolic representations (if standard)
 
+If a topic has NO obvious formula:
+- Use the MOST BASIC standard representation used in CBSE answers.
+- It may be simple, repetitive, or foundational.
+- DO NOT skip.
 
-OUTPUT FORMAT (STRICT JSON ONLY):
+────────────────────────────────────────────────────────
+UNIVERSAL LATEX RULE (STRICT)
+────────────────────────────────────────────────────────
+
+- Use ONLY pure LaTeX syntax inside the "formula" field.
+- DO NOT use $ or $$ inside the formula field.
+- DO NOT use markdown.
+- ONLY LaTeX expressions.
+
+FORBIDDEN:
+- Plain-text math
+- Escaped delimiters \\( \\)
+- Any backslash-command outside LaTeX context
+
+────────────────────────────────────────────────────────
+FORMULA SEPARATION RULE (STRICT)
+────────────────────────────────────────────────────────
+
+- NEVER write formulas, symbols, or equations in the "explanation" field.
+- ALL mathematical content MUST appear ONLY in the "formula" field.
+- Explanation must be purely verbal text.
+- If violated → REGENERATE.
+
+────────────────────────────────────────────────────────
+OUTPUT FORMAT (STRICT JSON ONLY)
+────────────────────────────────────────────────────────
+
 {
   "topics": [
     {
       "topic": "High probability CBSE topic name",
       "explanation": "1–2 line crisp, scoring-oriented explanation",
-      "formula": ""
+      "formula": "COMPULSORY for non-language subjects"
     }
   ]
 }
 
-IMPORTANT FORMULA SEPARATION RULE (STRICT):
-- NEVER write any mathematical formula, equation, algebraic expression, or symbolic notation inside the "explanation" field.
-- ALL formulas, equations, identities, and mathematical symbols MUST appear ONLY inside the "formula" field.
-- The "explanation" field must contain ONLY verbal description in plain text.
-- If a formula appears in the explanation, regenerate the output.
+────────────────────────────────────────────────────────
+FINAL SELF-VALIDATION (MANDATORY)
+────────────────────────────────────────────────────────
 
+Before returning the JSON:
+- Confirm EXACTLY 6 topics
+- Confirm ALL non-language topics have NON-EMPTY formulas
+- Confirm NO formula appears in explanation
+- Confirm LaTeX correctness
+- If ANY rule is violated → REGENERATE internally
 
-CRITICAL CONSTRAINTS:
-- Output ONLY the JSON object
-- NO extra text before or after JSON
-- EXACTLY 6 topics
-- Language subjects must NEVER contain formulas
-- Do NOT invent formulas
-- Every topic must be exam-relevant and high scoring
-`.trim();
+CRITICAL:
+- Output ONLY JSON
+- NO extra text
+- NO missing formulas
+- Must be 100% compatible with Markdown + KaTeX renderer
+`;
+;
+
       });
 
       // -------------------------------------------------------------------
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
       const aiRaw = await step.run("Call OpenAI" ,async () => {
-        return await askOpenAI(prompt);
+        return await askOpenAI(prompt,"gpt-5.1");
       });
 
       // -------------------------------------------------------------------
