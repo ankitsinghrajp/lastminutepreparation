@@ -17,6 +17,7 @@ import { useAsyncMutation } from '@/hooks/hook';
 import { useTopperStyleMutation } from '@/redux/api/api';
 import AIOutput from "../AIOutput";
 import { toast } from 'sonner';
+import QuestionOutput from '../QuestionOutput';
 
 const PyqsComponent = ({ pyqsData, selectedClass, selectedSubject, selectedChapter }) => {
   const [getAnswer] = useAsyncMutation(useTopperStyleMutation);
@@ -212,7 +213,7 @@ const PyqsComponent = ({ pyqsData, selectedClass, selectedSubject, selectedChapt
                     {/* Question Text */}
                     <div className="flex items-start mb-3 px-3">
                       <p className="font-semibold text-sm sm:text-base text-foreground leading-relaxed flex-1">
-                        {q.question}
+                        {<QuestionOutput content={q.question}/>}
                       </p>
 
                     </div>
