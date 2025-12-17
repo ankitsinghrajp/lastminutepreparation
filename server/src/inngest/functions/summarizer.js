@@ -243,7 +243,7 @@ Only the topper-style answer. Nothing else.
 
       const ai = await step.run("OpenAI", async () =>
         openai.responses.create({
-          model: "gpt-5.1",
+          model: "gpt-4o-mini",
           input: safePrompt,
           max_output_tokens: 800,
         })

@@ -1,6 +1,6 @@
 import { inngest } from "../../libs/inngest.js";
 import { ImpQuestionModel } from "../../models/ImportantQuestionsPage/impquestions.model.js";
-import { parseSubject } from "../../utils/helper.js";
+import { detectCategory, parseSubject } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
 
@@ -14,6 +14,8 @@ export const importantQuestionGeneratorFn = inngest.createFunction(
   async ({ event, step }) => {
     const { className, subject, chapter, index } = event.data;
     const { mainSubject, bookName } = parseSubject(subject);
+     const category = detectCategory(subject); // ✅ correct input
+    
 
     const topics =
       Array.isArray(index) && index.length > 0
@@ -49,58 +51,203 @@ export const importantQuestionGeneratorFn = inngest.createFunction(
       }
 
  // 2️⃣ PREPARE PROMPT (UNTOUCHED)
- const prompt = `
-You are a CBSE Exam Expert. First read the ncert chapter first that is provided in deeply. Think deeply do not show it. Generate ONLY HIGH-VALUE QUESTIONS (95% chance) that come frequently in CBSE Boards.
+const prompt = `
+You are an API that returns ONLY valid JSON. No extra text, no explanation outside JSON.
 
-Return **VALID JSON only** (no markdown, no backticks).
+Class: ${className} | Subject: ${mainSubject} | Book: ${bookName}
+Chapter: ${chapter} | Stream: ${category}
 
-INPUT:
-Class: ${className}
-Subject: ${subject}
-Chapter: ${chapter}
-Topics: ${topics}
 
-NCERT BOOK NAME: ${bookName}
+====================================================
+TASK
+====================================================
+Generate ONLY the MOST FREQUENT, MOST IMPORTANT, and MOST SCORING CBSE board exam questions
+STRICTLY from THIS chapter only.
 
-OUTPUT JSON STRUCTURE:
+⚠️ Accuracy Requirement: 99.9999%
+These questions MUST be:
+- Repeated in PYQs
+- NCERT-back-exercise aligned
+- Teacher-predicted
+- Almost guaranteed to appear in exams
+
+❌ Do NOT generate low-probability, rare, creative, or filler questions.
+
+====================================================
+QUESTION COUNT (ABSOLUTE)
+====================================================
+- TOTAL questions = EXACTLY 10
+- Distributed across the JSON sections logically
+- Do NOT exceed or reduce count
+- Missing or extra questions → INVALID OUTPUT
+
+====================================================
+DIFFICULTY LEVEL APPLICATION (MANDATORY)
+====================================================
+If Difficulty = Easy:
+- Simple definitions, direct theory, basic numericals
+- Suitable for average CBSE students
+
+If Difficulty = Medium:
+- Standard board-level questions
+- Conceptual + application based
+
+If Difficulty = Hard:
+- High-weightage derivations and numericals
+- Toppers-only preparation questions
+
+⚠️ Difficulty affects ONLY:
+- Depth
+- Complexity
+- Steps expected
+
+⚠️ Difficulty does NOT override:
+- Language rules
+- JSON structure
+- LaTeX rules
+- Frontend rendering rules
+
+====================================================
+LANGUAGE POLICY (ABSOLUTE — SUBJECT-LOCKED)
+====================================================
+
+- Language MUST match the subject exactly.
+- Cross-language output is STRICTLY FORBIDDEN.
+
+SUBJECT → LANGUAGE MAPPING (MANDATORY):
+
+1) If Subject is "Hindi":
+   - ALL content MUST be written ONLY in PURE, STANDARD HINDI.
+   - Use formal CBSE/NCERT academic Hindi only.
+   - DO NOT include any English or Sanskrit words.
+   - DO NOT use Hinglish or transliteration.
+
+2) If Subject is "Sanskrit":
+   - ALL content MUST be written ONLY in PURE CLASSICAL SANSKRIT.
+   - Use correct Sanskrit grammar, vocabulary, विभक्ति, and verb forms.
+   - DO NOT use Hindi words, Hindi sentence structure, or modern phrasing.
+   - DO NOT include English words or transliteration.
+
+3) For ALL OTHER subjects:
+   - ALL content MUST be written ONLY in STANDARD ACADEMIC ENGLISH.
+   - DO NOT include Hindi, Sanskrit, or any regional language.
+   - DO NOT use Hinglish or translated phrases.
+
+FORBIDDEN (ZERO TOLERANCE):
+- Mixing languages
+- Transliteration (kya, arth, vidhya, etc.)
+- Bilingual phrasing
+- Subject-language mismatch
+
+AUTO-REGENERATION RULE:
+If ANY language rule is violated → REGENERATE ENTIRE OUTPUT.
+
+====================================================
+CHAPTER–TOPIC ISOLATION
+====================================================
+- Content MUST belong strictly to the given chapter.
+- Do NOT introduce topics from other chapters or classes.
+- Context allowed ONLY if NCERT or PYQs use it.
+
+====================================================
+UNIVERSAL FORMULA & MATH RULES (APPLY ALWAYS)
+====================================================
+
+ABSOLUTE LATEX MANDATE:
+- EVERY mathematical expression MUST be written using LaTeX
+- Wrap expressions ONLY in:
+  • Inline math → $ ... $
+  • Display math → $$ ... $$
+
+LATEX DELIMITER RESTRICTION (MANDATORY):
+- NEVER use \\( ... \\) or \\[ ... \\]
+- Inline math → $...$
+- Display math → $$...$$
+- Any \\(, \\), \\[, \\] → INVALID OUTPUT
+
+LATEX COMMAND CONTAINMENT RULE:
+- ANY LaTeX command starting with \\ is FORBIDDEN outside math mode
+- Examples:
+  \\mathbb, \\times, \\to, \\cap, \\cup, \\in, \\subset, \\subseteq, \\Rightarrow
+
+PLAIN-TEXT MATH TOKEN BAN:
+- The following are STRICTLY FORBIDDEN outside LaTeX:
+  sin, cos, tan, sec, cosec, cot,
+  frac, sqrt, <=, >=, pi, mu, theta, degree, ^, |x|
+
+INEQUALITIES & SYSTEMS:
+- Use ONE $$ block
+- Each inequality on a new line
+
+CHEMICAL EQUATIONS:
+- MUST be written ONLY in $$ ... $$
+
+====================================================
+STATISTICS / TABLES
+====================================================
+- If statistics involved → ALWAYS use markdown table
+- Ungrouped data → convert to frequency table FIRST
+- Leave exactly ONE blank line after every table
+
+====================================================
+NEWLINES & ESCAPED CHARACTERS
+====================================================
+- NEVER use escaped newlines like \\n
+- Use real line breaks only
+- NEVER escape math delimiters
+
+====================================================
+MARKDOWN RULES
+====================================================
+- Markdown allowed ONLY for:
+  • line breaks
+  • bullet points
+  • markdown tables
+- NO headings
+- NO code blocks
+
+====================================================
+OUTPUT JSON STRUCTURE (STRICT — DO NOT CHANGE)
+====================================================
+
 {
-  "chapter": "<chapter name>",
-  "whyImportant": "<2 lines explaining why this chapter is important for exam>",
-  
+  "chapter": "${chapter}",
+  "whyImportant": "Exactly 2 concise exam-focused lines",
+
   "importantQuestions": [
     {
-      "question": "<Most expected question>",
-      "marks": "<1/2/3/5>",
-      "whyThisIsImportant": "<1–2 lines>",
+      "question": "Most expected CBSE question",
+      "marks": "1/2/3/5",
+      "whyThisIsImportant": "1–2 exam-focused lines",
       "keywords": ["keyword1", "keyword2"],
-      "modelAnswer": "<Simple English answer written exactly like exam>"
+      "modelAnswer": "Simple English exam-style answer"
     }
   ],
 
   "mustPracticeNumericals": [
     {
-      "question": "<numerical question if subject needs>",
-      "marks": "<2/3/5>",
+      "question": "High-probability numerical (only if applicable)",
+      "marks": "2/3/5",
       "formulaUsed": ["formula1", "formula2"],
       "solutionSteps": "Step 1: ... Step 2: ... Step 3: ...",
-      "commonMistake": "<common student mistake>"
+      "commonMistake": "Common student mistake"
     }
   ],
 
   "veryShortQuestions": [
     {
-      "question": "<1 mark conceptual question>",
-      "answer": "<crisp answer>",
+      "question": "1-mark conceptual question",
+      "answer": "Crisp answer",
       "keywords": ["term1"]
     }
   ],
 
   "longAnswerQuestions": [
     {
-      "question": "<expected 5-mark or derivation question>",
+      "question": "Expected 5-mark / derivation question",
       "structure": "Intro → Point 1 → Point 2 → Diagram → Conclusion",
-      "modelAnswer": "<full answer student can copy>",
-      "diagramTip": "<if diagram needed>"
+      "modelAnswer": "Full copy-ready exam answer",
+      "diagramTip": "Diagram instruction if needed"
     }
   ],
 
@@ -111,20 +258,35 @@ OUTPUT JSON STRUCTURE:
   }
 }
 
-Requirements:
-- Minimum 10 important questions.
-- All answers in simple CBSE-friendly language.
-- No complex words.
-- All JSON must be strictly valid.
-`.trim();
+====================================================
+FINAL SELF-VALIDATION (MANDATORY)
+====================================================
+Before returning JSON:
+- Check TOTAL questions = EXACTLY 10
+- Check NO extra or missing keys
+- Check language rules
+- Check LaTeX rules
+- Check frontend safety
+- Added table for statistics questions
+
+If ANY rule is violated → REGENERATE INTERNALLY.
+
+====================================================
+OUTPUT
+====================================================
+Return ONLY valid JSON. NOTHING ELSE.
+`;
+
 
       // -------------------------------------------------------------------
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
       const aiRaw = await step.run("Call OpenAI",async () => {
-        return await askOpenAI(prompt);
+        return await askOpenAI(prompt,"gpt-5.1",  {
+  response_format: { type: "json_object" }
+     });
       });
-
+    
       // -------------------------------------------------------------------
       // 4️⃣ PARSE + VALIDATE (UNCHANGED LOGIC)
       // -------------------------------------------------------------------

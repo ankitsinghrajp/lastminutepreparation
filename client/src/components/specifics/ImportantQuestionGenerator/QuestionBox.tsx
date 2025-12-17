@@ -21,6 +21,7 @@ import { useAsyncMutation } from '@/hooks/hook';
 import { useTopperStyleMutation } from '@/redux/api/api';
 import AIOutput from "../AIOutput";
 import { toast } from 'sonner';
+import QuestionOutput from '../QuestionOutput';
 
 const QuestionBox = ({ response, selectedClass, selectedSubject, selectedChapter }) => {
 
@@ -215,7 +216,7 @@ const QuestionBox = ({ response, selectedClass, selectedSubject, selectedChapter
                           </span>
 
                           <p className="font-semibold text-sm sm:text-base text-foreground leading-relaxed flex-1">
-                            {q.question}
+                            {<QuestionOutput content={q.question}/>}
                           </p>
 
                           {/* Copy Button */}
