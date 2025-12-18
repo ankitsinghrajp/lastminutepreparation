@@ -54,18 +54,19 @@ const LastMinutePanelSummary = asyncHandler(async (req, res) => {
   // -------------------------------------------------------------------
   // 2️⃣ CHECK IF A JOB IS ALREADY RUNNING (PENDING FLAG)
   // -------------------------------------------------------------------
-  const isPending = await redis.get(pendingKey);
+  const lockAcquired = await redis.set(
+  pendingKey,
+  "1",
+  { NX: true, EX: 300 } // 5 min safety
+);
 
-  if (!isPending) {
-    // No job running → queue Inngest job
-    // Set pending flag so no duplicate Inngest jobs spawn
-    await redis.set(pendingKey, "1", { EX: 120 }); // 2 min timeout safety
+if (lockAcquired) {
+  await inngest.send({
+    name: "lmp/generate.summary",
+    data: { className, subject, chapter },
+  });
+}
 
-    await inngest.send({
-      name: "lmp/generate.summary",
-      data: { className, subject, chapter },
-    });
-  }
 
   // -------------------------------------------------------------------
   // 3️⃣ RETURN QUEUED RESPONSE (FRONTEND POLLS UNTIL READY)
@@ -121,16 +122,19 @@ const LastMinutePanelImportantTopics = asyncHandler(async (req, res) => {
   // -------------------------------------------------------------------
   // 2️⃣ CHECK PENDING FLAG (PREVENT DUPLICATE JOBS)
   // -------------------------------------------------------------------
-  const isPending = await redis.get(pendingKey);
 
-  if (!isPending) {
-    await redis.set(pendingKey, "1", { EX: 120 }); // safety timeout
+const lockAcquired = await redis.set(
+  pendingKey,
+  "1",
+  { NX: true, EX: 300 } // 5 min safety
+);
 
-    await inngest.send({
-      name: "lmp/generate.importantTopics",
-      data: { className, subject, chapter },
-    });
-  }
+if (lockAcquired) {
+  await inngest.send({
+    name: "lmp/generate.importantTopics",
+    data: { className, subject, chapter },
+  });
+}
 
   // -------------------------------------------------------------------
   // 3️⃣ RETURN QUEUED RESPONSE
@@ -185,19 +189,20 @@ const LastMinutePanelPredictedQuestions = asyncHandler(async (req, res) => {
     console.error("Redis GET error:", err);
   }
 
-  // -------------------------------------------------------------------
-  // 2️⃣ CHECK PENDING FLAG (AVOID DUPLICATE JOBS)
-  // -------------------------------------------------------------------
-  const isPending = await redis.get(pendingKey);
+ 
 
-  if (!isPending) {
-    await redis.set(pendingKey, "1", { EX: 120 }); // safety timeout
+ const lockAcquired = await redis.set(
+  pendingKey,
+  "1",
+  { NX: true, EX: 300 } // 5 min safety
+);
 
-    await inngest.send({
-      name: "lmp/generate.predictedQuestions",
-      data: { className, subject, chapter },
-    });
-  }
+if (lockAcquired) {
+  await inngest.send({
+    name: "lmp/generate.predictedQuestions",
+    data: { className, subject, chapter },
+  });
+}
 
   // -------------------------------------------------------------------
   // 3️⃣ RETURN QUEUED RESPONSE
@@ -254,19 +259,18 @@ const LastMinutePanelMCQs = asyncHandler(async (req, res) => {
     console.error("Redis GET error:", err);
   }
 
-  // -------------------------------------------------------------------
-  // 2️⃣ CHECK PENDING FLAG (AVOID DUPLICATE JOBS)
-  // -------------------------------------------------------------------
-  const isPending = await redis.get(pendingKey);
+  const lockAcquired = await redis.set(
+  pendingKey,
+  "1",
+  { NX: true, EX: 300 } // 5 min safety
+);
 
-  if (!isPending) {
-    await redis.set(pendingKey, "1", { EX: 120 });
-
-    await inngest.send({
-      name: "lmp/generate.mcqs",
-      data: { className, subject, chapter },
-    });
-  }
+if (lockAcquired) {
+  await inngest.send({
+    name: "lmp/generate.mcqs",
+    data: { className, subject, chapter },
+  });
+}
 
   // -------------------------------------------------------------------
   // 3️⃣ RETURN QUEUED RESPONSE
@@ -325,16 +329,20 @@ const LastMinutePanelMemoryBooster = asyncHandler(async (req, res) => {
   // -------------------------------------------------------------------
   // 2️⃣ CHECK PENDING FLAG (AVOID DUPLICATE JOBS)
   // -------------------------------------------------------------------
-  const isPending = await redis.get(pendingKey);
+ 
 
-  if (!isPending) {
-    await redis.set(pendingKey, "1", { EX: 120 });
+const lockAcquired = await redis.set(
+  pendingKey,
+  "1",
+  { NX: true, EX: 300 } // 5 min safety
+);
 
-    await inngest.send({
-      name: "lmp/generate.memoryBooster",
-      data: { className, subject, chapter },
-    });
-  }
+if (lockAcquired) {
+  await inngest.send({
+    name: "lmp/generate.memoryBooster",
+    data: { className, subject, chapter },
+  });
+}
 
   // -------------------------------------------------------------------
   // 3️⃣ RETURN QUEUED RESPONSE
@@ -392,19 +400,20 @@ const LastMinutePanelAICoach = asyncHandler(async (req, res) => {
     console.error("Redis GET error:", err);
   }
 
-  // -------------------------------------------------------------------
-  // 2️⃣ CHECK PENDING FLAG (AVOID DUPLICATE JOBS)
-  // -------------------------------------------------------------------
-  const isPending = await redis.get(pendingKey);
 
-  if (!isPending) {
-    await redis.set(pendingKey, "1", { EX: 120 });
 
-    await inngest.send({
-      name: "lmp/generate.aiCoach",
-      data: { className, subject, chapter },
-    });
-  }
+const lockAcquired = await redis.set(
+  pendingKey,
+  "1",
+  { NX: true, EX: 300 } // 5 min safety
+);
+
+if (lockAcquired) {
+  await inngest.send({
+    name: "lmp/generate.aiCoach",
+    data: { className, subject, chapter },
+  });
+}
 
   // -------------------------------------------------------------------
   // 3️⃣ RETURN QUEUED RESPONSE

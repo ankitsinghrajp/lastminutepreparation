@@ -9,7 +9,7 @@ export const lastNightPredictedQuestionsFn = inngest.createFunction(
   {
     id: "lmp-predicted-questions",
     name: "Generate LMP Predicted Questions",
-    retries:1,
+    retries:0,
   },
   { event: "lmp/generate.predictedQuestions" },
   async ({ event, step }) => {
@@ -233,8 +233,10 @@ CRITICAL:
       // -------------------------------------------------------------------
       // 4️⃣ EXTRACT JSON
       // -------------------------------------------------------------------
-      const parsed = extractJSON(aiRaw);
+      const normalized = aiRaw.replace(/\r?\n/g, "\\n");
+      const parsed = extractJSON(normalized);
 
+   
       parsed.questions.forEach((q, idx) => {
         if (!q.question) {
           throw new Error(`Invalid question at index ${idx}`);
@@ -262,13 +264,10 @@ CRITICAL:
         EX: 60 * 60 * 24 * 2,
       });
 
-      await redis.del(pendingKey);
-
       return { questions: safeParsed, source: "generated" };
 
     } catch (err) {
-      // IMPORTANT: clear pending on failure
-      await redis.del(pendingKey);
+     
       throw new Error(`generatePredictedQuestions error: ${err.message}`);
     }
   }

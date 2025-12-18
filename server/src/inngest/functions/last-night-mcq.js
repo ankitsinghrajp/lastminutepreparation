@@ -271,7 +271,9 @@ CRITICAL (NON-NEGOTIABLE)
       // -------------------------------------------------------------------
       // 4️⃣ EXTRACT JSON
       // -------------------------------------------------------------------
-      const parsed = extractJSON(aiRaw);
+      const normalized = aiRaw.replace(/\r?\n/g, "\\n");
+      const parsed = extractJSON(normalized);
+
 
       parsed.mcqs.forEach((mcq, idx) => {
         if (!mcq.question || !mcq.correct || !mcq.options)
@@ -305,12 +307,9 @@ CRITICAL (NON-NEGOTIABLE)
         EX: 60 * 60 * 24 * 2,
       });
 
-      await redis.del(pendingKey);
-
       return { mcqs: safeParsed.mcqs, source: "generated" };
 
     } catch (err) {
-      await redis.del(pendingKey);
       throw new Error(`generateMCQs error: ${err.message}`);
     }
   }

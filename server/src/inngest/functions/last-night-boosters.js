@@ -258,11 +258,9 @@ CRITICAL (NON-NEGOTIABLE)
       const aiRaw = await step.run("Call OpenAI", async () => {
         return await askOpenAI(prompt,"gpt-5-mini");
       });
+const normalized = aiRaw.replace(/\r?\n/g, "\\n");
+      const parsed = extractJSON(normalized);
 
-      // -------------------------------------------------------------------
-      // 4️⃣ EXTRACT JSON
-      // -------------------------------------------------------------------
-      const parsed = extractJSON(aiRaw);
 
       if (
         !parsed.boosters ||
@@ -293,12 +291,10 @@ CRITICAL (NON-NEGOTIABLE)
         EX: 60 * 60 * 24 * 2,
       });
 
-      await redis.del(pendingKey);
 
       return { boosters: safeParsed.boosters, source: "generated" };
 
     } catch (err) {
-      await redis.del(pendingKey);
       throw new Error(`generateMemoryBooster error: ${err.message}`);
     }
   }

@@ -1,21 +1,34 @@
 export const lastMinuteExtractJson = (text) => {
-  if (!text) throw new Error("Empty response received from AI.");
+  if (!text || typeof text !== "string") return null;
 
-  text = text
-    .replace(/```json/g, "")
+  // Remove markdown fences safely
+  const cleaned = text
+    .replace(/```json/gi, "")
     .replace(/```/g, "")
     .trim();
 
-  // Extract only JSON object
-  const first = text.indexOf("{");
-  const last = text.lastIndexOf("}");
-  if (first === -1 || last === -1) throw new Error("No JSON found.");
+  // Find first valid JSON object using balance tracking
+  let start = -1;
+  let depth = 0;
 
-  let jsonString = text.substring(first, last + 1);
+  for (let i = 0; i < cleaned.length; i++) {
+    if (cleaned[i] === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (cleaned[i] === "}") {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        const candidate = cleaned.slice(start, i + 1);
 
-  jsonString = jsonString.replace(/\\/g, "\\\\");
+        try {
+          return JSON.parse(candidate);
+        } catch {
+          // continue searching
+        }
+      }
+    }
+  }
 
-  jsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
-
-  return JSON.parse(jsonString);
+  return null; // ❗ never throw
 };
+

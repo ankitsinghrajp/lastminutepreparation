@@ -75,10 +75,9 @@ JSON:
         return await askOpenAI(prompt,"gpt-5-mini");
       });
 
-      // -------------------------------------------------------------------
-      // 4️⃣ EXTRACT JSON
-      // -------------------------------------------------------------------
-      const parsed = extractJSON(aiRaw);
+     const normalized = aiRaw.replace(/\r?\n/g, "\\n");
+      const parsed = extractJSON(normalized);
+
 
       if (!parsed.steps || !Array.isArray(parsed.steps)) {
         throw new Error("Invalid AI Coach format");

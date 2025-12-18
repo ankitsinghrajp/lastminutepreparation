@@ -7,7 +7,7 @@ import { lastMinuteExtractJson as extractJSON } from "./extractJsonForFunctions/
 export const lastNightImportantTopicsFn = inngest.createFunction(
   { name: "Generate LMP Important Topics",
     id: "last-night-important-topics",
-    retries:1,
+    retries:0,
    },
   { event: "lmp/generate.importantTopics" },
   async ({ event, step }) => {
@@ -239,9 +239,9 @@ CRITICAL
       // -------------------------------------------------------------------
       // 4️⃣ EXTRACT JSON
       // -------------------------------------------------------------------
-      const parsed = await step.run("Extract JSON", async () => {
-        return extractJSON(aiRaw);
-      });
+      const normalized = aiRaw.replace(/\r?\n/g, "\\n");
+      const parsed = extractJSON(normalized);
+
 
       if (!parsed.topics || !Array.isArray(parsed.topics)) {
         throw new Error("Invalid topics format");
@@ -269,8 +269,6 @@ CRITICAL
           EX: 60 * 60 * 24 * 2,
         });
       });
-
-      await redis.del(pendingKey);
 
       return { topics: safeParsed.topics, source: "generated" };
 
