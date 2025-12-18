@@ -249,7 +249,7 @@ CRITICAL:
       // -------------------------------------------------------------------
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
-     const aiRaw = await askOpenAI(prompt, "gpt-5.1", {
+     const aiRaw = await askOpenAI(prompt, "gpt-5-mini", {
   response_format: { type: "json_object" }
      });
 

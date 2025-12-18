@@ -275,7 +275,7 @@ Chapter: ${chapter}
       // -------------------------------------------------------------------
       const aiOutput = await step.run("Call OpenAI", async () => {
         const safePrompt = prompt.replace(/\\/g, "\\\\");
-        return await askOpenAI(safePrompt, "gpt-5.1");
+        return await askOpenAI(safePrompt, "gpt-5-mini");
       });
 
       // -------------------------------------------------------------------

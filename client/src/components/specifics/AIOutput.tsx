@@ -11,25 +11,41 @@ const AIOutput = ({ content }) => {
   return (
     <div
       className="
-        prose max-w-none text-[18px] leading-[1.85]
+        prose max-w-none text-[18px] leading-[1.9]
 
-        [&>p]:mt-1 [&>p]:mb-1
+        /* Paragraphs */
+        [&>p]:mt-2
+        [&>p]:mb-2
 
-        [&>ul]:mt-6 [&>ul]:mb-6
-        [&>ol]:mt-6 [&>ol]:mb-6
-        [&_li]:my-2
+        /* Lists */
+        [&>ul]:mt-5
+        [&>ul]:mb-5
+        [&>ol]:mt-5
+        [&>ol]:mb-5
+        [&_li]:my-2.5
 
-        [&>h2]:mt-10 [&>h2]:mb-3
-        [&>h3]:mt-9 [&>h3]:mb-3
-        [&>h4]:mt-8 [&>h4]:mb-2
+        /* Headings */
+        [&>h2]:mt-10 [&>h2]:mb-4
+        [&>h3]:mt-9  [&>h3]:mb-3
+        [&>h4]:mt-8  [&>h4]:mb-2
 
-        [&_.katex-display]:mt-8 [&_.katex-display]:mb-8
-        [&_.katex-display]:py-4 [&_.katex-display]:px-4
-        [&_.katex-display]:bg-muted/30 [&_.katex-display]:rounded-xl shadow-sm
+        /* Math blocks */
+        [&_.katex-display]:mt-6
+        [&_.katex-display]:mb-6
+        [&_.katex-display]:py-3
+        [&_.katex-display]:px-4
+        [&_.katex-display]:bg-muted/30
+        [&_.katex-display]:rounded-xl
+        [&_.katex-display]:shadow-sm
 
         [&_.katex]:text-[19px]
 
-        [&_pre]:mt-8 [&_pre]:mb-8 [&_pre]:p-4 [&_pre]:rounded-xl
+        /* Code blocks */
+        [&_pre]:mt-6
+        [&_pre]:mb-6
+        [&_pre]:p-4
+        [&_pre]:rounded-xl
+
         [&_code]:text-[16px]
       "
     >

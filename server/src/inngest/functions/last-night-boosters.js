@@ -256,7 +256,7 @@ CRITICAL (NON-NEGOTIABLE)
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
       const aiRaw = await step.run("Call OpenAI", async () => {
-        return await askOpenAI(prompt);
+        return await askOpenAI(prompt,"gpt-5-mini");
       });
 
       // -------------------------------------------------------------------

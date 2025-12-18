@@ -233,7 +233,7 @@ CRITICAL
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
       const aiRaw = await step.run("Call OpenAI" ,async () => {
-        return await askOpenAI(prompt,"gpt-5.1");
+        return await askOpenAI(prompt,"gpt-5-mini");
       });
 
       // -------------------------------------------------------------------

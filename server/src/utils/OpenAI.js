@@ -9,7 +9,6 @@ export const askOpenAI = async (prompt, model = "gpt-4o-mini") =>{
       const res = await openai.chat.completions.create({
         model,
         messages:[{role: "user", content: prompt}],
-        temperature: 0.5,
       });
       return res.choices[0].message.content;
 };
