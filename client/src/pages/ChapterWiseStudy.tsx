@@ -16,6 +16,7 @@ import { useAsyncMutation, useErrors } from "@/hooks/hook";
 import { toast } from "sonner";
 import ContentArea from "@/components/specifics/chapterWiseStudy/contentArea";
 import logo from "../assets/logo.png";
+import { Helmet } from "react-helmet-async";
 
 const classes = ["9th", "10th", "11th", "12th"];
 
@@ -656,6 +657,77 @@ export default function ChapterWiseStudy() {
 
   return (
     <div className="min-h-screen w-full bg-background">
+
+       <Helmet>
+        {/* Title */}
+        <title>
+          Chapter-Wise Study for CBSE | Smart Revision & Topper-Style Answers – LMP
+        </title>
+
+        {/* Meta Description */}
+        <meta
+          name="description"
+          content="Study CBSE syllabus chapter by chapter with important topics, PYQs, and topper-style answers. Smart chapter-wise revision designed to score full marks in exams."
+        />
+
+        {/* Keywords */}
+        <meta
+          name="keywords"
+          content="
+          chapter wise study cbse,
+          cbse chapter wise preparation,
+          chapter wise important questions cbse,
+          cbse chapter wise revision,
+          topper style answers chapter wise,
+          cbse pyqs chapter wise,
+          smart revision chapter wise,
+          cbse board exam preparation chapter wise
+          "
+        />
+
+        {/* Canonical */}
+        <link
+          rel="canonical"
+          href="https://lastminutepreparation.in/chapter-wise-study"
+        />
+
+        {/* Robots */}
+        <meta name="robots" content="index, follow" />
+
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta
+          property="og:title"
+          content="CBSE Chapter-Wise Study & Smart Revision | LMP"
+        />
+        <meta
+          property="og:description"
+          content="Prepare CBSE chapters one by one with important topics, PYQs, and exam-ready answers. Built for focused and effective revision."
+        />
+        <meta
+          property="og:url"
+          content="https://lastminutepreparation.in/chapter-wise-study"
+        />
+        <meta
+          property="og:image"
+          content="https://lastminutepreparation.in/og-chapter-wise-study.png"
+        />
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content="Chapter-Wise CBSE Study & Revision | LMP"
+        />
+        <meta
+          name="twitter:description"
+          content="Study CBSE chapters smartly with topper-style answers, PYQs, and focused revision."
+        />
+        <meta
+          name="twitter:image"
+          content="https://lastminutepreparation.in/og-chapter-wise-study.png"
+        />
+      </Helmet>
       <Navbar />
 
       <div className="container mx-auto px-2 pt-20 sm:pt-24 lg:max-w-[90%] xl:max-w-[90%]">

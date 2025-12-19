@@ -23,8 +23,8 @@ export const pdfUploadQuotaCheck = async (req, res, next) => {
     // ✅ PLAN LIMITS
     let maxUploads = 0;
 
-    if (user.planType === "BASIC") maxUploads = 20;
-    if (user.planType === "PRO") maxUploads = 100;
+    if (user.planType === "BASIC") maxUploads = null;
+    if (user.planType === "PRO") maxUploads = 60;
 
     // ✅ FREE USERS BLOCKED
     if (user.planType === "FREE" || !maxUploads) {

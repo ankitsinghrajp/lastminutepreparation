@@ -76,10 +76,10 @@ export default function ContactPage() {
               For any queries, suggestions, or technical support:
             </p>
             <a 
-              href="mailto:support@lastminutepreparation.in"
+              href="mailto:founder@lastminutepreparation.in"
               className="text-sm text-blue-500 hover:text-blue-600 font-medium"
             >
-              support@lastminutepreparation.in
+              founder@lastminutepreparation.in
             </a>
           </Card>
 
@@ -239,7 +239,7 @@ export default function ContactPage() {
                 <div className="bg-background/80 rounded-lg p-4">
                   <h4 className="font-semibold mb-2 text-sm">📧 Email Support</h4>
                   <p className="text-xs text-muted-foreground">
-                    For urgent queries, email us directly at support@lastminutepreparation.in
+                    For urgent queries, email us directly at founder@lastminutepreparation.in
                   </p>
                 </div>
 

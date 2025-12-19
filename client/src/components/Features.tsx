@@ -29,8 +29,8 @@ const features = [
   },
   {
     icon: Zap,
-    title: "Instant Results",
-    description: "Lightning-fast AI processing means you get results in seconds, not minutes.",
+    title: "Chat With PDF",
+    description: "AI-powered conversations with your PDFs.",
   },
 ];
 

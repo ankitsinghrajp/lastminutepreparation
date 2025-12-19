@@ -1,29 +1,44 @@
 import { Card } from "@/components/ui/card";
 import { Star } from "lucide-react";
-
 const testimonials = [
   {
-    name: "Priya Sharma",
-    role: "12th Grade Student",
-    content: "LastMinutePreparation helped me score 95% in my boards! The AI summaries and question predictions were spot-on. I saved hours of study time.",
+    role: "Early beta user",
+    content: "Chat with PDF helped me understand long notes without reading every page.",
     rating: 5,
   },
   {
-    name: "Rahul Mehta",
-    role: "Engineering Student",
-    content: "The diagram analysis feature is incredible. It converts complex circuit diagrams into easy-to-understand summaries. Game changer!",
+    role: "CBSE student",
+    content: "Last Night Before Exam feature is perfect when you start studying very late.",
     rating: 5,
   },
   {
-    name: "Dr. Anita Desai",
-    role: "Professor",
-    content: "I recommend LastMinutePreparation to all my students. The revision planner ensures they stay on track, and the AI-generated questions are excellent for exam prep.",
+    role: "Class 12 student",
+    content: "PYQs are explained in a way that actually matches board exam answers.",
     rating: 5,
   },
   {
-    name: "Amit Kumar",
-    role: "Medical Student",
-    content: "Preparing for NEET was overwhelming until I found LastMinutePreparation. The unlimited uploads and advanced summaries in premium are worth every rupee.",
+    role: "Early user",
+    content: "Asking questions directly from my PDF saved a lot of revision time.",
+    rating: 5,
+  },
+  {
+    role: "Science stream student",
+    content: "The predicted questions section feels very accurate for exams.",
+    rating: 5,
+  },
+  {
+    role: "Early tester",
+    content: "Diagrams and images are explained clearly, which helps in last-minute revision.",
+    rating: 5,
+  },
+  {
+    role: "Beta user",
+    content: "Chat with PDF is useful for quickly finding answers from study material.",
+    rating: 5,
+  },
+  {
+    role: "CBSE aspirant",
+    content: "Last Night Before Exam organizes everything so I don't feel confused.",
     rating: 5,
   },
 ];
@@ -33,14 +48,14 @@ export const Testimonials = () => {
     <section id="testimonials" className="py-24 relative">
       <div className="container mx-auto px-4">
         <div className="text-center mb-16 space-y-4">
-          <h2 className="text-4xl lg:text-5xl font-bold">
-            Loved by{" "}
+          <h1 className="text-5xl font-bold">
+            Early{" "}
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Thousands of Students
+              User Feedback
             </span>
-          </h2>
+          </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            See what students and educators are saying about LastMinutePreparation.
+            Real experiences from students who tried LastMinutePreparation during early access.
           </p>
         </div>
         
@@ -62,8 +77,7 @@ export const Testimonials = () => {
                 </p>
                 
                 <div>
-                  <p className="font-semibold">{testimonial.name}</p>
-                  <p className="text-sm text-muted-foreground">{testimonial.role}</p>
+                  <p className="text-sm text-muted-foreground">— {testimonial.role}</p>
                 </div>
               </div>
             </Card>

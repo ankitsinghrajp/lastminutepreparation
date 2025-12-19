@@ -28,7 +28,8 @@ export const Hero = () => {
             </h1>
             
             <p className="text-xl text-muted-foreground max-w-2xl">
-              Upload your CBSE notes, PDFs, or topics — get AI summaries, important questions, and personalized revision plans instantly.
+              Designed for the final hours before an exam, LastMinutePreparation turns confusion into clarity.
+Revise only what matters and walk into the exam with confidence.
             </p>
 
              <div className="flex items-center justify-start gap-2 py-2">

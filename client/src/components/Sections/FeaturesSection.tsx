@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { FileText, Brain, BookOpen, Clock, FileQuestion, MessageSquare, Book, File } from "lucide-react";
+import { FileText, Brain, BookOpen, Clock, FileQuestion, MessageSquare, Book, File, Crown } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 
@@ -17,6 +17,7 @@ const features = [
     description: "Turn Your Notes into a Talking Teacher.",
     path: "/chat-with-pdf",
     color: "from-pink-500 to-red-500",
+    isPro: true,
   },
 
   {
@@ -46,6 +47,7 @@ const features = [
     description: "Fill-Ups & True/False That Really Matter.",
     path: "/quiz-generator",
     color: "from-orange-500 to-amber-500",
+    isPro:true,
   },
     {
     icon: MessageSquare,
@@ -60,6 +62,7 @@ const features = [
     description: "Your Diagram Explained Like a Topper.",
     path: "/diagram-analysis",
     color: "from-indigo-500 to-blue-500",
+    isPro: true,
   },
   {
     icon: FileText,
@@ -67,6 +70,7 @@ const features = [
     description: "Past Questions. Present Preparation. Future Topper.",
     path: "/pyqs",
     color: "from-green-500 to-emerald-500",
+    isPro: true,
   },
 ];
 
@@ -96,7 +100,18 @@ export default function FeaturesSection() {
               state={{ feature: feature.title }}
               className={ ""}
             >
-              <Card className="p-6 bg-card/50 border-border/50 backdrop-blur-sm hover:bg-card/80 transition-all duration-300 hover:shadow-[0_0_30px_rgba(168,85,247,0.2)] hover:border-primary/50 group cursor-pointer h-full">
+              <Card className="p-6 bg-card/50 border-border/50 backdrop-blur-sm hover:bg-card/80 transition-all duration-300 hover:shadow-[0_0_30px_rgba(168,85,247,0.2)] hover:border-primary/50 group cursor-pointer overflow-hidden h-full relative">
+                {feature.isPro && (
+                  <div className="absolute -top-1 -right-1 w-32 h-32 overflow-hidden pointer-events-none">
+                      <div className="absolute top-6 -right-8 w-40 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white text-center py-1.5 rotate-45 shadow-lg transform group-hover:scale-105 transition-transform duration-300">
+                        <div className="flex items-center justify-center gap-1 text-xs font-bold tracking-wider">
+                          <Crown className="w-3 h-3" />
+                          <span>PRO</span>
+                        </div>
+                      </div>
+                    </div>
+                )}
+ 
                 <div className="space-y-4">
                   <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${feature.color} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
                     <feature.icon className="h-8 w-8 text-white" />

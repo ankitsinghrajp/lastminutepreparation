@@ -26,6 +26,7 @@ import { server } from "@/constants";
 import { toast } from "sonner";
 import { useSelector } from "react-redux";
 import { Navbar } from "@/components/Navbar";
+import { Helmet } from "react-helmet-async";
 
 /* ===================== AI OUTPUT ===================== */
 const AIOutput = ({ content }) => {
@@ -102,8 +103,8 @@ export default function ChatWithPDF() {
 
 const handlePdfUpload = async (e) => {
 
-  if(user.planType === "FREE"){
-    toast.error("Premium feature only. If recently subscribed logout and login again");
+  if(user.planType === "FREE" || user.planType === "BASIC"){
+    toast.error("Pro feature only. If recently subscribed logout and login again");
     return;
   }
   const file = e.target.files?.[0];
@@ -220,6 +221,77 @@ const handlePdfUpload = async (e) => {
 
   return (
     <div className="flex flex-col h-screen w-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100">
+      <Helmet>
+        {/* Title */}
+        <title>
+          Chat with PDF for CBSE Students | Ask Questions from Notes – LMP
+        </title>
+
+        {/* Meta Description */}
+        <meta
+          name="description"
+          content="Chat with your study PDFs and get instant, exam-ready answers. Ask questions from notes, understand PYQs, and revise faster for CBSE exams using AI."
+        />
+
+        {/* Keywords */}
+        <meta
+          name="keywords"
+          content="
+          chat with pdf cbse,
+          ask questions from pdf,
+          pdf doubt solving,
+          ai chat with pdf,
+          cbse pdf revision,
+          study pdf question answering,
+          exam preparation from pdf,
+          topper style answers from notes,
+          last minute revision pdf
+          "
+        />
+
+        {/* Canonical */}
+        <link
+          rel="canonical"
+          href="https://lastminutepreparation.in/chat-with-pdf"
+        />
+
+        {/* Robots */}
+        <meta name="robots" content="index, follow" />
+
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta
+          property="og:title"
+          content="Chat with PDF for CBSE | Instant Exam-Ready Answers – LMP"
+        />
+        <meta
+          property="og:description"
+          content="Upload your CBSE notes and chat with PDFs to get topper-style, exam-ready answers instantly. Perfect for last-minute revision."
+        />
+        <meta
+          property="og:url"
+          content="https://lastminutepreparation.in/chat-with-pdf"
+        />
+        <meta
+          property="og:image"
+          content="https://lastminutepreparation.in/og-chat-with-pdf.png"
+        />
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content="Chat with PDF for CBSE Exams | LMP"
+        />
+        <meta
+          name="twitter:description"
+          content="Ask questions directly from your study PDFs and get exam-ready answers instantly. Built for CBSE students."
+        />
+        <meta
+          name="twitter:image"
+          content="https://lastminutepreparation.in/og-chat-with-pdf.png"
+        />
+      </Helmet>
       {!pdf ? (
         /* ===================== UPLOAD SCREEN ===================== */
         <div className="flex-1 overflow-y-auto">

@@ -52,7 +52,6 @@ router.post("/chapter-wise-study/doubt-solver",chapterWiseDoubtSolver);
 
 
 router.post("/important-question-generator",importantQuestionGenerator);
-router.post("/quiz-fillups",quizMcqFillupTrueFalse);
 router.post("/ask-any",upload.fields([
     {
         name:"image",
@@ -73,6 +72,8 @@ router.post("/image-analysis",upload.fields([
         maxCount:1
     }
 ]),diagramImageAnalysis);
+router.post("/quiz-fillups",quizMcqFillupTrueFalse);
+
 
 
 router.use(pdfUploadQuotaCheck);

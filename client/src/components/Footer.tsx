@@ -1,5 +1,6 @@
-import { Sparkles, Mail, Github, Twitter, Linkedin } from "lucide-react";
+import { Sparkles, Mail, Github, Twitter, Linkedin, Instagram } from "lucide-react";
 import { Link } from "react-router-dom";
+import logo from "../assets/logo.png";
 
 export const Footer = () => {
   return (
@@ -10,7 +11,7 @@ export const Footer = () => {
           <div className="lg:col-span-2 space-y-4">
             <Link to="/" className="flex items-center space-x-2">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-primary">
-                <Sparkles className="h-5 w-5 text-white" />
+               <img className="w-20" src={logo} alt="" />
               </div>
               <span className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 LastMinutePreparation
@@ -20,16 +21,16 @@ export const Footer = () => {
               AI-powered study assistant helping students achieve their academic goals with smart tools and resources.
             </p>
             <div className="flex space-x-4 pt-2">
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+              <a href="https://x.com/L202520886" target="_blank" className="text-muted-foreground hover:text-primary transition-colors">
                 <Twitter className="h-5 w-5" />
               </a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+              <a href="https://www.linkedin.com/in/lastminutepreparationai-lmp-7a2272395" target="_blank" className="text-muted-foreground hover:text-primary transition-colors">
                 <Linkedin className="h-5 w-5" />
               </a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-                <Github className="h-5 w-5" />
+              <a href="https://www.instagram.com/lastminutepreparation_2025" target="_blank" className="text-muted-foreground hover:text-primary transition-colors">
+                <Instagram className="h-5 w-5" />
               </a>
-              <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+              <a href="mailto:founder@lastminutepreparation.in" target="_blank" className="text-muted-foreground hover:text-primary transition-colors">
                 <Mail className="h-5 w-5" />
               </a>
             </div>

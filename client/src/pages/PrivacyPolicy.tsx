@@ -352,7 +352,7 @@ export default function PrivacyPolicyPage() {
                 <div className="space-y-2 text-sm sm:text-base text-muted-foreground">
                   <p className="flex items-start sm:items-center gap-2">
                     <Mail className="h-4 w-4 text-emerald-400 mt-0.5 sm:mt-0 flex-shrink-0" />
-                    <span className="break-all">Email: <a href="mailto:founder@lastminutepreparation.com" className="text-emerald-400 hover:text-emerald-300 underline">founder@lastminutepreparation.com</a></span>
+                    <span className="break-all">Email: <a href="mailto:founder@lastminutepreparation.in" className="text-emerald-400 hover:text-emerald-300 underline">founder@lastminutepreparation.in</a></span>
                   </p>
                   <p className="flex items-start sm:items-center gap-2">
                     <Shield className="h-4 w-4 text-emerald-400 mt-0.5 sm:mt-0 flex-shrink-0" />
