@@ -18,35 +18,94 @@ export const diagramImageAnalysis = asyncHandler(async (req, res) => {
   const cacheKey = `lmp:diagram:${jobId}`;
   const pendingKey = `lmp:diagram:pending:${jobId}`;
 
-  // 🔹 FAST PATH (Redis hit)
-  const cached = await redis.get(cacheKey);
-  if (cached) {
-    return res.status(200).json({
-      success: true,
-      aiResponse: cached.aiResponse,
-      mode_used: cached.mode_used,
-      labels: cached.labels,
-      extractedText: cached.extractedText,
-    });
+  // -------------------------------------------------------------------
+  // 1️⃣ CHECK REDIS (FASTEST PATH)
+  // -------------------------------------------------------------------
+  try {
+    const cached = await redis.get(cacheKey);
+    
+    if (cached) {
+      let finalData;
+
+      if (typeof cached === "object") {
+        finalData = cached;
+      } else {
+        try {
+          finalData = JSON.parse(cached);
+        } catch (err) {
+          await redis.del(cacheKey); // corrupted → delete
+        }
+      }
+
+      if (finalData) {
+        return res.status(200).json({
+          success: true,
+          aiResponse: finalData.aiResponse,
+          mode_used: finalData.mode_used,
+          labels: finalData.labels,
+          extractedText: finalData.extractedText,
+        });
+      }
+    }
+  } catch (err) {
+    console.error("Redis GET error:", err);
   }
 
-  // 🔹 If not pending → queue job
-  const isPending = await redis.get(pendingKey);
-  if (!isPending) {
-    await redis.set(pendingKey, "1", { EX: 120 });
-
-    await inngest.send({
-      name: "lmp/generate.diagramAnalysis",
-      data: {
+  // -------------------------------------------------------------------
+  // 2️⃣ CHECK IF ALREADY PENDING (BEFORE ACQUIRING LOCK)
+  // -------------------------------------------------------------------
+  try {
+    const isPending = await redis.get(pendingKey);
+    
+    if (isPending) {
+      // Job already queued by another request
+      return res.status(202).json({
+        success: true,
+        message: "Diagram analysis already in progress",
         jobId,
-        imageBuffer: buffer.toString("base64"),
-      },
-    });
+      });
+    }
+  } catch (err) {
+    console.error("Redis pending check error:", err);
   }
 
-  return res.status(202).json({
-    success: true,
-    message: "Diagram analysis queued",
-    jobId,
-  });
+  // -------------------------------------------------------------------
+  // 3️⃣ ACQUIRE LOCK AND TRIGGER JOB
+  // -------------------------------------------------------------------
+  try {
+    const lockAcquired = await redis.set(
+      pendingKey,
+      "1",
+      { NX: true, EX: 120 } // 2 min lock (matches your original EX time)
+    );
+
+    if (lockAcquired) {
+      await inngest.send({
+        name: "lmp/generate.diagramAnalysis",
+        data: {
+          jobId,
+          imageBuffer: buffer.toString("base64"),
+        },
+      });
+
+      return res.status(202).json({
+        success: true,
+        message: "Diagram analysis queued",
+        jobId,
+      });
+    } else {
+      // Lock was acquired by another request in the microseconds between check and set
+      return res.status(202).json({
+        success: true,
+        message: "Diagram analysis already in progress",
+        jobId,
+      });
+    }
+  } catch (err) {
+    console.error("Redis lock error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to queue diagram analysis",
+    });
+  }
 });

@@ -16,7 +16,7 @@ export const summarizerFn = inngest.createFunction(
   {
     id: "summarizer-job",
     name: "Generate Topic Summary",
-    retries:1,
+    retries:0,
   },
   { event: "lmp/generate.summarizer" },
   async ({ event, step }) => {
@@ -86,16 +86,42 @@ ${extractedText || "(none)"}
 Detected Image Labels:
 ${labels.join(", ") || "(none)"}
 
-----------------------------------
-STRICT LANGUAGE RULE:
-If the subject is Hindi  → then deep read the chapter first then answer the question ONLY in Hindi.
-If the subject is Sanskrit  → then deep read the chapter first then answer the question ONLY in Sanskrit and must strictly answer in 3 lines only, it can less then 3 but not more than 3 strictly.
-Otherwise → answer ONLY in English. DO NOT USE Hindi for English or any other subject.
-If this rule is violated, regenerate the answer.
+====================================================
+LANGUAGE POLICY (ABSOLUTE — SUBJECT-LOCKED)
+====================================================
 
-Language Subject Rules: 
-- If subject is hindi then deep read the chapter then answer the question in hindi only
-- If subject is Sanskrit then first read the chapter then answer 2-3 lines if possible not more than this. It should be simple and concise 
+Language is STRICTLY determined by the subject.
+Cross-language output is STRICTLY FORBIDDEN.
+
+SUBJECT → LANGUAGE MAPPING (MANDATORY):
+
+1) If Subject is "Hindi":
+   - ALL content MUST be written ONLY in PURE, STANDARD HINDI.
+   - Use formal CBSE/NCERT academic Hindi only.
+   - DO NOT include any English or Sanskrit words.
+   - DO NOT use Hinglish or transliterated English.
+
+2) If Subject is "Sanskrit":
+   - ALL content MUST be written ONLY in PURE CLASSICAL SANSKRIT.
+   - Use correct Sanskrit grammar, vocabulary, विभक्ति, and verb forms.
+   - DO NOT use Hindi words, Hindi sentence structure, or modern phrasing.
+   - DO NOT include English words or transliteration.
+   - MUST be in 2-3 lines only (never more than 3 lines).
+
+3) For ALL OTHER subjects (Science, Maths, SST, Physics, Chemistry, Biology, etc.):
+   - ALL content MUST be written ONLY in STANDARD ACADEMIC ENGLISH.
+   - DO NOT include Hindi, Sanskrit, or any regional language.
+   - DO NOT use Hinglish or translated phrases.
+
+FORBIDDEN (ZERO TOLERANCE):
+- Mixing languages in any form.
+- Transliteration (e.g., "kya", "arth", "vidhya", "kathan", etc.).
+- Subject-language mismatch (e.g., English answers for Hindi subject).
+- Bilingual phrasing or explanations.
+
+AUTO-REGENERATION RULE (MANDATORY):
+- If ANY word, phrase, grammar pattern, or sentence structure violates the subject-language rule,
+  → IMMEDIATELY discard and regenerate the entire output.
 
 ----------------------------------
 DIFFICULTY LEVEL APPLICATION (MANDATORY)
@@ -143,6 +169,109 @@ GENERAL ANSWER RULES
 - Bold only very important keywords and terms — not the whole line.
 - Maintain natural flow like exam writing, not like a textbook.
 
+====================================================
+UNIVERSAL FORMULA & LaTeX RULES (MANDATORY)
+====================================================
+
+1) ABSOLUTE LaTeX MANDATE:
+- EVERY mathematical expression MUST be written in LaTeX.
+- Use inline math: $...$ for simple expressions.
+- Use display math: $$...$$ for equations, derivations, chemical reactions.
+- NEVER use \\( ... \\) or \\[ ... \\].
+- Each equation in a derivation must be in its own $$ block.
+
+2) LaTeX COMMAND CONTAINMENT RULE (MANDATORY):
+- ANY LaTeX command (token starting with backslash \\) is FORBIDDEN outside math mode.
+- Examples of forbidden commands outside $...$ or $$...$$:
+  \\mathbb, \\times, \\to, \\cap, \\cup, \\in, \\subset, \\subseteq, \\Rightarrow
+- ALL LaTeX commands MUST appear ONLY inside $...$ or $$...$$.
+- If ANY backslash-command appears outside math delimiters → REGENERATE.
+
+3) PLAIN-TEXT MATH TOKEN BAN:
+- FORBIDDEN outside LaTeX:
+  sin, cos, tan, sec, cosec, cot, sin^-1, cos^-1, tan^-1
+  frac, sqrt, leq, geq, <=, >=, pi, theta, mu
+  ^ as plain text, |x|, mod, modulus
+  ANY raw backslash commands
+
+4) NORMALIZATION & SANITIZATION (MANDATORY):
+- Always convert in LaTeX:
+  q1 → q_1, q2 → q_2, r2 → r^{2}, r3 → r^{3}
+  Qenc → Q_{enc}, Phi → \\Phi, phi → \\phi, theta → \\theta
+  pi → \\pi, mu → \\mu
+
+- FORBIDDEN notations:
+  (E), (V), (Phi), (phi), (p), (Phi_E) in equations
+  Any parentheses around standalone symbols
+  Units inside $$ blocks
+
+5) FORMULA COMPLETENESS VALIDATION:
+For EVERY $$ block, ensure:
+- Balanced $$ pairs
+- Exactly ONE equation per block (except systems of inequalities)
+- Balanced { } and ( ) parentheses
+- No stray backslashes
+- No truncated LaTeX tokens
+- Formula contains at least one operator (=, \\frac, ^, _, \\cdot, etc.)
+
+If ANY check fails → REGENERATE ENTIRE OUTPUT.
+
+----------------------------------
+CHEMISTRY SPECIFIC RULES
+----------------------------------
+For Chemistry subjects ONLY:
+
+1) CHEMICAL FORMULAS:
+   - Simple formulas: $H_2O$, $CO_2$, $CH_4$
+   - Complex formulas: $K_2Cr_2O_7$, $MnO_4^-$, $CrO_4^{2-}$
+   - Ions: $Na^+$, $Cl^-$, $SO_4^{2-}$
+
+2) CHEMICAL EQUATIONS:
+   - MUST be in $$ blocks ONLY
+   - Use proper arrows: \\to, \\rightarrow, \\rightleftharpoons
+   - Example: $$2H_2 + O_2 \\to 2H_2O$$
+   - Conditions: $$2KMnO_4 \\xrightarrow{\\Delta} K_2MnO_4 + MnO_2 + O_2$$
+
+3) FORBIDDEN in Chemistry:
+   - Plain text formulas (H2O, CO2)
+   - Text inside $$ blocks
+   - Missing subscripts/superscripts
+
+----------------------------------
+STATISTICS RULES
+----------------------------------
+If answer involves statistical data:
+- Present data in proper markdown table format
+- Table format:
+  | Column1 | Column2 |
+  |---------|---------|
+  | Data1   | Data2   |
+- Each row on its own line
+- Exactly one blank line after table
+- If data is ungrouped → convert to frequency table first
+
+----------------------------------
+LOGICAL & SYMBOLIC NOTATION RULE
+----------------------------------
+For Mathematics, Logic, Proofs:
+
+1) Logical symbols MUST be in LaTeX:
+   - Negation: $\\neg p$
+   - Implication: $p \\Rightarrow q$
+   - If and only if: $p \\Leftrightarrow q$
+   - For all: $\\forall$
+   - There exists: $\\exists$
+   - Element of: $\\in$, $\\notin$
+   - Subset: $\\subset$, $\\subseteq$
+
+2) NEVER write logical symbols as plain text:
+   ❌ Wrong: not p, implies, contradiction
+   ✅ Correct: $\\neg p$, $p \\Rightarrow q$, $\\bot$
+
+3) Examples (CORRECT):
+   "Proof by contradiction assumes $\\neg p$ and derives $\\bot$."
+   "An implication $p \\Rightarrow q$ is false only when $p$ is true and $q$ is false."
+
 ----------------------------------
 SPECIAL CASE — DERIVATION / NUMERICAL / MATHS
 ----------------------------------
@@ -177,6 +306,14 @@ DERIVATION STRICTNESS
 ✔️ Each equation in a derivation must be on a separate $$ block.
 ✔️ Never write multiple formulas in one $$ block.
 
+INEQUALITIES & SYSTEMS:
+- For a system of inequalities, use ONE display math block with each inequality on a new line:
+  $$
+  x + 2y \\leq 10 \\\\
+  3x + y \\geq 5 \\\\
+  x \\geq 0, \\; y \\geq 0
+  $$
+
 ----------------------------------
 ADDITIONAL VALIDATIONS (EXTREMELY IMPORTANT)
 ----------------------------------
@@ -189,48 +326,46 @@ ADDITIONAL VALIDATIONS (EXTREMELY IMPORTANT)
 ❌ Never use brackets like ( \\vec{E} ), [ \\vec{E} ], or \\( \\vec{E} \\).
 ❌ Never escape slashes like \\\\vec or \\ldots.
 
-----------------------------------
-UNIVERSAL FORMULA & FRONTEND RENDERING RULES
-----------------------------------
+====================================================
+FINAL SELF-VALIDATION CHECKLIST (MANDATORY)
+====================================================
 
-ABSOLUTE LATEX MANDATE:
-- Every mathematical expression MUST be written using LaTeX and wrapped in $...$ or $$...$$.
+Before returning output, SCAN ENTIRE ANSWER and verify ALL:
 
-LATEX DELIMITER RESTRICTION:
-- NEVER use \\( \\) or \\[ \\].
-- Inline → $...$
-- Display → $$...$$
+LANGUAGE:
+✓ Language matches subject exactly (Hindi/Sanskrit/English)
+✓ No mixed language or transliteration
+✓ For Sanskrit: 2-3 lines only (never more than 3)
 
-LATEX COMMAND CONTAINMENT RULE:
-- ANY LaTeX command (\\alpha, \\mu, \\sin, etc.) is FORBIDDEN outside math mode.
+LaTeX & MATH:
+✓ All math expressions in $...$ or $$...$$
+✓ NO LaTeX commands outside math delimiters
+✓ NO plain-text math tokens (sin, cos, etc.)
+✓ Chemical formulas properly wrapped in $...$ or $$...$$
+✓ Normalization applied (q1 → q_1, etc.)
+✓ No units or text inside $$ blocks
+✓ Balanced braces and delimiters
 
-PLAIN-TEXT MATH TOKEN BAN:
-- sin, cos, tan, frac, sqrt, <=, >=, pi, mu, theta, ^, |x| are FORBIDDEN outside LaTeX.
+CONTENT:
+✓ Difficulty level applied correctly (Easy/Medium/Hard)
+✓ Answer depth matches difficulty
+✓ Multiple parts answered completely
+✓ Minimum 4 points for properties/advantages lists
+✓ No unnecessary theory or introduction
 
-INEQUALITIES:
-- Multiple inequalities → ONE $$ block, each on a new line.
+FORMATTING:
+✓ No markdown headings (#), code blocks, or backticks
+✓ Proper line breaks for readability
+✓ Tables in markdown format with proper spacing
+✓ Statistics data in frequency tables if ungrouped
+✓ No escaped \\n in text
 
-CHEMICAL EQUATIONS:
-- ONLY $$ ... $$ allowed.
+OUTPUT:
+✓ Direct answer without meta phrases
+✓ Clean, topper-style writing
+✓ Valid for Markdown+KaTeX rendering
 
-STATISTICS:
-- Use proper markdown tables.
-- Ungrouped data → convert to frequency table first.
-- Leave exactly one blank line after tables.
-
-NEWLINES:
-- NEVER use escaped \\n.
-
-MARKDOWN:
-- Allowed ONLY for line breaks, bullet points, and tables.
-- NO headings, NO code blocks.
-
-----------------------------------
-FINAL SELF-CHECK (MANDATORY)
-----------------------------------
-- If ANY backslash command appears outside $...$ or $$...$$ → regenerate.
-- If ANY math appears outside LaTeX → regenerate.
-- If ANY rule is violated → regenerate internally until fully compliant.
+If ANY rule is violated → REGENERATE COMPLETELY until fully compliant.
 
 ----------------------------------
 OUTPUT
@@ -243,28 +378,21 @@ Only the topper-style answer. Nothing else.
 
       const ai = await step.run("OpenAI", async () =>
         openai.responses.create({
-          model: "gpt-5-mini",
+          model: "gpt-4o-mini",
           input: safePrompt,
           max_output_tokens: 800,
         })
       );
 
-      const cleanedOutput = ai.output_text
-        .replace(/\r/g, "")
-        .replace(/[\u200B-\u200F\uFEFF]/g, "")
-        .replace(/\n{3,}/g, "\n")
-        .trim();
-
-      // 💾 SAVE RESULT (TTL = 24 HOURS)
+  
       await step.run("Save Redis", async () => {
         await redis.set(
           cacheKey,
-          { summary: cleanedOutput },
+          { summary: ai.output_text },
           { EX: 60 * 60 * 24 }
         );
       });
 
-      await redis.del(pendingKey);
       return { success: true };
     } catch (err) {
       await redis.del(pendingKey);

@@ -68,7 +68,7 @@ const QuestionOutput = ({ content }) => {
         className="question-output-wrapper
           prose max-w-none text-[16px] leading-[1.75]
 
-          [&>p]:mt-1 [&>p]:mb-1
+          [&>p]:mt-4 [&>p]:mb-4
           [&>ul]:mt-5 [&>ul]:mb-5
           [&>ol]:mt-5 [&>ol]:mb-5
           [&_li]:my-1.5

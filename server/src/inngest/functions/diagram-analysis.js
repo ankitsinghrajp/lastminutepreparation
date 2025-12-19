@@ -164,7 +164,7 @@ OUTPUT: Only the topper-style diagram explanation. Nothing else.
       // 4️⃣ OpenAI
       const ai = await step.run("OpenAI Call",async () =>
         openai.responses.create({
-          model: "gpt-5-mini",
+          model: "gpt-4o-mini",
           input: prompt,
           max_output_tokens: 800,
         })

@@ -8,7 +8,7 @@ export const quizMcqFillupTrueFalseFn = inngest.createFunction(
   {
     name: "Generate Quiz (MCQ, Fillups, True/False)",
     id: "quiz-mcq-fillup-truefalse",
-    retries:1,
+    retries:0,
   },
   { event: "lmp/generate.quizMcqFillupTrueFalse" },
   async ({ event, step }) => {
@@ -68,39 +68,51 @@ STRICTLY from THIS chapter only.
 ⚠️ Accuracy Requirement: 99.9999%
 Questions MUST be:
 - Repeated in PYQs
-- NCERT-aligned
+- NCERT-back-exercise aligned
 - Teacher-predicted
 - Almost guaranteed to appear in exams
 
-❌ Do NOT generate rare, creative, or low-probability questions.
+❌ Do NOT generate low-probability, rare, creative, or filler questions.
+
+Questions must be exam-ready, complete, and in the same style and rigor as NCERT back exercises 
+and official CBSE PYQs.
 
 ====================================================
-QUESTION COUNT
+QUESTION COUNT & DISTRIBUTION (ABSOLUTE)
 ====================================================
-- Generate questions exactly as required by the current system.
-- Do NOT change JSON structure.
-- Do NOT add or remove keys.
-- Do NOT add extra objects or fields.
+- mcq → 7
+- fillup → 4
+- true_false → 4
+- TOTAL questions = EXACTLY 15
+- questions array MUST contain exactly 15 objects
+- Do NOT change JSON structure
+- Do NOT add or remove keys
+- Do NOT add extra objects or fields
+- If count mismatches → REGENERATE
 
 ====================================================
 DIFFICULTY LEVEL APPLICATION (MANDATORY)
 ====================================================
 If Difficulty = Easy:
-- Direct questions
-- Basic concepts
-- Simple logic
+- Simple definitions, direct theory, basic numericals
+- Direct questions, basic concepts, simple logic
+- Suitable for average CBSE students
 
 If Difficulty = Medium:
+- Standard board-level questions
 - Standard CBSE board-level depth
-- Concept + application
+- Conceptual + application based
 
 If Difficulty = Hard:
+- High-weightage derivations and numericals
 - High-rigor, exam-trap questions
 - Multi-step thinking
+- Toppers-only preparation questions
 
 ⚠️ Difficulty affects ONLY:
 - Depth
 - Complexity
+- Steps expected
 
 ⚠️ Difficulty MUST NOT affect:
 - Language rules
@@ -122,7 +134,7 @@ SUBJECT → LANGUAGE MAPPING (MANDATORY):
    - ALL content MUST be written ONLY in PURE, STANDARD HINDI.
    - Use formal CBSE/NCERT academic Hindi only.
    - ❌ DO NOT include Sanskrit words or Sanskrit sentence structure.
-   - ❌ DO NOT include English words.
+   - ❌ DO NOT include any English words.
    - ❌ DO NOT use Hinglish or transliteration.
 
 2) If Subject is "Sanskrit":
@@ -140,15 +152,23 @@ SUBJECT → LANGUAGE MAPPING (MANDATORY):
    - ❌ DO NOT use Hinglish or translated phrases.
 
 FORBIDDEN (ZERO TOLERANCE):
-- Mixing Hindi and Sanskrit in any form.
-- Transliteration (kya, arth, vidhya, etc.).
-- Subject-language mismatch.
-- Bilingual phrasing.
+- Mixing languages in any form
+- Mixing Hindi and Sanskrit in any form
+- Transliteration (e.g., "kya", "arth", "vidhya", "kathan", etc.)
+- Bilingual phrasing or explanations
+- Subject-language mismatch (e.g., English questions for Hindi subject)
 
-AUTO-REGENERATION RULE:
-If ANY word, phrase, grammar pattern, or sentence structure
-violates the subject-language rule
-→ IMMEDIATELY discard and regenerate the entire output.
+AUTO-REGENERATION RULE (MANDATORY):
+If ANY word, phrase, grammar pattern, or sentence structure violates the 
+subject-language rule → IMMEDIATELY discard and regenerate the entire output.
+
+====================================================
+CHAPTER–TOPIC ISOLATION
+====================================================
+- Content MUST belong strictly to the given chapter and its syllabus.
+- Do NOT introduce topics from other chapters or classes.
+- Context allowed ONLY if NCERT or PYQs use it.
+- Avoid unnecessary narrative/context unless NCERT or PYQ uses that context.
 
 ====================================================
 QUESTION TYPE RULES (STRONG — SUBJECT-AWARE)
@@ -160,10 +180,16 @@ MCQ RULES:
 - options MUST NOT appear for fillup or true_false
 - Exactly ONE correct option
 - Options language MUST follow subject language strictly
+- No one-line or vague questions
+
+FILLUP RULES:
+- answer MUST be a single word or short phrase
+- Must follow subject language strictly
+- If numerical data is required, provide complete data within the question
 
 TRUE/FALSE ANSWER VOCABULARY (MANDATORY):
 
-If Subject is "English / Maths / Science / SST":
+If Subject is "English / Maths / Science / SST / Physics / Chemistry / Biology":
 - answer MUST be EXACTLY one of:
   "True" or "False"
 
@@ -181,37 +207,223 @@ If Subject is "Sanskrit":
 - Yes / No
 - Any mixed-language form
 
-FILLUP RULES:
-- answer MUST be a single word or short phrase
-- Must follow subject language strictly
+MULTI-PART QUESTIONS:
+- Multi-part questions (a), (b), (c) are allowed; each sub-part MUST start on a new line.
+- Each sub-part (a),(b),(c) MUST begin on its own line and be clearly numbered.
 
 ====================================================
-UNIVERSAL FORMULA & FRONTEND RENDERING RULES
+UNIVERSAL FORMULA & MATH RULES (APPLY ALWAYS)
 ====================================================
 
 ABSOLUTE LATEX MANDATE:
-- EVERY mathematical expression MUST be written using LaTeX
-- Wrap ONLY in:
+- EVERY mathematical expression (equations, formulas, fractions, powers, subscripts,
+  trigonometric functions, inequalities, derivatives, integrals, chemical equations, units)
+  MUST be written using LaTeX
+- Wrap expressions ONLY in:
   • Inline math → $ ... $
   • Display math → $$ ... $$
 
-LATEX DELIMITER RESTRICTION:
+LATEX DELIMITER RESTRICTION (MANDATORY):
 - NEVER use \\( ... \\) or \\[ ... \\]
+- NEVER use escaped LaTeX delimiters \\( ... \\) or \\[ ... \\]
 - Inline math ONLY → $...$
 - Display math ONLY → $$...$$
+- Any \\(, \\), \\[, \\] → INVALID OUTPUT
+- If such delimiters appear, regenerate the output
 
-LATEX COMMAND CONTAINMENT RULE:
+LATEX COMMAND CONTAINMENT RULE (MANDATORY):
 - ANY LaTeX command starting with \\ is FORBIDDEN outside math mode
+- ANY LaTeX command (a token starting with backslash \\) is FORBIDDEN outside $...$ or $$...$$
+- Examples of forbidden commands outside math delimiters:
+  • \\mathbb
+  • \\times
+  • \\to
+  • \\cap
+  • \\cup
+  • \\in
+  • \\subset
+  • \\subseteq
+  • \\Rightarrow
+  • \\emptyset
+  • \\text
+- ALL such commands MUST appear ONLY inside $...$ or $$...$$.
+- If any backslash-command appears outside math delimiters, regenerate the output.
+
+PLAIN-TEXT MATH TOKEN BAN:
+- The following are STRICTLY FORBIDDEN outside LaTeX:
+  sin, cos, tan, sec, cosec, cot, sin^-1, cos^-1, tan^-1, sec^-1, cosec^-1, cot^-1,
+  frac, sqrt, leq, geq, <=, >=, pi, mu, theta, degree, ^ (as plain text),
+  |x|, mod, modulus, any raw backslash-commands not inside $...$ or $$...$$
+- Fractions MUST use \\frac{a}{b}; roots MUST use \\sqrt{}, trig functions must use \\sin, \\cos, etc.
+- Absolute value must use \\lvert x \\rvert or \\left| x \\right| inside LaTeX.
+
+INEQUALITIES & SYSTEMS:
+- Use ONE $$ block
+- Each inequality on a new line
+- For a system of inequalities, use ONE display math block with each inequality on a new line:
+  $$
+  x + 2y \\leq 10 \\\\
+  3x + y \\geq 5 \\\\
+  x \\geq 0, \\; y \\geq 0
+  $$
+
+────────────────────────────────────────
+CHEMICAL FORMULAS & EQUATIONS (Chemistry/Science)
+────────────────────────────────────────
+
+CHEMICAL EQUATIONS:
+- MUST be written ONLY in $$ ... $$
+
+FOR ALL CHEMICAL CONTENT IN QUESTIONS:
+
+1) SIMPLE CHEMICAL FORMULAS (in question text):
+   - Use INLINE math mode with subscripts/superscripts
+   - LaTeX backslashes MUST be DOUBLED in JSON strings: \\\\
+   - Examples in question text:
+     • Water: $H_2O$
+     • Sulfuric acid: $H_2SO_4$
+     • Potassium dichromate: $K_2Cr_2O_7$
+     • Permanganate ion: $MnO_4^-$
+     • Hydronium: $H_3O^+$
+     • Chromate: $CrO_4^{2-}$
+
+2) CHEMICAL EQUATIONS IN QUESTIONS:
+   - Use DISPLAY math mode for reactions: $$ ... $$
+   - LaTeX backslashes MUST be DOUBLED: \\\\
+   - Examples in question text:
+     • Simple reaction:
+       $$K_2Cr_2O_7 + H_2SO_4 \\\\to \\\\text{products}$$
+     • Equilibrium:
+       $$N_2 + 3H_2 \\\\rightleftharpoons 2NH_3$$
+     • With conditions:
+       $$\\ce{2KMnO_4 \\\\xrightarrow{\\\\Delta} K_2MnO_4 + MnO_2 + O_2}$$
+
+3) FORBIDDEN IN CHEMISTRY:
+   - NEVER write H2O, H2SO4, K2Cr2O7 as plain text without LaTeX
+   - NEVER write subscripts/superscripts without math delimiters
+   - NEVER use single backslashes in JSON (must be \\\\)
+   - NEVER use \\( or \\) delimiters
+
+4) CHEMISTRY QUESTION EXAMPLES:
+
+Example - Chemical equation question:
+"Balance the following chemical equation and identify the type of reaction:\\n\\n$$Fe + H_2O \\\\to Fe_3O_4 + H_2$$"
+
+Example - Stoichiometry question:
+"If 5.6 g of iron reacts with steam according to the equation:\\n\\n$$3Fe + 4H_2O \\\\to Fe_3O_4 + 4H_2$$\\n\\nCalculate the volume of hydrogen gas produced at STP."
+
+Example - Chemical formula question:
+"Write the chemical formula for: (a) Sodium carbonate (b) Calcium phosphate (c) Potassium permanganate"
+
+5) JSON ESCAPING FOR CHEMISTRY:
+   - All chemical formulas with subscripts: $H_2O$, $K_2Cr_2O_7$
+   - Arrow commands in equations: \\\\to, \\\\rightarrow, \\\\rightleftharpoons
+   - Special chemistry: \\ce{}, \\\\xrightarrow{}, \\\\Delta
+   - Text in equations: \\\\text{PCC}, \\\\text{products}
+
+PATTERN IN ALL EXAMPLES:
+- Chemical formulas always wrapped in $...$ or $$...$$
+- Subscripts use _
+- Superscripts use ^
+- LaTeX commands always have doubled backslashes: \\\\
+- Reactions use display math: $$...$$
+
+────────────────────────────────────────
+CHEMISTRY VALIDATION CHECKLIST
+────────────────────────────────────────
+
+Before returning JSON with chemistry content:
+
+1. ✓ All chemical formulas wrapped in $...$ or $$...$$
+2. ✓ All LaTeX backslashes are DOUBLED (\\\\)
+3. ✓ NO plain-text chemical formulas (H2O, CO2, etc.)
+4. ✓ Subscripts use _ and superscripts use ^
+5. ✓ Arrows use \\\\to, \\\\rightarrow, or \\\\rightleftharpoons
+6. ✓ Chemical reactions use display math: $$...$$
+7. ✓ All strings use double quotes, not single quotes
+8. ✓ Newlines use \\n, not literal breaks
+9. ✓ Valid JSON structure with no trailing commas
+
+If ANY chemistry validation fails → REGENERATE
+
+────────────────────────────────────────
+LOGICAL & SYMBOLIC NOTATION RULE (MANDATORY)
+────────────────────────────────────────
+
+This section applies to subjects like Mathematics, Logic, Discrete Math,
+Reasoning, Proofs, and Theoretical concepts.
+
+1) Logical symbols such as:
+   ¬  (negation)
+   ⇒  (implies)
+   ⇔  (if and only if)
+   ⊥  (contradiction)
+   ∀  (for all)
+   ∃  (there exists)
+   ∈, ∉, ⊆, ⊂
+
+   MUST ALWAYS be written in LaTeX form and MUST be wrapped in $...$ 
+   when they appear in the explanation field.
+
+2) NEVER write logical symbols as plain text.
+   ❌ Wrong: not p, negp, implies, contradiction
+   ✅ Correct: $\\neg p$, $p \\Rightarrow q$, $\\bot$
+
+3) If a topic involves logic or proofs:
+   - Use symbolic expressions ONLY inside $...$ in explanation.
+   - Do NOT place logical expressions in the formula field.
+   - The formula field should be "" unless the chapter explicitly
+     defines a standard formula.
+
+4) Examples (CORRECT):
+
+   Explanation:
+   "Proof by contradiction assumes $\\neg p$ and derives $\\bot$."
+
+   Explanation:
+   "An implication $p \\Rightarrow q$ is false only when $p$ is true and $q$ is false."
+
+5) Examples (WRONG):
+
+   "Assume negp and derive contradiction"
+   "p implies q"
+   "not p leads to bottom"
+
+If logical symbols are required and not written in LaTeX → REGENERATE.
 
 ====================================================
-QUESTION COUNT & DISTRIBUTION (ABSOLUTE)
+STATISTICS / TABLES
 ====================================================
-- mcq → 7
-- fillup → 4
-- true_false → 4
-- TOTAL questions = EXACTLY 15
-- questions array MUST contain exactly 15 objects
-- If count mismatches → REGENERATE
+- If statistics involved → ALWAYS use markdown table
+- If question involves statistics (mean, median, mode, variance, SD, frequency),
+  → ALWAYS present data in a markdown table.
+- Ungrouped data → convert to frequency table FIRST
+- If data is ungrouped, FIRST convert to a frequency table.
+- Leave exactly ONE blank line after every table
+- After every table include exactly one blank line before the following text.
+- Tables MUST be proper markdown tables with each row on its own line.
+
+====================================================
+NEWLINES & ESCAPED CHARACTERS
+====================================================
+- In JSON strings, use \\n for newlines (this is standard JSON escaping)
+- NEVER use escaped math delimiters like \\( or \\) — use $ or $$ only.
+- Do NOT escape math delimiters
+
+====================================================
+MARKDOWN RULES
+====================================================
+- Markdown allowed ONLY for:
+  • line breaks
+  • bullet points
+  • markdown tables
+  • sub-parts formatting
+- Use markdown formatting for structure: line breaks, sub-parts, and tables.
+- Each question should be properly formatted markdown text.
+- NO headings (#)
+- NO code blocks (\`\`\`)
+- NO blockquotes (>)
+- Mathematical content MUST be in LaTeX ($...$ or $$...$$), not markdown.
 
 ====================================================
 OUTPUT JSON STRUCTURE (STRICT — DO NOT CHANGE)
@@ -232,16 +444,63 @@ OUTPUT JSON STRUCTURE (STRICT — DO NOT CHANGE)
   ]
 }
 
+IMPORTANT NOTES:
+- "options" field is REQUIRED ONLY for type "mcq"
+- "options" field MUST NOT appear for type "fillup" or "true_false"
+- For MCQ: answer must be one of the options (A, B, C, or D)
+- For fillup: answer is the fill-in text
+- For true_false: answer must follow TRUE/FALSE ANSWER VOCABULARY rules above
+
 ====================================================
 FINAL SELF-VALIDATION (MANDATORY)
 ====================================================
 Before returning JSON:
-- Check JSON validity
-- Check NO extra keys
-- Check Sanskrit ≠ Hindi strictly
-- Check true/false vocabulary per subject
-- Check LaTeX safety
-- Check question type vs options rule
+
+1. ✓ Check TOTAL questions = EXACTLY 15 (7 mcq + 4 fillup + 4 true_false)
+2. ✓ Check questions array contains exactly 15 objects
+3. ✓ Check NO extra or missing keys in JSON structure
+4. ✓ Check each question has correct fields for its type:
+   - MCQ: id, type, question, options (array of 4), answer
+   - Fillup: id, type, question, answer (NO options field)
+   - True/False: id, type, question, answer (NO options field)
+5. ✓ Check language rules:
+   - Subject-language match verified
+   - No language mixing
+   - No transliteration
+   - Sanskrit ≠ Hindi strictly enforced
+6. ✓ Check true/false vocabulary per subject:
+   - English subjects: "True" or "False"
+   - Hindi: "सत्य" or "असत्य"
+   - Sanskrit: "आम्" or "न"
+7. ✓ Check LaTeX rules:
+   - All math in $...$ or $$...$$
+   - NO \\( \\) \\[ \\] delimiters
+   - All backslash commands inside math mode only
+   - NO plain-text math tokens
+8. ✓ Check chemistry rules (if applicable):
+   - All formulas in LaTeX
+   - Doubled backslashes in JSON (\\\\)
+   - No plain-text chemical formulas
+9. ✓ Check logical notation (if applicable):
+   - All logical symbols in LaTeX
+   - Wrapped in $...$
+10. ✓ Check tables (if statistics questions):
+    - Proper markdown tables
+    - Blank line after each table
+11. ✓ Check markdown formatting:
+    - No code blocks, headings, or blockquotes
+    - Proper sub-part formatting
+12. ✓ Check frontend safety:
+    - Valid JSON structure
+    - No trailing commas
+    - Proper escaping (\\n for newlines in JSON)
+13. ✓ Scan the ENTIRE output:
+    - If ANY backslash-command (\\mathbb, \\cap, \\emptyset, \\text, etc.)
+      appears OUTSIDE $...$ or $$...$$ → REGENERATE
+    - If ANY mathematical symbol appears outside LaTeX → REGENERATE
+    - If ANY rule is violated → REGENERATE internally until compliant
+
+Return output ONLY after passing ALL checks.
 
 If ANY rule is violated → REGENERATE INTERNALLY.
 
@@ -249,15 +508,15 @@ If ANY rule is violated → REGENERATE INTERNALLY.
 OUTPUT
 ====================================================
 Return ONLY valid JSON. NOTHING ELSE.
+Output MUST be fully compatible with a Markdown+KaTeX renderer.
 `;
-
 
 
       // -------------------------------------------------------------------
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
       const aiRaw = await step.run("Call OpenAI", async () => {
-        return await askOpenAI(prompt, "gpt-5-mini", {
+        return await askOpenAI(prompt, "gpt-5.1", {
   response_format: { type: "json_object" }
      });
       });
@@ -267,12 +526,9 @@ Return ONLY valid JSON. NOTHING ELSE.
       // -------------------------------------------------------------------
       let finalQuestions;
       try {
-        const cleaned = aiRaw
-          .replace(/```json/g, "")
-          .replace(/```/g, "")
-          .trim();
+      
 
-        finalQuestions = JSON.parse(cleaned);
+        finalQuestions = JSON.parse(aiRaw);
 
         const requiredFields = ["questions"];
         const missingFields = requiredFields.filter(
@@ -315,8 +571,6 @@ Return ONLY valid JSON. NOTHING ELSE.
           EX: 60 * 60 * 24 * 2,
         });
       });
-
-      await redis.del(pendingKey);
 
       return { source: "generated" };
     } catch (err) {

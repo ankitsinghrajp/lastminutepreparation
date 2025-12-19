@@ -7,6 +7,10 @@ const api = createApi({
         baseUrl: `${server}/api/v1/`,
         prepareHeaders: (headers) => {
         headers.set("Content-Type", "application/json");
+
+         if (window.__LMP_POLLING__ === true) {
+          headers.set("x-lmp-poll", "1");
+    }
         return headers;
     }
     }),

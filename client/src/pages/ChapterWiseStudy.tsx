@@ -225,7 +225,10 @@ export default function ChapterWiseStudy() {
   const pollData = async (stepKey, fetcher, setter, dataKey, params, pollInterval) => {
     pollIntervalRefs.current[stepKey] = setInterval(async () => {
       try {
-        const res = await fetcher(null, params);
+          window.__LMP_POLLING__ = true;
+          const res = await fetcher(null, params);
+          window.__LMP_POLLING__ = false;
+  
         if (res?.data?.statusCode === 200) {
           if (dataKey === "fullData") {
             // For mindmap which returns the entire data object

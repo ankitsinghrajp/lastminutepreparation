@@ -33,15 +33,19 @@ const createMongoLimiter = (maxRequests) =>
     windowMs: ONE_MONTH,
     max: maxRequests,
     keyGenerator,
+     skip: (req) => {
+      return req.headers["x-lmp-poll"] === "1";
+    },
+
     handler: defaultHandler,
     standardHeaders: true,
     legacyHeaders: false,
   });
 
 // ✅ Plan-based limiters
-export const freeLimiter = createMongoLimiter(100);   // 40 / month
-export const basicLimiter = createMongoLimiter(700); // 700 / month
-export const proLimiter = createMongoLimiter(1000);   // 1000 / month
+export const freeLimiter = createMongoLimiter(40);   // 40 / month
+export const basicLimiter = createMongoLimiter(500); // 700 / month
+export const proLimiter = createMongoLimiter(800);   // 1000 / month
 
 // ✅ Login limiter
 export const loginLimiter = rateLimit({
@@ -76,7 +80,6 @@ export const registerLimiter = rateLimit({
 // ✅ Apply limiter by plan
 export const rateLimitByPlan = (req, res, next) => {
   const plan = req.user?.planType || "FREE";
-
   if (plan === "PRO") return proLimiter(req, res, next);
   if (plan === "BASIC") return basicLimiter(req, res, next);
 

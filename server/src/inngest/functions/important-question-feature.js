@@ -8,7 +8,7 @@ export const importantQuestionGeneratorFn = inngest.createFunction(
   {
     name: "Generate Important Question Set",
     id: "important-question-generator",
-    retries: 1,
+    retries: 0,
   },
   { event: "lmp/generate.importantQuestions" },
   async ({ event, step }) => {
@@ -50,7 +50,6 @@ export const importantQuestionGeneratorFn = inngest.createFunction(
         return { source: "database" };
       }
 
- // 2️⃣ PREPARE PROMPT (UNTOUCHED)
 const prompt = `
 You are an API that returns ONLY valid JSON. No extra text, no explanation outside JSON.
 
@@ -72,6 +71,9 @@ These questions MUST be:
 - Almost guaranteed to appear in exams
 
 ❌ Do NOT generate low-probability, rare, creative, or filler questions.
+
+Questions must be exam-ready, complete, and in the same style and rigor as NCERT back exercises 
+and official CBSE PYQs.
 
 ====================================================
 QUESTION COUNT (ABSOLUTE)
@@ -128,73 +130,236 @@ SUBJECT → LANGUAGE MAPPING (MANDATORY):
    - DO NOT use Hindi words, Hindi sentence structure, or modern phrasing.
    - DO NOT include English words or transliteration.
 
-3) For ALL OTHER subjects:
+3) For ALL OTHER subjects (Science, Maths, SST, Physics, Chemistry, Biology, etc.):
    - ALL content MUST be written ONLY in STANDARD ACADEMIC ENGLISH.
    - DO NOT include Hindi, Sanskrit, or any regional language.
    - DO NOT use Hinglish or translated phrases.
 
 FORBIDDEN (ZERO TOLERANCE):
-- Mixing languages
-- Transliteration (kya, arth, vidhya, etc.)
-- Bilingual phrasing
-- Subject-language mismatch
+- Mixing languages in any form
+- Transliteration (e.g., "kya", "arth", "vidhya", "kathan", etc.)
+- Bilingual phrasing or explanations
+- Subject-language mismatch (e.g., English questions for Hindi subject)
 
-AUTO-REGENERATION RULE:
-If ANY language rule is violated → REGENERATE ENTIRE OUTPUT.
+AUTO-REGENERATION RULE (MANDATORY):
+If ANY word, phrase, grammar pattern, or sentence structure violates the 
+subject-language rule → IMMEDIATELY discard and regenerate the entire output.
 
 ====================================================
 CHAPTER–TOPIC ISOLATION
 ====================================================
-- Content MUST belong strictly to the given chapter.
+- Content MUST belong strictly to the given chapter and its syllabus.
 - Do NOT introduce topics from other chapters or classes.
 - Context allowed ONLY if NCERT or PYQs use it.
+- Avoid unnecessary narrative/context unless NCERT or PYQ uses that context.
+
+====================================================
+QUESTION FORMAT
+====================================================
+- No one-line or vague questions.
+- Multi-part questions (a), (b), (c) are allowed; each sub-part MUST start on a new line.
+- Each sub-part (a),(b),(c) MUST begin on its own line and be clearly numbered.
+- If numerical data is required, provide complete data within the question.
 
 ====================================================
 UNIVERSAL FORMULA & MATH RULES (APPLY ALWAYS)
 ====================================================
 
 ABSOLUTE LATEX MANDATE:
-- EVERY mathematical expression MUST be written using LaTeX
+- EVERY mathematical expression (equations, formulas, fractions, powers, subscripts,
+  trigonometric functions, inequalities, derivatives, integrals, chemical equations, units)
+  MUST be written using LaTeX
 - Wrap expressions ONLY in:
   • Inline math → $ ... $
   • Display math → $$ ... $$
 
 LATEX DELIMITER RESTRICTION (MANDATORY):
 - NEVER use \\( ... \\) or \\[ ... \\]
+- NEVER use escaped LaTeX delimiters \\( ... \\) or \\[ ... \\]
 - Inline math → $...$
 - Display math → $$...$$
 - Any \\(, \\), \\[, \\] → INVALID OUTPUT
+- If such delimiters appear, regenerate the output
 
-LATEX COMMAND CONTAINMENT RULE:
+LATEX COMMAND CONTAINMENT RULE (MANDATORY):
 - ANY LaTeX command starting with \\ is FORBIDDEN outside math mode
-- Examples:
-  \\mathbb, \\times, \\to, \\cap, \\cup, \\in, \\subset, \\subseteq, \\Rightarrow
+- ANY LaTeX command (a token starting with backslash \\) is FORBIDDEN outside $...$ or $$...$$
+- Examples of forbidden commands outside math delimiters:
+  • \\mathbb
+  • \\times
+  • \\to
+  • \\cap
+  • \\cup
+  • \\in
+  • \\subset
+  • \\subseteq
+  • \\Rightarrow
+  • \\emptyset
+  • \\text
+- ALL such commands MUST appear ONLY inside $...$ or $$...$$.
+- If any backslash-command appears outside math delimiters, regenerate the output.
 
 PLAIN-TEXT MATH TOKEN BAN:
 - The following are STRICTLY FORBIDDEN outside LaTeX:
-  sin, cos, tan, sec, cosec, cot,
-  frac, sqrt, <=, >=, pi, mu, theta, degree, ^, |x|
+  sin, cos, tan, sec, cosec, cot, sin^-1, cos^-1, tan^-1, sec^-1, cosec^-1, cot^-1,
+  frac, sqrt, leq, geq, <=, >=, pi, mu, theta, degree, ^ (as plain text),
+  |x|, mod, modulus, any raw backslash-commands not inside $...$ or $$...$$
+- Fractions MUST use \\frac{a}{b}; roots MUST use \\sqrt{}, trig functions must use \\sin, \\cos, etc.
+- Absolute value must use \\lvert x \\rvert or \\left| x \\right| inside LaTeX.
 
 INEQUALITIES & SYSTEMS:
 - Use ONE $$ block
 - Each inequality on a new line
+- For a system of inequalities, use ONE display math block with each inequality on a new line:
+  $$
+  x + 2y \\leq 10 \\\\
+  3x + y \\geq 5 \\\\
+  x \\geq 0, \\; y \\geq 0
+  $$
+
+────────────────────────────────────────
+CHEMICAL FORMULAS & EQUATIONS (Chemistry/Science)
+────────────────────────────────────────
 
 CHEMICAL EQUATIONS:
 - MUST be written ONLY in $$ ... $$
+
+FOR ALL CHEMICAL CONTENT IN QUESTIONS:
+
+1) SIMPLE CHEMICAL FORMULAS (in question text):
+   - Use INLINE math mode with subscripts/superscripts
+   - LaTeX backslashes MUST be DOUBLED in JSON strings: \\\\
+   - Examples in question text:
+     • Water: $H_2O$
+     • Sulfuric acid: $H_2SO_4$
+     • Potassium dichromate: $K_2Cr_2O_7$
+     • Permanganate ion: $MnO_4^-$
+     • Hydronium: $H_3O^+$
+     • Chromate: $CrO_4^{2-}$
+
+2) CHEMICAL EQUATIONS IN QUESTIONS:
+   - Use DISPLAY math mode for reactions: $$ ... $$
+   - LaTeX backslashes MUST be DOUBLED: \\\\
+   - Examples in question text:
+     • Simple reaction:
+       $$K_2Cr_2O_7 + H_2SO_4 \\\\to \\\\text{products}$$
+     • Equilibrium:
+       $$N_2 + 3H_2 \\\\rightleftharpoons 2NH_3$$
+     • With conditions:
+       $$\\ce{2KMnO_4 \\\\xrightarrow{\\\\Delta} K_2MnO_4 + MnO_2 + O_2}$$
+
+3) FORBIDDEN IN CHEMISTRY:
+   - NEVER write H2O, H2SO4, K2Cr2O7 as plain text without LaTeX
+   - NEVER write subscripts/superscripts without math delimiters
+   - NEVER use single backslashes in JSON (must be \\\\)
+   - NEVER use \\( or \\) delimiters
+
+4) CHEMISTRY QUESTION EXAMPLES:
+
+Example - Chemical equation question:
+"Balance the following chemical equation and identify the type of reaction:\\n\\n$$Fe + H_2O \\\\to Fe_3O_4 + H_2$$"
+
+Example - Stoichiometry question:
+"If 5.6 g of iron reacts with steam according to the equation:\\n\\n$$3Fe + 4H_2O \\\\to Fe_3O_4 + 4H_2$$\\n\\nCalculate the volume of hydrogen gas produced at STP."
+
+Example - Chemical formula question:
+"Write the chemical formula for: (a) Sodium carbonate (b) Calcium phosphate (c) Potassium permanganate"
+
+5) JSON ESCAPING FOR CHEMISTRY:
+   - All chemical formulas with subscripts: $H_2O$, $K_2Cr_2O_7$
+   - Arrow commands in equations: \\\\to, \\\\rightarrow, \\\\rightleftharpoons
+   - Special chemistry: \\ce{}, \\\\xrightarrow{}, \\\\Delta
+   - Text in equations: \\\\text{PCC}, \\\\text{products}
+
+PATTERN IN ALL EXAMPLES:
+- Chemical formulas always wrapped in $...$ or $$...$$
+- Subscripts use _
+- Superscripts use ^
+- LaTeX commands always have doubled backslashes: \\\\
+- Reactions use display math: $$...$$
+
+────────────────────────────────────────
+CHEMISTRY VALIDATION CHECKLIST
+────────────────────────────────────────
+
+Before returning JSON with chemistry content:
+
+1. ✓ All chemical formulas wrapped in $...$ or $$...$$
+2. ✓ All LaTeX backslashes are DOUBLED (\\\\)
+3. ✓ NO plain-text chemical formulas (H2O, CO2, etc.)
+4. ✓ Subscripts use _ and superscripts use ^
+5. ✓ Arrows use \\\\to, \\\\rightarrow, or \\\\rightleftharpoons
+6. ✓ Chemical reactions use display math: $$...$$
+7. ✓ All strings use double quotes, not single quotes
+8. ✓ Newlines use \\n, not literal breaks
+9. ✓ Valid JSON structure with no trailing commas
+
+If ANY chemistry validation fails → REGENERATE
+
+────────────────────────────────────────
+LOGICAL & SYMBOLIC NOTATION RULE (MANDATORY)
+────────────────────────────────────────
+
+This section applies to subjects like Mathematics, Logic, Discrete Math,
+Reasoning, Proofs, and Theoretical concepts.
+
+1) Logical symbols such as:
+   ¬  (negation)
+   ⇒  (implies)
+   ⇔  (if and only if)
+   ⊥  (contradiction)
+   ∀  (for all)
+   ∃  (there exists)
+   ∈, ∉, ⊆, ⊂
+
+   MUST ALWAYS be written in LaTeX form and MUST be wrapped in $...$ 
+   when they appear in the explanation field.
+
+2) NEVER write logical symbols as plain text.
+   ❌ Wrong: not p, negp, implies, contradiction
+   ✅ Correct: $\\neg p$, $p \\Rightarrow q$, $\\bot$
+
+3) If a topic involves logic or proofs:
+   - Use symbolic expressions ONLY inside $...$ in explanation.
+   - Do NOT place logical expressions in the formula field.
+   - The formula field should be "" unless the chapter explicitly
+     defines a standard formula.
+
+4) Examples (CORRECT):
+
+   Explanation:
+   "Proof by contradiction assumes $\\neg p$ and derives $\\bot$."
+
+   Explanation:
+   "An implication $p \\Rightarrow q$ is false only when $p$ is true and $q$ is false."
+
+5) Examples (WRONG):
+
+   "Assume negp and derive contradiction"
+   "p implies q"
+   "not p leads to bottom"
+
+If logical symbols are required and not written in LaTeX → REGENERATE.
 
 ====================================================
 STATISTICS / TABLES
 ====================================================
 - If statistics involved → ALWAYS use markdown table
+- If question involves statistics (mean, median, mode, variance, SD, frequency),
+  → ALWAYS present data in a markdown table.
 - Ungrouped data → convert to frequency table FIRST
+- If data is ungrouped, FIRST convert to a frequency table.
 - Leave exactly ONE blank line after every table
+- After every table include exactly one blank line before the following text.
+- Tables MUST be proper markdown tables with each row on its own line.
 
 ====================================================
 NEWLINES & ESCAPED CHARACTERS
 ====================================================
-- NEVER use escaped newlines like \\n
-- Use real line breaks only
+- NEVER use escaped newlines like \\n in the question text when displaying to user
+- Use real line breaks in markdown formatted questions
 - NEVER escape math delimiters
+- Do NOT include escaped math delimiters like \\( or \\) — use $ or $$ only.
 
 ====================================================
 MARKDOWN RULES
@@ -203,8 +368,13 @@ MARKDOWN RULES
   • line breaks
   • bullet points
   • markdown tables
-- NO headings
-- NO code blocks
+  • sub-parts formatting
+- Use markdown formatting for structure: line breaks, sub-parts, and tables.
+- Each question should be properly formatted markdown text.
+- NO headings (#)
+- NO code blocks (\`\`\`)
+- NO blockquotes (>)
+- Mathematical content MUST be in LaTeX ($...$ or $$...$$), not markdown.
 
 ====================================================
 OUTPUT JSON STRUCTURE (STRICT — DO NOT CHANGE)
@@ -262,12 +432,39 @@ OUTPUT JSON STRUCTURE (STRICT — DO NOT CHANGE)
 FINAL SELF-VALIDATION (MANDATORY)
 ====================================================
 Before returning JSON:
-- Check TOTAL questions = EXACTLY 10
-- Check NO extra or missing keys
-- Check language rules
-- Check LaTeX rules
-- Check frontend safety
-- Added table for statistics questions
+
+1. ✓ Check TOTAL questions = EXACTLY 10
+2. ✓ Check NO extra or missing keys
+3. ✓ Check language rules (subject-language match, no mixing, no transliteration)
+4. ✓ Check LaTeX rules:
+   - All math in $...$ or $$...$$
+   - NO \\( \\) \\[ \\] delimiters
+   - All backslash commands inside math mode only
+   - NO plain-text math tokens
+5. ✓ Check chemistry rules (if applicable):
+   - All formulas in LaTeX
+   - Doubled backslashes in JSON
+   - No plain-text chemical formulas
+6. ✓ Check logical notation (if applicable):
+   - All logical symbols in LaTeX
+   - Wrapped in $...$
+7. ✓ Check tables (if statistics questions):
+   - Proper markdown tables
+   - Blank line after each table
+8. ✓ Check markdown formatting:
+   - No code blocks, headings, or blockquotes
+   - Proper sub-part formatting
+9. ✓ Check frontend safety:
+   - Valid JSON structure
+   - No trailing commas
+   - Proper escaping
+10. ✓ Scan the ENTIRE output:
+    - If ANY backslash-command (\\mathbb, \\cap, \\emptyset, \\text, etc.)
+      appears OUTSIDE $...$ or $$...$$ → REGENERATE
+    - If ANY mathematical symbol appears outside LaTeX → REGENERATE
+    - If ANY rule is violated → REGENERATE internally until compliant
+
+Return output ONLY after passing ALL checks.
 
 If ANY rule is violated → REGENERATE INTERNALLY.
 
@@ -275,14 +472,14 @@ If ANY rule is violated → REGENERATE INTERNALLY.
 OUTPUT
 ====================================================
 Return ONLY valid JSON. NOTHING ELSE.
+Output MUST be fully compatible with a Markdown+KaTeX renderer.
 `;
-
 
       // -------------------------------------------------------------------
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
       const aiRaw = await step.run("Call OpenAI",async () => {
-        return await askOpenAI(prompt,"gpt-5-mini",  {
+        return await askOpenAI(prompt, "gpt-5.1", {
   response_format: { type: "json_object" }
      });
       });
@@ -292,12 +489,9 @@ Return ONLY valid JSON. NOTHING ELSE.
       // -------------------------------------------------------------------
       let finalQuestions;
       try {
-        const clean = aiRaw
-          .replace(/```json/g, "")
-          .replace(/```/g, "")
-          .trim();
+       
 
-        finalQuestions = JSON.parse(clean);
+        finalQuestions = JSON.parse(aiRaw);
 
         const required = [
           "chapter",
