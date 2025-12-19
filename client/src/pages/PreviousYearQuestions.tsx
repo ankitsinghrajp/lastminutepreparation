@@ -245,8 +245,11 @@ export default function PreviousYearQuestions() {
 
     pollIntervalRef.current = setInterval(async () => {
       try {
-        const res = await pyqGenerator(null, params);
-
+        
+           window.__LMP_POLLING__ = true;
+            const res = await pyqGenerator(null, params);
+           window.__LMP_POLLING__ = false;
+    
         if (res?.data?.statusCode === 200) {
           setQuestions(res.data.data.data.pyqs);
           setPyqs(res.data.data.data);

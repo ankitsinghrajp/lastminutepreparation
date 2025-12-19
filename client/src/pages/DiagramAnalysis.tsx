@@ -296,7 +296,9 @@ export default function DiagramAnalysis() {
         `${server}/api/v1/ai/image-analysis`,
         formData,
         {
-          headers: { "Content-Type": "multipart/form-data" },
+          headers: { "Content-Type": "multipart/form-data",
+                      "x-lmp-poll": "1",
+          },
           withCredentials: true,
         }
       );

@@ -229,7 +229,9 @@ export default function ImportantQuestions() {
 
     pollIntervalRef.current = setInterval(async () => {
       try {
-        const res = await importantQuestions(null, params);
+           window.__LMP_POLLING__ = true;
+           const res = await importantQuestions(null, params);
+           window.__LMP_POLLING__ = false;
 
         if (res?.data?.statusCode === 200) {
           setResponse(res.data.data.data);

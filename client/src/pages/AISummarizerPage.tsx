@@ -26,7 +26,10 @@ export default function AISummarizer() {
   const pollSummary = async (formData) => {
   const interval = setInterval(async () => {
     try {
-      const res = await summarizer(null, formData);
+       window.__LMP_POLLING__ = true;
+          const res = await summarizer(null, formData);
+        window.__LMP_POLLING__ = false;
+      
 
       if (res?.data?.statusCode === 200) {
         const aiText =

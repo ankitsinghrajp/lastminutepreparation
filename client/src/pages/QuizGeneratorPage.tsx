@@ -228,7 +228,10 @@ export default function QuizGenerator() {
 
     pollIntervalRef.current = setInterval(async () => {
       try {
-        const res = await quizGenerator(null, params);
+        
+           window.__LMP_POLLING__ = true;
+           const res = await quizGenerator(null, params);
+           window.__LMP_POLLING__ = false;
 
         if (res?.data?.statusCode === 200) {
           setResponse(res.data.data.data);

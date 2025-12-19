@@ -73,6 +73,9 @@ const startPolling = async (formData) => {
       const res = await fetch(`${server}/api/v1/ai/ask-any`, {
         method: "POST",
         credentials: "include",
+         headers: {
+         "x-lmp-poll": "1",
+         },
         body: formData,
       });
 
