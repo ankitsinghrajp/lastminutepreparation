@@ -1,6 +1,99 @@
 import { Target } from 'lucide-react'
 
-import { renderFormula } from './renderFormula'
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeRaw from "rehype-raw";
+import rehypeKatex from "rehype-katex";
+import rehypeHighlight from "rehype-highlight";
+import "katex/dist/katex.min.css";
+import "highlight.js/styles/github.css";
+
+const normalizeContent = (content) => {
+  if (typeof content !== "string") return content;
+
+  return content
+    .replace(/\\\\/g, "\\")
+    .replace(/\\n/g, "\n")
+    .replace(/\n\s*\|/g, "\n|")
+    .trim();
+};
+
+const Output = ({ content }) => {
+  const normalized = normalizeContent(content);
+
+  return (
+    <>
+      <style>{`
+        .question-output-wrapper .katex-display {
+          overflow: visible !important;
+        }
+
+        .question-output-wrapper .katex-display > .katex {
+          max-width: 100%;
+          display: inline-block;
+          text-align: left;
+        }
+
+        @media (max-width: 640px) {
+          .question-output-wrapper .katex {
+            font-size: 0.9em !important;
+          }
+
+          .question-output-wrapper .katex-display > .katex {
+            font-size: 0.8em !important;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .question-output-wrapper .katex {
+            font-size: 0.85em !important;
+          }
+
+          .question-output-wrapper .katex-display > .katex {
+            font-size: 0.75em !important;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .question-output-wrapper .katex {
+            font-size: 0.8em !important;
+          }
+
+          .question-output-wrapper .katex-display > .katex {
+            font-size: 0.7em !important;
+          }
+        }
+      `}</style>
+
+      <div
+        className="question-output-wrapper
+          prose max-w-none text-[16px] leading-[1.75]
+
+          [&>p]:mt-1 [&>p]:mb-1
+          [&>ul]:mt-5 [&>ul]:mb-5
+          [&>ol]:mt-5 [&>ol]:mb-5
+          [&_li]:my-1.5
+
+          [&_.katex-display]:mt-6 [&_.katex-display]:mb-6
+          [&_.katex-display]:py-3 [&_.katex-display]:px-4
+          [&_.katex-display]:bg-muted/30 [&_.katex-display]:rounded-xl shadow-sm
+
+          [&_.katex]:text-[17px]
+
+          [&_pre]:mt-6 [&_pre]:mb-6 [&_pre]:p-4 [&_pre]:rounded-xl
+          [&_code]:text-[14px]
+        "
+      >
+        <ReactMarkdown
+          children={normalized}
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
+        />
+      </div>
+    </>
+  );
+};
 
 const LastNightAiCoach = ({aiCoach}) => {
   return (
@@ -21,12 +114,12 @@ const LastNightAiCoach = ({aiCoach}) => {
 
                   <div className="flex-1">
                     <p className="text-sm leading-relaxed text-foreground/90 mb-2">
-                      {step.action}
+                       <Output content={step.action}/>
                     </p>
 
                     {step.formula && (
                       <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20 mt-3">
-                        {renderFormula(step.formula)}
+                        <Output content={`$$${step.formula}$$`}/>
                       </div>
                     )}
                   </div>

@@ -5,7 +5,7 @@ configDotenv();
 
 export const openai = new OpenAI({apiKey: process.env.OPENAI_API_KEY});
 
-export const askOpenAI = async (prompt, model = "gpt-4o-mini") =>{
+export const askOpenAI = async (prompt, model = "gpt-5.1") =>{
       const res = await openai.chat.completions.create({
         model,
         messages:[{role: "user", content: prompt}],
@@ -14,7 +14,7 @@ export const askOpenAI = async (prompt, model = "gpt-4o-mini") =>{
 };
 
 
-export const askOpenAIImage = async (prompt, fileBuffer, model = "gpt-4o") => {
+export const askOpenAIImage = async (prompt, fileBuffer, model = "gpt-4o-mini") => {
   try {
    
     const uploadedFile = await openai.files.create({

@@ -86,7 +86,7 @@ const Output = ({ content }) => {
       
       <div
         className="formula-output-wrapper
-          prose max-w-none text-[14px] leading-relaxed
+          prose max-w-none text-[16px] leading-relaxed
 
           [&>p]:my-1.5
           [&>ul]:mt-4 [&>ul]:mb-4
@@ -97,10 +97,10 @@ const Output = ({ content }) => {
           [&_.katex-display]:py-2 [&_.katex-display]:px-3
           [&_.katex-display]:bg-muted/30 [&_.katex-display]:rounded-xl
 
-          [&_.katex]:text-[15px] [&_.katex]:align-middle
+          [&_.katex]:text-[16px] [&_.katex]:align-middle
 
           [&_pre]:mt-6 [&_pre]:mb-6 [&_pre]:p-3 [&_pre]:rounded-xl
-          [&_code]:text-[13px]
+          [&_code]:text-[15px]
         "
       >
         <ReactMarkdown
@@ -135,14 +135,14 @@ const LastNightBeforeExamImportantTopics = ({importantTopics}) => {
                     </p>
                   </div>
                   <p className="text-sm text-foreground/80 mb-3 ml-1 leading-relaxed">
-                    {topic.explanation}
+                    <Output content={`${topic.explanation}`}/>
                   </p>
 
                   {topic.formula && (
                     <div className="ml-0  rounded-md">
                      
                       <div className="min-w-0">
-                        <Output content={`$$${topic.formula}$$`}/>
+                        <Output content={`$${topic.formula}$`}/>
                       </div>
                     </div>
                   )}

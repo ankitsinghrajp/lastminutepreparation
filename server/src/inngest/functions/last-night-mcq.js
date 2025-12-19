@@ -3,12 +3,35 @@ import { LastMinuteMCQModel } from "../../models/LastMinuteBeforeExam/lastMinute
 import { parseSubject, detectCategory } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
-import { lastMinuteExtractJson as extractJSON } from "./extractJsonForFunctions/lastMinuteExtractJson.js";
+
+
+const extractJSON = (text) => {
+  if (!text) throw new Error("Empty response received from AI.");
+
+  // Remove markdown code fences
+  text = text
+    .replace(/```json/g, "")
+    .replace(/```/g, "")
+    .trim();
+
+  // Extract JSON object boundaries
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+  if (first === -1 || last === -1) throw new Error("No JSON found.");
+
+  let jsonString = text.substring(first, last + 1);
+
+  // Remove control characters but PRESERVE backslashes for LaTeX
+  jsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
+
+  return JSON.parse(jsonString);
+};
+
 export const lastNightMCQsFn = inngest.createFunction(
   {
     id: "lmp-mcqs",
     name: "Generate LMP MCQs",
-    retries:1,
+    retries:0,
   },
   { event: "lmp/generate.mcqs" },
   async ({ event, step }) => {
@@ -42,10 +65,7 @@ export const lastNightMCQsFn = inngest.createFunction(
         return { mcqs: safeDBContent.mcqs, source: "database" };
       }
 
-      // -------------------------------------------------------------------
-      // 2️⃣ BUILD PROMPT (UNCHANGED)
-      // -------------------------------------------------------------------
-const prompt = `
+  const prompt = `
 You are an API that returns ONLY valid JSON.
 No extra text, no explanation outside JSON.
 
@@ -138,10 +158,8 @@ LATEX DELIMITER RESTRICTION (MANDATORY)
 ────────────────────────────────────────
 
 - NEVER use escaped LaTeX delimiters \\( ... \\) or \\[ ... \\].
-- Inline mathematics MUST be written ONLY using:
-  • $ ... $
-- Display mathematics MUST be written ONLY using:
-  • $$ ... $$
+- Inline mathematics MUST be written ONLY using: $ ... $
+- Display mathematics MUST be written ONLY using: $$ ... $$
 - Any occurrence of \\(, \\), \\[, or \\] is STRICTLY FORBIDDEN.
 - If such delimiters appear, regenerate the output.
 
@@ -186,16 +204,105 @@ INEQUALITIES & SYSTEMS
 ────────────────────────────────────────
 
 - Inequalities MUST use LaTeX symbols only: \\leq, \\geq.
-- NEVER use <= or >=.
-- NEVER split equations across lines.
+- NEVER use <= or >= as plain text.
+- For systems of inequalities or equations, use display math with line breaks:
+  $$
+  x + 2y \\leq 10 \\\\
+  3x + y \\geq 5
+  $$
+
+──────────────────────────────────────────
+CHEMICAL FORMULAS & EQUATIONS (Chemistry/Science)
+──────────────────────────────────────────
+
+FOR ALL CHEMICAL CONTENT:
+
+1) SIMPLE CHEMICAL FORMULAS (in text/options):
+   - Use INLINE math mode with subscripts/superscripts
+   - Examples:
+     • Water: $H_2O$
+     • Sulfuric acid: $H_2SO_4$
+     • Potassium dichromate: $K_2Cr_2O_7$
+     • Permanganate ion: $MnO_4^-$
+     • Chromate ion: $CrO_4^{2-}$
+     
+2) CHEMICAL EQUATIONS/REACTIONS:
+   - Use DISPLAY math mode ($$...$$) ONLY
+   - Use proper arrow notation with LaTeX:
+     • $$ \\ce{A + B -> C + D} $$
+     • $$ \\ce{A <=> B} $$ (equilibrium)
+   - Example:
+     $$ \\ce{K_2Cr_2O_7 + H_2SO_4 -> products} $$
+
+3) FORBIDDEN IN CHEMISTRY:
+   - NEVER write H2O, H2SO4, K2Cr2O7 as plain text
+   - NEVER write subscripts/superscripts without LaTeX
+   - NEVER use escaped delimiters \\( or \\)
+   
+4) WHEN TO USE INLINE vs DISPLAY:
+   - Inline ($...$): Chemical formulas in question text or options
+   - Display ($$...$$): Complete chemical reactions/equations
+
+EXAMPLE MCQ WITH CHEMISTRY:
+{
+  "question": "Which reagent selectively oxidizes primary alcohols to aldehydes without forming carboxylic acids?",
+  "options": [
+    "Concentrated $HNO_3$",
+    "$K_2Cr_2O_7$/dilute $H_2SO_4$ with heat",
+    "PCC (Pyridinium chlorochromate)",
+    "Neutral $KMnO_4$ with heat"
+  ],
+  "correct": "PCC (Pyridinium chlorochromate)",
+  "explanation": "PCC is a mild oxidizing agent that stops at the aldehyde stage, preventing over-oxidation to carboxylic acid.",
+  "formula": "R-CH_2OH \\xrightarrow{PCC} R-CHO"
+}
+
 
 ────────────────────────────────────────
-CHEMICAL EQUATIONS
+LOGICAL & SYMBOLIC NOTATION RULE (MANDATORY)
 ────────────────────────────────────────
 
-- ALL chemical reactions MUST be written as DISPLAY math only:
-  $$ ... $$
-- NEVER use inline math or plain text.
+This section applies to subjects like Mathematics, Logic, Discrete Math,
+Reasoning, Proofs, and Theoretical concepts.
+
+1) Logical symbols such as:
+   ¬  (negation)
+   ⇒  (implies)
+   ⇔  (if and only if)
+   ⊥  (contradiction)
+   ∀  (for all)
+   ∃  (there exists)
+   ∈, ∉, ⊆, ⊂
+
+   MUST ALWAYS be written in LaTeX form and MUST be wrapped in $...$ 
+   when they appear in the explanation field.
+
+2) NEVER write logical symbols as plain text.
+   ❌ Wrong: not p, egp, implies, contradiction
+   ✅ Correct: $\\neg p$, $p \\Rightarrow q$, $\\bot$
+
+3) If a topic involves logic or proofs:
+   - Use symbolic expressions ONLY inside $...$ in explanation.
+   - Do NOT place logical expressions in the formula field.
+   - The formula field should be "" unless the chapter explicitly
+     defines a standard formula.
+
+4) Examples (CORRECT):
+
+   Explanation:
+   "Proof by contradiction assumes $\\neg p$ and derives $\\bot$."
+
+   Explanation:
+   "An implication $p \\Rightarrow q$ is false only when $p$ is true and $q$ is false."
+
+5) Examples (WRONG):
+
+   "Assume egp and derive contradiction"
+   "p implies q"
+   "not p leads to bottom"
+
+If logical symbols are required and not written in LaTeX → REGENERATE.
+
 
 ────────────────────────────────────────
 STATISTICS / DATA MCQs
@@ -236,11 +343,20 @@ OUTPUT JSON (STRICT — DO NOT MODIFY)
       "question": "Complete CBSE-style MCQ question in markdown (math inside $...$ or $$...$$)",
       "options": ["Option A", "Option B", "Option C", "Option D"],
       "correct": "Exact matching option text",
-      "explanation": "Short, exam-focused explanation",
-      "formula": "LaTeX formula only, WITHOUT $ or $$, or empty string"
+      "explanation": "Short, exam-focused explanation (math inside $...$ or $$...$$)",
+      "formula": "Primary formula as raw LaTeX code WITHOUT delimiters, or empty string if not applicable"
     }
   ]
 }
+
+FORMULA FIELD CLARIFICATION:
+- The "formula" field is for storing the RAW LaTeX code of the primary formula used.
+- This field is used for formula indexing/tagging purposes only.
+- Write ONLY the LaTeX commands WITHOUT the $ or $$ delimiters.
+- Example: If the formula is $E = mc^2$, the formula field should contain: "E = mc^2"
+- Example: If the formula is $\\frac{a}{b}$, the formula field should contain: "\\frac{a}{b}"
+- If no single primary formula applies, use empty string "".
+- This does NOT violate the LaTeX mandate—it's a special metadata field.
 
 
 
@@ -254,7 +370,7 @@ CRITICAL (NON-NEGOTIABLE)
 - NO extra fields
 - NO stray punctuation
 - NO markdown outside JSON fields
-- NO partial math outside LaTeX
+- NO partial math outside LaTeX (except in the formula metadata field)
 - Subject-based language compliance has HIGHEST priority
 - Output MUST be fully compatible with Markdown + KaTeX renderer
 `;
@@ -265,14 +381,11 @@ CRITICAL (NON-NEGOTIABLE)
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
       const aiRaw = await step.run("Call OpenAI",async () => {
-        return await askOpenAI(prompt, "gpt-5-mini");
+        return await askOpenAI(prompt);
       });
 
-      // -------------------------------------------------------------------
-      // 4️⃣ EXTRACT JSON
-      // -------------------------------------------------------------------
-      const normalized = aiRaw.replace(/\r?\n/g, "\\n");
-      const parsed = extractJSON(normalized);
+     
+      const parsed = extractJSON(aiRaw);
 
 
       parsed.mcqs.forEach((mcq, idx) => {
@@ -310,6 +423,7 @@ CRITICAL (NON-NEGOTIABLE)
       return { mcqs: safeParsed.mcqs, source: "generated" };
 
     } catch (err) {
+      await redis.del(pendingKey);
       throw new Error(`generateMCQs error: ${err.message}`);
     }
   }

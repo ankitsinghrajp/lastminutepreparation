@@ -3,7 +3,65 @@ import { ImpTopicsModel } from "../../models/LastMinuteBeforeExam/impTopics.mode
 import { parseSubject, detectCategory } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
-import { lastMinuteExtractJson as extractJSON } from "./extractJsonForFunctions/lastMinuteExtractJson.js";
+export const extractJSON = (text) => {
+  if (!text) throw new Error("Empty response received from AI.");
+
+  // Remove markdown code fences
+  text = text
+    .replace(/```json/g, "")
+    .replace(/```/g, "")
+    .trim();
+
+  // Extract JSON object boundaries
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+  if (first === -1 || last === -1) {
+    throw new Error("No JSON object found in AI response.");
+  }
+
+  let jsonString = text.substring(first, last + 1);
+
+  // Only remove control characters that break JSON parsing
+  // Preserve ALL backslashes for LaTeX formulas and math expressions
+  jsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
+
+  try {
+    const parsed = JSON.parse(jsonString);
+    
+    // Validate structure for important topics
+    if (!parsed.topics || !Array.isArray(parsed.topics)) {
+      throw new Error("Invalid structure: 'topics' array not found");
+    }
+    
+    if (parsed.topics.length !== 6) {
+      throw new Error(`Expected exactly 6 topics, got ${parsed.topics.length}`);
+    }
+    
+    // Validate each topic
+    parsed.topics.forEach((topic, idx) => {
+      if (!topic.topic || typeof topic.topic !== 'string') {
+        throw new Error(`Missing or invalid 'topic' field at index ${idx}`);
+      }
+      
+      if (!topic.explanation || typeof topic.explanation !== 'string') {
+        throw new Error(`Missing or invalid 'explanation' field at index ${idx}`);
+      }
+      
+      if (!topic.hasOwnProperty('formula') || typeof topic.formula !== 'string') {
+        throw new Error(`Missing or invalid 'formula' field at index ${idx}`);
+      }
+    });
+    
+    return parsed;
+    
+  } catch (err) {
+    console.error("JSON Parse Error:", err.message);
+    console.error("First 500 chars:", jsonString.substring(0, 500));
+    console.error("Last 200 chars:", jsonString.substring(jsonString.length - 200));
+    
+    throw new Error(`Failed to parse AI response: ${err.message}`);
+  }
+};
 export const lastNightImportantTopicsFn = inngest.createFunction(
   { name: "Generate LMP Important Topics",
     id: "last-night-important-topics",
@@ -11,14 +69,16 @@ export const lastNightImportantTopicsFn = inngest.createFunction(
    },
   { event: "lmp/generate.importantTopics" },
   async ({ event, step }) => {
-    try {
-      const { className, subject, chapter } = event.data;
+
+     const { className, subject, chapter } = event.data;
       const { mainSubject, bookName } = parseSubject(subject);
       const category = detectCategory(mainSubject);
 
       const cacheKey = `lmp:imptopics:${className}:${mainSubject}:${chapter}`;
       const pendingKey = `lmp:imptopics:pending:${className}:${mainSubject}:${chapter}`;
 
+    try {
+     
       // -------------------------------------------------------------------
       // 1️⃣ DB CHECK
       // -------------------------------------------------------------------
@@ -46,7 +106,7 @@ export const lastNightImportantTopicsFn = inngest.createFunction(
       // -------------------------------------------------------------------
       // 2️⃣ BUILD PROMPT (UNCHANGED)
       // -------------------------------------------------------------------
-      const prompt = await step.run("Build Prompt", async () => {
+   const prompt = await step.run("Build Prompt", async () => {
       return `
 You are an API that returns ONLY valid JSON.
 No extra text, no explanation outside JSON.
@@ -59,14 +119,14 @@ Generate EXACTLY 6 MOST FREQUENT and MOST IMPORTANT
 CBSE Board exam IMPORTANT TOPICS strictly from THIS chapter only.
 
 Each topic must:
-- Be a syllabus-defined Physics concept
+- Be a syllabus-defined concept from this subject
 - Be frequently asked or high-weightage in CBSE exams
 - Represent a concept students revise the night before exam
 
 For EACH topic:
 - Give the topic name
 - Give a short definition (1–2 lines)
-- Give ONE standard CBSE formula directly related to that topic
+- Give ONE standard CBSE formula directly related to that topic (if applicable)
 
 ────────────────────────────────────────
 LANGUAGE POLICY (ABSOLUTE — SUBJECT-LOCKED)
@@ -82,17 +142,18 @@ SUBJECT → LANGUAGE MAPPING (MANDATORY):
    - ALL topics and explanations MUST be written ONLY in PURE, STANDARD HINDI.
    - Use formal CBSE/NCERT academic Hindi only.
    - DO NOT include any English or Sanskrit words.
-   - Formula MUST be empty string "".
+   - Formula field MUST be empty string "".
 
 2) If Subject is "Sanskrit":
    - ALL topics and explanations MUST be written ONLY in PURE CLASSICAL SANSKRIT.
    - Use correct Sanskrit grammar, vocabulary, विभक्ति, and verb forms.
    - DO NOT include English words or transliteration.
-   - Formula MUST be empty string "".
+   - Formula field MUST be empty string "".
 
-3) For ALL OTHER subjects (Physics, Chemistry, Maths, etc.):
+3) For ALL OTHER subjects (Physics, Chemistry, Maths, Biology, etc.):
    - ALL topics and explanations MUST be written ONLY in STANDARD ACADEMIC ENGLISH.
    - DO NOT include Hindi, Sanskrit, or Hinglish.
+   - Formula field MUST contain a relevant formula in LaTeX.
 
 FORBIDDEN (ZERO TOLERANCE):
 
@@ -129,24 +190,29 @@ TOPIC CONTENT RULES
 UNIVERSAL FORMULA & MATH RULES (MANDATORY)
 ────────────────────────────────────────
 
-1) ABSOLUTE LATEX MANDATE:
-- EVERY mathematical or physical expression MUST be written using LaTeX.
+1) LATEX IN EXPLANATION FIELD:
+- If the explanation contains any mathematical symbols, variables, or expressions,
+  they MUST be wrapped in LaTeX delimiters.
 - Inline math → $ ... $
 - Display math → $$ ... $$
+- Keep mathematical content in explanations minimal.
 
 ────────────────────────────────────────
 LATEX DELIMITER RESTRICTION
 ────────────────────────────────────────
 
 - NEVER use \\( ... \\) or \\[ ... \\].
-- Use ONLY $...$ or $$...$$.
+- Use ONLY $...$ or $$...$$ in the explanation field.
 
 ────────────────────────────────────────
 FORMULA SEPARATION RULE (STRICT)
 ────────────────────────────────────────
 
-- NEVER write formulas or symbols in the "explanation" field.
-- ALL formulas MUST appear ONLY inside the "formula" field.
+- Keep formulas separate from definitions.
+- The "explanation" field should focus on the concept definition.
+- The "formula" field should contain the key formula.
+- Avoid writing full formulas in the explanation field.
+- Simple variables or symbols in explanation are allowed if wrapped in $...$.
 
 ────────────────────────────────────────
 FORMULA FIELD RULE (VERY IMPORTANT)
@@ -154,12 +220,15 @@ FORMULA FIELD RULE (VERY IMPORTANT)
 
 - Formula field MUST contain:
   ✔ ONE standard CBSE formula related to THAT topic
-  ✔ PURE LaTeX expression only
+  ✔ PURE LaTeX expression only (raw LaTeX code)
+  ✔ NO delimiters (no $ or $$)
 - DO NOT include:
   ✖ text
   ✖ explanations
   ✖ multiple formulas
-- DO NOT use $ or $$ inside the formula field.
+  ✖ delimiters like $ or $$
+
+The formula field stores RAW LaTeX code for indexing/rendering purposes.
 
 Example (CORRECT for Electric Flux):
 \\Phi_E = \\vec{E} \\cdot \\vec{A}
@@ -167,7 +236,8 @@ Example (CORRECT for Electric Flux):
 Example (WRONG):
 Electric flux is given by Φ = E·A
 
-
+Example (WRONG - has delimiters):
+$\\Phi_E = \\vec{E} \\cdot \\vec{A}$
 
 FORMULA HARD CONSTRAINT (ABSOLUTE):
 
@@ -182,7 +252,7 @@ FORMULA HARD CONSTRAINT (ABSOLUTE):
 KATEX COMPATIBILITY RULE (ABSOLUTE):
 
 - Formula MUST use ONLY standard, widely supported LaTeX commands.
-- Allowed examples: \\lim, \\frac, \\sin, \\cos, \\tan, \\to, \\cdot, ^, _, =, +, -
+- Allowed examples: \\lim, \\frac, \\sin, \\cos, \\tan, \\to, \\cdot, \\vec, ^, _, =, +, -
 - FORBIDDEN: any invented or uncommon commands such as \\uim, \\ulim, \\ltext, \\eqn, etc.
 - If any non-standard command appears → REGENERATE.
 
@@ -195,7 +265,8 @@ Before returning JSON:
 - Confirm EXACTLY 6 topics
 - Confirm explanation is definition-style
 - Confirm formula belongs to the topic
-- Confirm no formula appears in explanation
+- Confirm formula field has NO $ or $$ delimiters
+- Confirm formula field contains raw LaTeX only
 - Confirm LaTeX correctness
 
 Return output ONLY after passing ALL checks.
@@ -208,8 +279,8 @@ OUTPUT JSON (STRICT)
   "topics": [
     {
       "topic": "Topic name",
-      "explanation": "1–2 line definition of the topic",
-      "formula": "Pure LaTeX formula related to the topic"
+      "explanation": "1–2 line definition (use $...$ for any math symbols)",
+      "formula": "Pure raw LaTeX formula WITHOUT $ or $$ delimiters"
     }
   ]
 }
@@ -222,6 +293,8 @@ CRITICAL
 - Output ONLY valid JSON
 - NO extra fields
 - NO extra text
+- Explanation field: use $...$ for any math symbols
+- Formula field: raw LaTeX code without delimiters
 - Must render correctly in Markdown + KaTeX
 `;
 
@@ -233,14 +306,14 @@ CRITICAL
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
       const aiRaw = await step.run("Call OpenAI" ,async () => {
-        return await askOpenAI(prompt,"gpt-5-mini");
+        return await askOpenAI(prompt);
       });
 
       // -------------------------------------------------------------------
       // 4️⃣ EXTRACT JSON
       // -------------------------------------------------------------------
-      const normalized = aiRaw.replace(/\r?\n/g, "\\n");
-      const parsed = extractJSON(normalized);
+   
+      const parsed = extractJSON(aiRaw);
 
 
       if (!parsed.topics || !Array.isArray(parsed.topics)) {
@@ -274,6 +347,7 @@ CRITICAL
 
 
     } catch (err) {
+      await redis.del(pendingKey);
       throw new Error(`generateImportantTopics error: ${err.message}`);
     }
   }

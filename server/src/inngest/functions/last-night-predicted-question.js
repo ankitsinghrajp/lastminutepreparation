@@ -3,8 +3,57 @@ import { PredictedQuestionModel } from "../../models/LastMinuteBeforeExam/predic
 import { parseSubject, detectCategory } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
-import { lastMinuteExtractJson as extractJSON } from "./extractJsonForFunctions/lastMinuteExtractJson.js";
+export const extractJSON = (text) => {
+  if (!text) throw new Error("Empty response received from AI.");
 
+  // Remove markdown code fences
+  text = text
+    .replace(/```json/g, "")
+    .replace(/```/g, "")
+    .trim();
+
+  // Extract JSON object boundaries
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+  if (first === -1 || last === -1) {
+    throw new Error("No JSON object found in AI response.");
+  }
+
+  let jsonString = text.substring(first, last + 1);
+
+  // Only remove control characters that break JSON parsing
+  // Preserve ALL backslashes for LaTeX math expressions
+  jsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
+
+  try {
+    const parsed = JSON.parse(jsonString);
+    
+    // Validate structure for predicted questions
+    if (!parsed.questions || !Array.isArray(parsed.questions)) {
+      throw new Error("Invalid structure: 'questions' array not found");
+    }
+    
+    if (parsed.questions.length !== 6) {
+      throw new Error(`Expected exactly 6 questions, got ${parsed.questions.length}`);
+    }
+    
+    // Validate each question
+    parsed.questions.forEach((q, idx) => {
+      if (!q.question || typeof q.question !== 'string') {
+        throw new Error(`Invalid or missing question at index ${idx}`);
+      }
+    });
+    
+    return parsed;
+    
+  } catch (err) {
+    console.error("JSON Parse Error:", err.message);
+    console.error("First 500 chars:", jsonString.substring(0, 500));
+    console.error("Last 200 chars:", jsonString.substring(jsonString.length - 200));
+    
+    throw new Error(`Failed to parse AI response: ${err.message}`);
+  }
+};
 export const lastNightPredictedQuestionsFn = inngest.createFunction(
   {
     id: "lmp-predicted-questions",
@@ -43,7 +92,6 @@ export const lastNightPredictedQuestionsFn = inngest.createFunction(
         return { questions: safeDBContent, source: "database" };
       }
 
-// --------------------------- FINAL PRODUCTION PROMPT ---------------------------
 const prompt = `
 You are an API that returns ONLY valid JSON. No extra text, no explanation outside JSON.
 
@@ -113,7 +161,7 @@ UNIVERSAL FORMULA & MATH RULES (APPLY ALWAYS)
 - Every mathematical expression (equations, formulas, fractions, powers, subscripts,
   trigonometric functions, inequalities, derivatives, integrals, chemical equations, units)
   MUST be written using LaTeX and wrapped inside:
-    • Inline math → $ ... $  OR
+    • Inline math → $ ... $
     • Display math → $$ ... $$
 - NEVER output mathematical tokens or operators as plain text (examples below).
 
@@ -121,10 +169,8 @@ UNIVERSAL FORMULA & MATH RULES (APPLY ALWAYS)
 LATEX DELIMITER RESTRICTION (MANDATORY):
 
 - NEVER use escaped LaTeX delimiters \\( ... \\) or \\[ ... \\].
-- Inline mathematics MUST be written ONLY using:
-  • $ ... $
-- Display mathematics MUST be written ONLY using:
-  • $$ ... $$
+- Inline mathematics MUST be written ONLY using: $ ... $
+- Display mathematics MUST be written ONLY using: $$ ... $$
 - Any occurrence of \\(, \\), \\[, or \\] is STRICTLY FORBIDDEN.
 - If such delimiters appear, regenerate the output.
 
@@ -162,9 +208,127 @@ LATEX COMMAND CONTAINMENT RULE (MANDATORY):
   x \\geq 0, \\; y \\geq 0
   $$
 
-4) CHEMICAL EQUATIONS:
-- ALL chemical reactions MUST be written as display math only: $$ ... $$.
-- NEVER use \\( ... \\) or inline plain text for chemical equations.
+────────────────────────────────────────
+CHEMICAL FORMULAS & EQUATIONS (Chemistry/Science)
+────────────────────────────────────────
+
+FOR ALL CHEMICAL CONTENT IN QUESTIONS:
+
+1) SIMPLE CHEMICAL FORMULAS (in question text):
+   - Use INLINE math mode with subscripts/superscripts
+   - LaTeX backslashes MUST be DOUBLED in JSON strings: \\\\\\\\
+   - Examples in question text:
+     • Water: $H_2O$
+     • Sulfuric acid: $H_2SO_4$
+     • Potassium dichromate: $K_2Cr_2O_7$
+     • Permanganate ion: $MnO_4^-$
+     • Hydronium: $H_3O^+$
+     • Chromate: $CrO_4^{2-}$
+
+2) CHEMICAL EQUATIONS IN QUESTIONS:
+   - Use DISPLAY math mode for reactions: $$ ... $$
+   - LaTeX backslashes MUST be DOUBLED: \\\\\\\\
+   - Examples in question text:
+     • Simple reaction:
+       $$K_2Cr_2O_7 + H_2SO_4 \\\\\\\\to \\\\\\\\text{products}$$
+     • Equilibrium:
+       $$N_2 + 3H_2 \\\\\\\\rightleftharpoons 2NH_3$$
+     • With conditions:
+       $$\\\\ce{2KMnO_4 \\\\\\\\xrightarrow{\\\\\\\\Delta} K_2MnO_4 + MnO_2 + O_2}$$
+
+3) FORBIDDEN IN CHEMISTRY:
+   - NEVER write H2O, H2SO4, K2Cr2O7 as plain text without LaTeX
+   - NEVER write subscripts/superscripts without math delimiters
+   - NEVER use single backslashes in JSON (must be \\\\\\\\)
+   - NEVER use \\( or \\) delimiters
+
+4) CHEMISTRY QUESTION EXAMPLES:
+
+Example - Chemical equation question:
+"Balance the following chemical equation and identify the type of reaction:\\n\\n$$Fe + H_2O \\\\\\\\to Fe_3O_4 + H_2$$"
+
+Example - Stoichiometry question:
+"If 5.6 g of iron reacts with steam according to the equation:\\n\\n$$3Fe + 4H_2O \\\\\\\\to Fe_3O_4 + 4H_2$$\\n\\nCalculate the volume of hydrogen gas produced at STP."
+
+Example - Chemical formula question:
+"Write the chemical formula for: (a) Sodium carbonate (b) Calcium phosphate (c) Potassium permanganate"
+
+5) JSON ESCAPING FOR CHEMISTRY:
+   - All chemical formulas with subscripts: $H_2O$, $K_2Cr_2O_7$
+   - Arrow commands in equations: \\\\\\\\to, \\\\\\\\rightarrow, \\\\\\\\rightleftharpoons
+   - Special chemistry: \\\\ce{}, \\\\\\\\xrightarrow{}, \\\\\\\\Delta
+   - Text in equations: \\\\\\\\text{PCC}, \\\\\\\\text{products}
+
+PATTERN IN ALL EXAMPLES:
+- Chemical formulas always wrapped in $...$ or $$...$$
+- Subscripts use _
+- Superscripts use ^
+- LaTeX commands always have doubled backslashes: \\\\\\\\
+- Reactions use display math: $$...$$
+
+────────────────────────────────────────
+CHEMISTRY VALIDATION CHECKLIST
+────────────────────────────────────────
+
+Before returning JSON with chemistry content:
+
+1. ✓ All chemical formulas wrapped in $...$ or $$...$$
+2. ✓ All LaTeX backslashes are DOUBLED (\\\\\\\\)
+3. ✓ NO plain-text chemical formulas (H2O, CO2, etc.)
+4. ✓ Subscripts use _ and superscripts use ^
+5. ✓ Arrows use \\\\\\\\to, \\\\\\\\rightarrow, or \\\\\\\\rightleftharpoons
+6. ✓ Chemical reactions use display math: $$...$$
+7. ✓ All strings use double quotes, not single quotes
+8. ✓ Newlines use \\\\n, not literal breaks
+9. ✓ Valid JSON structure with no trailing commas
+
+If ANY chemistry validation fails → REGENERATE
+
+
+────────────────────────────────────────
+LOGICAL & SYMBOLIC NOTATION RULE (MANDATORY)
+────────────────────────────────────────
+
+This section applies to subjects like Mathematics, Logic, Discrete Math,
+Reasoning, Proofs, and Theoretical concepts.
+
+1) Logical symbols such as:
+   ¬  (negation)
+   ⇒  (implies)
+   ⇔  (if and only if)
+   ⊥  (contradiction)
+   ∀  (for all)
+   ∃  (there exists)
+   ∈, ∉, ⊆, ⊂
+
+   MUST ALWAYS be written in LaTeX form and MUST be wrapped in $...$ 
+   when they appear in the explanation field.
+
+2) NEVER write logical symbols as plain text.
+   ❌ Wrong: not p, egp, implies, contradiction
+   ✅ Correct: $\\neg p$, $p \\Rightarrow q$, $\\bot$
+
+3) If a topic involves logic or proofs:
+   - Use symbolic expressions ONLY inside $...$ in explanation.
+   - Do NOT place logical expressions in the formula field.
+   - The formula field should be "" unless the chapter explicitly
+     defines a standard formula.
+
+4) Examples (CORRECT):
+
+   Explanation:
+   "Proof by contradiction assumes $\\neg p$ and derives $\\bot$."
+
+   Explanation:
+   "An implication $p \\Rightarrow q$ is false only when $p$ is true and $q$ is false."
+
+5) Examples (WRONG):
+
+   "Assume egp and derive contradiction"
+   "p implies q"
+   "not p leads to bottom"
+
+If logical symbols are required and not written in LaTeX → REGENERATE.
 
 5) STATISTICS / TABLES:
 - If question involves statistics (mean, median, mode, variance, SD, frequency),
@@ -183,9 +347,11 @@ LATEX COMMAND CONTAINMENT RULE (MANDATORY):
 
 
 MARKDOWN RULE:
-- Markdown is allowed only for line breaks, sub-parts and markdown tables.
-- Do NOT use code blocks or headings.
+- Use markdown formatting for structure: line breaks, sub-parts, and tables.
+- Each question should be properly formatted markdown text.
+- Do NOT use markdown code blocks (\`\`\`), headings (#), or blockquotes (>).
 - Tables MUST be proper markdown tables with each row on its own line.
+- Mathematical content MUST be in LaTeX ($...$ or $$...$$), not markdown.
 
 
 
@@ -205,7 +371,7 @@ Return ONLY this exact JSON structure, with exactly 6 questions:
 
 {
   "questions": [
-    { "question": "Complete CBSE-style question in markdown (math inside $...$ or $$...$$)" },
+    { "question": "Complete CBSE-style question in markdown with math in LaTeX ($...$ or $$...$$)" },
     { "question": "..." },
     { "question": "..." },
     { "question": "..." },
@@ -227,14 +393,11 @@ CRITICAL:
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
       const aiRaw = await step.run("Call OpenAI", async () => {
-        return await askOpenAI(prompt, "gpt-5-mini");
+        return await askOpenAI(prompt);
       });
 
-      // -------------------------------------------------------------------
-      // 4️⃣ EXTRACT JSON
-      // -------------------------------------------------------------------
-      const normalized = aiRaw.replace(/\r?\n/g, "\\n");
-      const parsed = extractJSON(normalized);
+      
+      const parsed = extractJSON(aiRaw);
 
    
       parsed.questions.forEach((q, idx) => {
@@ -267,7 +430,7 @@ CRITICAL:
       return { questions: safeParsed, source: "generated" };
 
     } catch (err) {
-     
+      await redis.del(pendingKey);
       throw new Error(`generatePredictedQuestions error: ${err.message}`);
     }
   }

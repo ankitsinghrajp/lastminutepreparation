@@ -10,17 +10,19 @@ export const lastNightSummaryFn = inngest.createFunction(
 
   { name: "Generate LMP Summary",
     id:"last-night-summary",
-    retries:1,
+    retries:0,
    },
   { event: "lmp/generate.summary" },
   async ({ event, step }) => {
-    try {
-      const { className, subject, chapter } = event.data;
+
+    const { className, subject, chapter } = event.data;
       const { mainSubject, bookName } = parseSubject(subject);
       const category = detectCategory(mainSubject);
 
       const cacheKey = `lmp:summary:${className}:${mainSubject}:${chapter}`;
-
+     const pendingKey = `lmp:summary:pending:${className}:${mainSubject}:${chapter}`;
+    try {
+  
       // 1️⃣ DB CHECK (Express already did Redis)
       const dbCache = await step.run("DB Check", async () => {
         return await LastMinuteSummaryModel.findOne({
@@ -39,73 +41,169 @@ export const lastNightSummaryFn = inngest.createFunction(
         return { summary: safeDBContent, source: "database" };
       }
 
-      // 2️⃣ BUILD PROMPT (inline using your exact prompt strings)
-      const prompt = await step.run("Build Prompt", async () => {
-        if (category === "language") {
-          return `
-You are an API. Think silently but DO NOT show your internal thinking.
+   // 2️⃣ BUILD PROMPT
+const prompt = await step.run("Build Prompt", async () => {
+  if (category === "language") {
+    return `
+You are a JSON API. Return ONLY valid JSON. No markdown, no code blocks, no explanations.
 
-First, internally understand the content of the given NCERT chapter(s) or poem(s) as if you have fully read them. Do NOT mention this step in the output.
+Class: ${className} | Subject: ${mainSubject} | Book: ${bookName}
+Chapter: ${chapter} | Stream: ${category}
 
-STRICT LANGUAGE RULE:
-If the subject is Hindi or Sanskrit → answer ONLY in Hindi.
-Otherwise → answer ONLY in English. DO NOT USE Hindi for English or any other subject.
-If this rule is violated, regenerate the answer.
+────────────────────────────────────────
+STRICT LANGUAGE RULE (MANDATORY)
+────────────────────────────────────────
 
-IMPORTANT:
-If the chapter/poem name contains "/", it means there are TWO different poems/chapters. They must be summarized SEPARATELY — never together, never merged.
+1) Hindi subject → Write summary ONLY in Hindi
+2) Sanskrit subject → Write summary ONLY in Hindi
+3) All other subjects (like maths, science, history, etc.) → Write summary ONLY in English
 
-Your task:
-✔ If there is ONE poem/chapter → write its summary in 2–3 paragraphs (each paragraph 3–4 simple lines).
-✔ If there are TWO poems/chapters (detected using "/"):
-     → First poem/chapter only → 2–3 paragraphs (3–4 simple lines each)
-     → Leave ONE real blank line (ENTER twice)
-     → Second poem/chapter only → 2–3 paragraphs (3–4 simple lines each)
+NO mixing languages. NO transliteration.
+If violated → Regenerate completely.
 
-HARD RULES (non-negotiable):
-✔ NO combining or comparing both poems/chapters
-✔ Do NOT mention that there are two poems/chapters
-✔ Do NOT include titles, headings, names, or section labels such as "First poem", "Second poem", etc.
-✔ Just write the first summary → blank line → second summary
-✔ REAL blank lines only + NO \\n or \\n\\n text
-✔ No bullet points, no numbering, no bold/italics, no emojis, no formulas, no quotes, no author names
-✔ Only clean plain text in paragraphs
+────────────────────────────────────────
+DUAL CHAPTER/POEM DETECTION
+────────────────────────────────────────
 
-Return output ONLY in this JSON format:
-{
-  "summary": "Final summaries with real blank lines"
-}
+If chapter name contains "/" → TWO separate poems/chapters exist.
+Example: "Poem A / Poem B" means TWO different works.
 
-Class: ${className}
-Subject: ${mainSubject}
-Book: ${bookName}
-Chapter: ${chapter}
-Stream: ${category}
+RULE: Summarize them SEPARATELY, never together.
+
+────────────────────────────────────────
+SUMMARY STRUCTURE
+────────────────────────────────────────
+
+CASE 1: Single poem/chapter
+- Write 2-3 paragraphs
+- Each paragraph: 3-4 simple sentences
+- Plain flowing text (no bullets, no formatting)
+
+CASE 2: Two poems/chapters (detected by "/")
+- First poem/chapter: 2-3 paragraphs (3-4 sentences each)
+- Insert ONE blank line (use \\n\\n in JSON string)
+- Second poem/chapter: 2-3 paragraphs (3-4 sentences each)
+
+────────────────────────────────────────
+FORBIDDEN CONTENT (STRICT)
+────────────────────────────────────────
+
+DO NOT include:
+- Titles, headings, or labels ("First poem", "Second poem", etc.)
+- Bullet points or numbered lists
+- Bold, italics, or any markdown formatting
+- Emojis or special characters
+- Formulas or mathematical expressions
+- Author names or metadata
+- Quotes or citations
+
+────────────────────────────────────────
+BLANK LINE RULE (CRITICAL)
+────────────────────────────────────────
+
+For dual poems/chapters:
+- Use \\n\\n in the JSON string to create blank line
+- This is a real newline separator in JSON
+- Example: "Summary of first...\\n\\nSummary of second..."
+
+────────────────────────────────────────
+JSON FORMAT (ABSOLUTE REQUIREMENT)
+────────────────────────────────────────
+
+CRITICAL: Your response must START with { and END with }
+
+NO text before the JSON
+NO text after the JSON
+NO markdown code blocks like \`\`\`json
+Return as single-line minified JSON
+
+────────────────────────────────────────
+REQUIRED OUTPUT FORMAT
+────────────────────────────────────────
+
+{"summary":"Your complete summary text here with \\\\n\\\\n for blank lines if dual chapters"}
+
+────────────────────────────────────────
+VALIDATION CHECKLIST
+────────────────────────────────────────
+
+Before responding, verify:
+✓ Language matches subject (Hindi/Sanskrit/English)
+✓ Dual chapters separated by \\n\\n if "/" detected
+✓ No titles, headings, or labels
+✓ Plain paragraph format only
+✓ Response starts with { and ends with }
+✓ Valid JSON syntax
+
+If ANY check fails → Regenerate completely.
+
+Return ONLY the JSON object now.
 `.trim();
-        }
+  }
 
-        return `
-You are an API. Think silently but DO NOT show your internal thinking.
+  return `
+You are a JSON API. Return ONLY valid JSON. No markdown, no code blocks, no explanations.
 
-Write a short NCERT-style chapter summary in 3–4 simple lines only.
-It must be crisp, student-friendly, and useful for last-minute revision.
+Class: ${className} | Subject: ${mainSubject} | Book: ${bookName}
+Chapter: ${chapter} | Stream: ${category}
 
-❌ Do NOT include formulas, numericals, derivations, diagrams, definitions, tables, or headings.
-❌ Do NOT use bullet points, lists, or line breaks after every sentence.
-✔ The summary must be a single flowing paragraph of 3–4 lines only.
+────────────────────────────────────────
+TASK
+────────────────────────────────────────
 
-Return output in JSON format ONLY:
-{
-  "summary": "3–4 line paragraph here"
-}
+Write a short NCERT-style chapter summary in 3-4 simple sentences.
+Must be crisp, student-friendly, and useful for last-minute revision.
 
-Class: ${className}
-Subject: ${mainSubject}
-Book: ${bookName}
-Chapter: ${chapter}
-Stream: ${category}
+────────────────────────────────────────
+CONTENT RULES
+────────────────────────────────────────
+
+✓ Write as ONE flowing paragraph (3-4 sentences)
+✓ Use simple, clear language
+✓ Focus on key concepts only
+
+DO NOT include:
+- Formulas or mathematical expressions
+- Numerical examples or calculations
+- Derivations or proofs
+- Diagrams or table descriptions
+- Definitions (just explain the concept)
+- Bullet points or line breaks between sentences
+- Headings or section labels
+
+────────────────────────────────────────
+JSON FORMAT (ABSOLUTE REQUIREMENT)
+────────────────────────────────────────
+
+CRITICAL: Your response must START with { and END with }
+
+NO text before the JSON
+NO text after the JSON
+NO markdown code blocks like \`\`\`json
+Return as single-line minified JSON
+
+────────────────────────────────────────
+REQUIRED OUTPUT FORMAT
+────────────────────────────────────────
+
+{"summary":"Your 3-4 sentence paragraph summary here"}
+
+────────────────────────────────────────
+VALIDATION CHECKLIST
+────────────────────────────────────────
+
+Before responding, verify:
+✓ Summary is 3-4 sentences in one paragraph
+✓ No formulas, no bullets, no formatting
+✓ Plain text only
+✓ Response starts with { and ends with }
+✓ Valid JSON syntax
+
+If ANY check fails → Regenerate completely.
+
+Return ONLY the JSON object now.
 `.trim();
-      });
+});
 
       // 3️⃣ CALL OPENAI
       const aiRaw = await step.run("Call OpenAI" ,async () => {
@@ -141,7 +239,7 @@ Stream: ${category}
       return { summary: safeParsed, source: "generated" };
 
     } catch (err) {
-      // Rethrow so Inngest marks run as failed and logs the error
+      redis.del(pendingKey);
       throw new Error(`generateSummary error: ${err.message}`);
     }
   }
