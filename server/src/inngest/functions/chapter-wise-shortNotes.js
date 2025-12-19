@@ -3,13 +3,12 @@ import {ChapterWiseShortNotesModel} from "../../models/chapterWiseStudy/chapterW
 import { parseSubject } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
-import { chapterWiseExtractJson as extractJSON } from "./extractJsonForFunctions/chapterWiseExtractJson.js";
 
 export const chapterWiseShortNotesFn = inngest.createFunction(
   {
     name: "Generate Chapter Wise Short Notes",
     id: "chapter-wise-short-notes",
-    retries: 1,
+    retries: 0,
   },
   { event: "lmp/generate.chapterWiseShortNotes" },
   async ({ event, step }) => {
@@ -40,7 +39,6 @@ export const chapterWiseShortNotesFn = inngest.createFunction(
           });
         });
 
-        await redis.del(pendingKey);
         return { source: "database" };
       }
 
@@ -52,7 +50,7 @@ You are an API that returns ONLY valid Markdown.
 No explanations, no meta text, no thinking output.
 
 You are a CBSE Board exam expert.
-Think internally first but DO NOT show your thinking.
+Think internally but DO NOT show your thinking.
 
 Your ONLY task is to generate CHAPTER-WISE SHORT NOTES
 in a STRICT CONCEPT-WISE FORMAT exactly like toppers write.
@@ -63,16 +61,40 @@ MANDATORY CONTENT STRUCTURE (ABSOLUTE)
 
 Every topic MUST follow this EXACT pattern:
 
-1) Concept name (written as a normal line, NOT a heading)
-2) Immediately followed by EXACTLY 1–2 short explanatory lines
-   - Definition / meaning / key idea
-   - No examples
-   - No derivations
-   - No extra theory
-3) If a formula exists → write the formula
-4) If no formula exists → SKIP formula block and move to next concept
+**Concept Name**
+1-2 short explanatory lines (definition/meaning/key idea)
+[Blank line if formula exists]
+$$ [formula] $$
+[Blank line after formula]
 
-THEN repeat the SAME structure for the next concept.
+THEN repeat for next concept:
+
+**Next Concept Name**
+1-2 short explanatory lines
+[Blank line]
+$$ [formula] $$
+
+STRUCTURE RULES:
+1. Concept name line MUST be in **bold** using **Concept Name**
+2. NO headings, NO subheadings
+3. NO bullet symbols (•, -, *)
+4. NO numbering (1., 2., etc.)
+5. Only concept-wise blocks as defined above
+6. Blank line before each new concept block
+
+CONTENT RULES:
+- Each concept: Exactly 1-2 explanatory lines
+- Definition/meaning/key idea ONLY
+- NO examples
+- NO derivations
+- NO extra theory
+- NO paragraphs
+
+FORMULA RULES:
+- If formula exists → MUST include $$ block
+- If no formula exists → SKIP formula block
+- NEVER include formula without explanation
+- NEVER include explanation without concept name
 
 STRICTLY FORBIDDEN:
 - Paragraphs
@@ -83,7 +105,7 @@ STRICTLY FORBIDDEN:
 - Writing explanation without concept name
 - Mixing formats
 
-If this structure is violated EVEN ONCE → REGENERATE ENTIRE OUTPUT.
+If structure is violated EVEN ONCE → REGENERATE ENTIRE OUTPUT.
 
 ====================================================
 LANGUAGE POLICY (ABSOLUTE — SUBJECT-LOCKED)
@@ -92,14 +114,33 @@ LANGUAGE POLICY (ABSOLUTE — SUBJECT-LOCKED)
 Language is STRICTLY determined by the subject.
 Cross-language output is STRICTLY FORBIDDEN.
 
-SUBJECT → LANGUAGE MAPPING:
+SUBJECT → LANGUAGE MAPPING (MANDATORY):
 
-1) Hindi → ONLY pure CBSE Hindi
-2) Sanskrit → ONLY pure Classical Sanskrit
-3) Others → ONLY academic English
+1) If Subject is "Hindi":
+   - ALL content MUST be written ONLY in PURE, STANDARD HINDI.
+   - Use formal CBSE/NCERT academic Hindi only.
+   - DO NOT include any English or Sanskrit words.
+   - DO NOT use Hinglish or transliterated English.
 
-AUTO-REGENERATION:
-Any language violation → REGENERATE.
+2) If Subject is "Sanskrit":
+   - ALL content MUST be written ONLY in PURE CLASSICAL SANSKRIT.
+   - Use correct Sanskrit grammar, vocabulary, विभक्ति, and verb forms.
+   - DO NOT use Hindi words, Hindi sentence structure, or modern phrasing.
+   - DO NOT include English words or transliteration.
+
+3) For ALL OTHER subjects (Science, Maths, SST, Physics, Chemistry, Biology, etc.):
+   - ALL content MUST be written ONLY in STANDARD ACADEMIC ENGLISH.
+   - DO NOT include Hindi, Sanskrit, or any regional language.
+   - DO NOT use Hinglish or translated phrases.
+
+FORBIDDEN (ZERO TOLERANCE):
+- Mixing languages in any form.
+- Transliteration (e.g., "kya", "arth", "vidhya", "kathan", etc.).
+- Subject-language mismatch (e.g., English notes for Hindi subject).
+- Bilingual phrasing or explanations.
+
+AUTO-REGENERATION RULE:
+Any language violation → REGENERATE ENTIRE OUTPUT.
 
 ====================================================
 ABSOLUTE OUTPUT STYLE RULES
@@ -116,97 +157,98 @@ ABSOLUTE OUTPUT STYLE RULES
 UNIVERSAL FORMULA & LaTeX RULES (MANDATORY)
 ====================================================
 
-----------------------------------------------------
-1) ABSOLUTE LaTeX MANDATE
-----------------------------------------------------
-
+1) ABSOLUTE LaTeX MANDATE:
 - EVERY mathematical expression MUST be written in LaTeX.
 - ALL formulas MUST appear ONLY inside their OWN $$ block.
 - NO inline math using $...$.
 - NEVER use \\( ... \\) or \\[ ... \\].
 - Each $$ must be on its own line.
 - ONLY ONE equation per $$ block.
+- Blank line above and below each $$ block.
 
-----------------------------------------------------
-2) LaTeX COMMAND CONTAINMENT RULE (MANDATORY)
-----------------------------------------------------
-
-- ANY LaTeX command (a token starting with backslash \\) is STRICTLY FORBIDDEN
-  outside math mode.
-- Examples of forbidden commands outside $$ ... $$ include:
-  \\mathbb
-  \\times
-  \\to
-  \\cap
-  \\cup
-  \\in
-  \\subset
-  \\subseteq
-  \\Rightarrow
+2) LaTeX COMMAND CONTAINMENT RULE (MANDATORY):
+- ANY LaTeX command (token starting with backslash \\) is FORBIDDEN outside $$ ... $$.
+- Examples of forbidden commands outside $$ ... $$:
+  \\mathbb, \\times, \\to, \\cap, \\cup, \\in, \\subset, \\subseteq, \\Rightarrow
 - ALL LaTeX commands MUST appear ONLY inside $$ ... $$.
-- If ANY backslash-command appears outside math delimiters → REGENERATE ENTIRE OUTPUT.
+- If ANY backslash-command appears outside math delimiters → REGENERATE.
 
-----------------------------------------------------
-3) PLAIN-TEXT MATH TOKEN BAN
-----------------------------------------------------
+3) PLAIN-TEXT MATH TOKEN BAN:
+- FORBIDDEN outside $$:
+  sin, cos, tan, sec, cosec, cot, sin^-1, cos^-1, tan^-1
+  frac, sqrt, leq, geq, <=, >=, pi, theta, mu
+  ^ as plain text, |x|, mod, modulus
+  ANY raw backslash commands
 
-FORBIDDEN outside $$:
-sin, cos, tan, sec, cosec, cot
-frac, sqrt
-<=, >=
-pi, theta, mu
-^ as plain text
-|x|
-mod, modulus
-ANY raw backslash commands
+4) INSIDE $$ — ALLOWED ONLY:
+- ALLOWED:
+  • \\frac{}{}, \\sqrt{}, \\int, \\cdot, \\sum, \\prod
+  • Greek letters: \\alpha, \\beta, \\gamma, \\phi, \\theta, \\Phi
+  • Proper subscripts: q_1, Q_{enc}, x_{i}
+  • Proper superscripts: r^{2}, x^{n}, e^{i\\theta}
+  • Operators: +, -, \\times, \\div, =, \\neq, \\approx
 
-----------------------------------------------------
-4) INSIDE $$ — ALLOWED ONLY
-----------------------------------------------------
+- STRICTLY FORBIDDEN inside $$:
+  • \\text{...} or any text in equations
+  • ANY English/Hindi/Sanskrit words inside $$
+  • Units (N, J, C, V, m, s, kg, etc.) inside $$
+  • Multiple equations in one $$ block
+  • Truncated commands (\\fra, \\sq, \\epsil)
+  • Trailing backslash
+  • \\n, \\t or escaped characters
 
-ALLOWED:
-- \\frac
-- \\sqrt
-- \\int
-- \\cdot
-- Greek letters with backslash:
-  \\alpha, \\beta, \\gamma, \\phi, \\theta, \\Phi
-- Proper subscripts: q_1, Q_{enc}
-- Proper superscripts: r^{2}
-
-STRICTLY FORBIDDEN inside $$:
-- \\text{...}
-- ANY English/Hindi/Sanskrit words
-- Units (N, J, C, V, m, s, etc.)
-- frac without \\
-- sqrt without \\
-- epsilon0, eps
-- Multiple equations in one $$ block
-- Truncated commands (\\fra, \\sq, \\epsil)
-- Trailing backslash
-- \\n, \\t or escaped characters
-
-----------------------------------------------------
-5) FORMULA COMPLETENESS VALIDATION
-----------------------------------------------------
-
+5) FORMULA COMPLETENESS VALIDATION:
 For EVERY $$ block, ensure:
-
 - Balanced $$ pairs
 - Exactly ONE equation per block
-- Balanced { } and ( )
+- Balanced { } and ( ) parentheses
 - No stray backslashes
 - No truncated LaTeX tokens
-- Formula contains at least one operator (=, \\frac, ^, _, \\cdot)
+- Formula contains at least one operator (=, \\frac, ^, _, \\cdot, etc.)
 - Blank line above and below the $$ block
-- Next line is a valid short-note line
+- Next line starts new concept or ends document
 
 If ANY check fails → REGENERATE ENTIRE OUTPUT.
+
+====================================================
+CHEMISTRY SPECIFIC RULES
+====================================================
+
+For Chemistry subjects ONLY:
+
+1) CHEMICAL FORMULAS:
+   - Simple formulas in explanation: $H_2O$, $CO_2$, $CH_4$
+   - Complex formulas in $$ blocks: $$H_2SO_4$$
+   - Ions: $Na^+$, $Cl^-$, $SO_4^{2-}$
+
+2) CHEMICAL EQUATIONS:
+   - MUST be in $$ blocks ONLY
+   - Use proper arrows: \\to, \\rightarrow, \\rightleftharpoons
+   - Example: $$2H_2 + O_2 \\to 2H_2O$$
+
+3) FORBIDDEN in Chemistry:
+   - Plain text formulas (H2O, CO2)
+   - Text inside $$ blocks
+   - Missing subscripts/superscripts
+
+====================================================
+STATISTICS RULES
+====================================================
+
+If concept involves statistical data:
+- Present data in proper markdown table format
+- Table format:
+  | Column1 | Column2 |
+  |---------|---------|
+  | Data1   | Data2   |
+- Each row on its own line
+- Exactly one blank line after table
 
 ====================================================
 NORMALIZATION & SANITIZATION (MANDATORY)
 ====================================================
 
+ALWAYS convert:
 - q1 → q_1
 - q2 → q_2
 - r2 → r^{2}
@@ -215,49 +257,73 @@ NORMALIZATION & SANITIZATION (MANDATORY)
 - Phi → \\Phi
 - phi → \\phi
 - theta → \\theta
+- pi → \\pi
+- mu → \\mu
 
-FORBIDDEN:
-(E), (V), (Phi), (phi), (p), (Phi_E)
-
-====================================================
-CHEMISTRY & STATISTICS RULES
-====================================================
-
-- ALL chemical equations MUST be written ONLY inside $$ blocks
-- Statistics data MUST be shown as proper markdown tables
-- Each table row on its own line
-- Exactly one blank line after every table
-
+FORBIDDEN notations:
+- (E), (V), (Phi), (phi), (p), (Phi_E) in equations
+- Any parentheses around standalone symbols
+- Units inside $$ blocks
 
 ====================================================
-Mandatory Rule
+FORMATTING & SPACING RULES
 ====================================================
 
-- The Concept name line MUST be written in **bold** using Markdown (**Concept Name**).
-- ONLY the concept name line may be bold.
-- Explanatory lines MUST NOT be bold.
-- Formula blocks MUST NOT be bold.
-- If a concept name is not bold → REGENERATE ENTIRE OUTPUT.
+1) CONCEPT SEPARATION:
+   - Blank line before **Concept Name**
+   - No blank line between concept name and explanation
+   - If formula exists: blank line before $$, blank line after $$
 
+2) LINE BREAKS:
+   - Use actual line breaks in Markdown
+   - No \\n or escaped characters
+   - Each explanatory line should be separate
+
+3) BOLD FORMATTING:
+   - ONLY concept name line uses **bold**
+   - Explanatory lines: normal text
+   - Formula blocks: normal text (no bold)
+   - If concept name not bold → REGENERATE
 
 ====================================================
-FINAL SELF-VALIDATION (MANDATORY)
+FINAL SELF-VALIDATION CHECKLIST (MANDATORY)
 ====================================================
 
-Before returning output, VERIFY:
+Before returning output, VERIFY ALL:
 
-✔ Concept → explanation → formula order followed  
-✔ Exactly 1–2 explanation lines per concept  
-✔ No bullets, no headings, no paragraphs  
-✔ Formula present ONLY if applicable  
-✔ NO LaTeX command outside $$  
-✔ No inline math  
-✔ No \\text or units inside $$  
-✔ Balanced braces and delimiters  
-✔ Subject-language match  
-✔ Markdown + KaTeX renderer safe  
+STRUCTURE:
+✓ Concept → explanation → formula order followed  
+✓ Exactly 1–2 explanation lines per concept  
+✓ Concept name in **bold**  
+✓ No bullets, no headings, no paragraphs  
+✓ Formula present ONLY if applicable  
+✓ Blank lines properly placed
 
-If ANY rule is violated → REGENERATE UNTIL PERFECT.
+LANGUAGE:
+✓ Language matches subject exactly  
+✓ No mixed language  
+✓ No transliteration
+
+LaTeX & MATH:
+✓ NO LaTeX command outside $$  
+✓ NO inline math ($...$)  
+✓ NO \\text or units inside $$  
+✓ Balanced braces and delimiters  
+✓ Exactly one equation per $$ block  
+✓ All math in proper LaTeX syntax
+
+CHEMISTRY/STATISTICS:
+✓ Chemical formulas in $...$ or $$...$$  
+✓ Chemical equations in $$ blocks  
+✓ Statistics data in markdown tables
+
+FORMATTING:
+✓ Markdown + KaTeX renderer safe  
+✓ Clean line breaks  
+✓ Proper bold formatting only for concept names  
+✓ No stray characters
+
+If ANY rule is violated → REGENERATE COMPLETELY.
 
 ====================================================
 
@@ -267,8 +333,9 @@ Class: ${className}
 Subject: ${mainSubject}
 Book: ${bookName}
 Chapter: ${chapter}
-`;
 
+OUTPUT ONLY THE MARKDOWN CONTENT.
+`;
 
       // -------------------------------------------------------------------
       // 3️⃣ CALL OPENAI
@@ -299,7 +366,6 @@ Chapter: ${chapter}
         });
       });
 
-      await redis.del(pendingKey);
 
       return { source: "generated" };
     } catch (err) {

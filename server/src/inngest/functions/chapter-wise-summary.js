@@ -8,7 +8,7 @@ export const smartChapterSummaryFn = inngest.createFunction(
   {
     name: "Generate Smart Chapter Summary",
     id: "smart-chapter-summary",
-    retries: 1,
+    retries: 0,
   },
   { event: "lmp/generate.smartChapterSummary" },
   async ({ event, step }) => {
@@ -40,7 +40,6 @@ export const smartChapterSummaryFn = inngest.createFunction(
           });
         });
 
-        await redis.del(pendingKey);
         return { source: "database" };
       }
 
@@ -157,8 +156,6 @@ Stream: ${category}
           EX: 60 * 60 * 24 * 2,
         });
       });
-
-      await redis.del(pendingKey);
 
       return { source: "generated" };
     } catch (err) {

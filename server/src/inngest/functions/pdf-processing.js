@@ -44,7 +44,7 @@ export const pdfProcessingFn = inngest.createFunction(
   {
     id: "pdf-processing",
     name: "Process PDF Upload",
-    retries:1,
+    retries:0,
   },
   { event: "lmp/generate.pdfProcessing" },
   async ({ event, step }) => {

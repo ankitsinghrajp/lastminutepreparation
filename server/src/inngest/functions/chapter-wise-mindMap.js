@@ -8,7 +8,7 @@ export const chapterWiseMindMapFn = inngest.createFunction(
   {
     name: "Generate Chapter Wise MindMap",
     id: "chapter-wise-mindmap",
-    retries: 1,
+    retries: 0,
   },
   { event: "lmp/generate.chapterWiseMindMap" },
   async ({ event, step }) => {
@@ -39,7 +39,6 @@ export const chapterWiseMindMapFn = inngest.createFunction(
           });
         });
 
-        await redis.del(pendingKey);
         return { source: "database" };
       }
 
@@ -132,7 +131,6 @@ Chapter: ${chapter}
         });
       });
 
-      await redis.del(pendingKey);
 
       return { source: "generated" };
     } catch (err) {

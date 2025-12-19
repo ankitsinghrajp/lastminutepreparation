@@ -1,36 +1,11 @@
 
 import { inngest } from "../libs/inngest.js";
 import { redis } from "../libs/redis.js";
-import { ChapterWiseImportantQuestionModel } from "../models/chapterWiseStudy/chapterWiseImportantQuestion.model.js";
-import { ChapterWiseMindMapModel } from "../models/chapterWiseStudy/chapterWiseMindMap.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { detectCategory, parseSubject } from "../utils/helper.js";
+import { parseSubject } from "../utils/helper.js";
 import { askOpenAI } from "../utils/OpenAI.js";
 
-const extractJSON = (text) => {
-  if (!text) throw new Error("Empty response received from AI.");
-
-  text = text
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
-
-  // Extract only JSON object
-  const first = text.indexOf("{");
-  const last = text.lastIndexOf("}");
-  if (first === -1 || last === -1) throw new Error("No JSON found.");
-
-  let jsonString = text.substring(first, last + 1);
-
-  // ❌ REMOVE THIS (breaking newlines)
-  // jsonString = jsonString.replace(/\\/g, "\\\\");
-
-  // Keep only this to clean invisible control chars
-  jsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
-
-  return JSON.parse(jsonString);
-};
 
 
 const smartChapterSummary = asyncHandler(async (req, res) => {
@@ -48,45 +23,81 @@ const smartChapterSummary = asyncHandler(async (req, res) => {
   const pendingKey = `lmp:smartsummary:pending:${className}:${mainSubject}:${chapter}`;
 
   // -------------------------------------------------------------------
-  // 1️⃣ REDIS FAST PATH
+  // 1️⃣ CHECK REDIS (FASTEST PATH)
   // -------------------------------------------------------------------
   try {
     const redisCached = await redis.get(cacheKey);
 
     if (redisCached) {
-      const finalData =
-        typeof redisCached === "object"
-          ? redisCached
-          : JSON.parse(redisCached);
+      let finalData;
 
-      return res
-        .status(200)
-        .json(new ApiResponse(200, finalData, "Summary Ready (Redis)"));
+      if (typeof redisCached === "object") {
+        finalData = redisCached;
+      } else {
+        try {
+          finalData = JSON.parse(redisCached);
+        } catch (err) {
+          await redis.del(cacheKey); // corrupted → delete
+        }
+      }
+
+      if (finalData) {
+        return res
+          .status(200)
+          .json(new ApiResponse(200, finalData, "Smart Summary Ready (Redis)"));
+      }
     }
   } catch (err) {
     console.error("Redis GET error:", err);
   }
 
   // -------------------------------------------------------------------
-  // 2️⃣ PENDING FLAG (PREVENT DUPLICATE JOBS)
+  // 2️⃣ CHECK IF ALREADY PENDING (BEFORE ACQUIRING LOCK)
   // -------------------------------------------------------------------
-  const isPending = await redis.get(pendingKey);
-
-  if (!isPending) {
-    await redis.set(pendingKey, "1", { EX: 120 });
-
-    await inngest.send({
-      name: "lmp/generate.smartChapterSummary",
-      data: { className, subject, chapter },
-    });
+  try {
+    const isPending = await redis.get(pendingKey);
+    
+    if (isPending) {
+      // Job already queued by another request
+      return res
+        .status(202)
+        .json(new ApiResponse(202, null, "Smart Summary generation already in progress"));
+    }
+  } catch (err) {
+    console.error("Redis pending check error:", err);
   }
 
   // -------------------------------------------------------------------
-  // 3️⃣ QUEUED RESPONSE
+  // 3️⃣ ACQUIRE LOCK AND TRIGGER JOB
   // -------------------------------------------------------------------
-  return res
-    .status(202)
-    .json(new ApiResponse(202, null, "Smart Summary generation queued"));
+  try {
+    const lockAcquired = await redis.set(
+      pendingKey,
+      "1",
+      { NX: true, EX: 120 } // 2 min lock (matches your original EX time)
+    );
+
+    if (lockAcquired) {
+      await inngest.send({
+        name: "lmp/generate.smartChapterSummary",
+        data: { className, subject, chapter },
+      });
+
+      return res
+        .status(202)
+        .json(new ApiResponse(202, null, "Smart Summary generation queued"));
+    } else {
+      // Lock was acquired by another request in the microseconds between check and set
+      return res
+        .status(202)
+        .json(new ApiResponse(202, null, "Smart Summary generation already in progress"));
+    }
+  } catch (err) {
+    console.error("Redis lock error:", err);
+    return res
+      .status(500)
+      .json(new ApiResponse(500, null, "Failed to queue generation"));
+  }
 });
 
 const chapterWiseShortNotes = asyncHandler(async (req, res) => {
@@ -104,7 +115,7 @@ const chapterWiseShortNotes = asyncHandler(async (req, res) => {
   const pendingKey = `lmp:shortnotes:pending:${className}:${mainSubject}:${chapter}`;
 
   // -------------------------------------------------------------------
-  // 1️⃣ REDIS FAST PATH
+  // 1️⃣ CHECK REDIS (FASTEST PATH)
   // -------------------------------------------------------------------
   try {
     const redisCached = await redis.get(cacheKey);
@@ -128,27 +139,52 @@ const chapterWiseShortNotes = asyncHandler(async (req, res) => {
   }
 
   // -------------------------------------------------------------------
-  // 2️⃣ PENDING FLAG (PREVENT DUPLICATE JOBS)
+  // 2️⃣ CHECK IF ALREADY PENDING (BEFORE ACQUIRING LOCK)
   // -------------------------------------------------------------------
-  const isPending = await redis.get(pendingKey);
-
-  if (!isPending) {
-    await redis.set(pendingKey, "1", { EX: 180 });
-
-    await inngest.send({
-      name: "lmp/generate.chapterWiseShortNotes",
-      data: { className, subject, chapter },
-    });
+  try {
+    const isPending = await redis.get(pendingKey);
+    
+    if (isPending) {
+      // Job already queued by another request
+      return res
+        .status(202)
+        .json(new ApiResponse(202, null, "Short Notes generation already in progress"));
+    }
+  } catch (err) {
+    console.error("Redis pending check error:", err);
   }
 
   // -------------------------------------------------------------------
-  // 3️⃣ QUEUED RESPONSE
+  // 3️⃣ ACQUIRE LOCK AND TRIGGER JOB
   // -------------------------------------------------------------------
-  return res
-    .status(202)
-    .json(
-      new ApiResponse(202, null, "Short Notes generation queued")
+  try {
+    const lockAcquired = await redis.set(
+      pendingKey,
+      "1",
+      { NX: true, EX: 180 } // 3 min lock (matches your original EX time)
     );
+
+    if (lockAcquired) {
+      await inngest.send({
+        name: "lmp/generate.chapterWiseShortNotes",
+        data: { className, subject, chapter },
+      });
+
+      return res
+        .status(202)
+        .json(new ApiResponse(202, null, "Short Notes generation queued"));
+    } else {
+      // Lock was acquired by another request in the microseconds between check and set
+      return res
+        .status(202)
+        .json(new ApiResponse(202, null, "Short Notes generation already in progress"));
+    }
+  } catch (err) {
+    console.error("Redis lock error:", err);
+    return res
+      .status(500)
+      .json(new ApiResponse(500, null, "Failed to queue generation"));
+  }
 });
 
 
@@ -167,45 +203,81 @@ const chapterWiseMindMap = asyncHandler(async (req, res) => {
   const pendingKey = `lmp:mindmap:pending:${className}:${mainSubject}:${chapter}`;
 
   // -------------------------------------------------------------------
-  // 1️⃣ REDIS FAST PATH
+  // 1️⃣ CHECK REDIS (FASTEST PATH)
   // -------------------------------------------------------------------
   try {
     const redisCached = await redis.get(cacheKey);
 
     if (redisCached) {
-      const finalData =
-        typeof redisCached === "object"
-          ? redisCached
-          : JSON.parse(redisCached);
+      let finalData;
 
-      return res
-        .status(200)
-        .json(new ApiResponse(200, finalData, "MindMap Ready (Redis)"));
+      if (typeof redisCached === "object") {
+        finalData = redisCached;
+      } else {
+        try {
+          finalData = JSON.parse(redisCached);
+        } catch (err) {
+          await redis.del(cacheKey); // corrupted → delete
+        }
+      }
+
+      if (finalData) {
+        return res
+          .status(200)
+          .json(new ApiResponse(200, finalData, "MindMap Ready (Redis)"));
+      }
     }
   } catch (err) {
-    console.error("Redis GET Error:", err);
+    console.error("Redis GET error:", err);
   }
 
   // -------------------------------------------------------------------
-  // 2️⃣ PENDING FLAG (AVOID DUPLICATE JOBS)
+  // 2️⃣ CHECK IF ALREADY PENDING (BEFORE ACQUIRING LOCK)
   // -------------------------------------------------------------------
-  const isPending = await redis.get(pendingKey);
-
-  if (!isPending) {
-    await redis.set(pendingKey, "1", { EX: 180 });
-
-    await inngest.send({
-      name: "lmp/generate.chapterWiseMindMap",
-      data: { className, subject, chapter },
-    });
+  try {
+    const isPending = await redis.get(pendingKey);
+    
+    if (isPending) {
+      // Job already queued by another request
+      return res
+        .status(202)
+        .json(new ApiResponse(202, null, "MindMap generation already in progress"));
+    }
+  } catch (err) {
+    console.error("Redis pending check error:", err);
   }
 
   // -------------------------------------------------------------------
-  // 3️⃣ QUEUED RESPONSE
+  // 3️⃣ ACQUIRE LOCK AND TRIGGER JOB
   // -------------------------------------------------------------------
-  return res
-    .status(202)
-    .json(new ApiResponse(202, null, "MindMap generation queued"));
+  try {
+    const lockAcquired = await redis.set(
+      pendingKey,
+      "1",
+      { NX: true, EX: 180 } // 3 min lock (matches your original EX time)
+    );
+
+    if (lockAcquired) {
+      await inngest.send({
+        name: "lmp/generate.chapterWiseMindMap",
+        data: { className, subject, chapter },
+      });
+
+      return res
+        .status(202)
+        .json(new ApiResponse(202, null, "MindMap generation queued"));
+    } else {
+      // Lock was acquired by another request in the microseconds between check and set
+      return res
+        .status(202)
+        .json(new ApiResponse(202, null, "MindMap generation already in progress"));
+    }
+  } catch (err) {
+    console.error("Redis lock error:", err);
+    return res
+      .status(500)
+      .json(new ApiResponse(500, null, "Failed to queue generation"));
+  }
 });
 
 
@@ -224,51 +296,86 @@ const chapterWiseStudyQuestions = asyncHandler(async (req, res) => {
   const pendingKey = `lmp:studyq:pending:${className}:${mainSubject}:${chapter}`;
 
   // -------------------------------------------------------------------
-  // 1️⃣ REDIS FAST PATH
+  // 1️⃣ CHECK REDIS (FASTEST PATH)
   // -------------------------------------------------------------------
   try {
     const redisCached = await redis.get(cacheKey);
 
     if (redisCached) {
-      const finalData =
-        typeof redisCached === "object"
-          ? redisCached
-          : JSON.parse(redisCached);
+      let finalData;
 
-      return res
-        .status(200)
-        .json(
-          new ApiResponse(200, finalData, "Important Questions Ready (Redis)")
-        );
+      if (typeof redisCached === "object") {
+        finalData = redisCached;
+      } else {
+        try {
+          finalData = JSON.parse(redisCached);
+        } catch (err) {
+          await redis.del(cacheKey); // corrupted → delete
+        }
+      }
+
+      if (finalData) {
+        return res
+          .status(200)
+          .json(
+            new ApiResponse(200, finalData, "Important Questions Ready (Redis)")
+          );
+      }
     }
   } catch (err) {
     console.error("Redis GET error:", err);
   }
 
   // -------------------------------------------------------------------
-  // 2️⃣ PENDING FLAG (AVOID DUPLICATE JOBS)
+  // 2️⃣ CHECK IF ALREADY PENDING (BEFORE ACQUIRING LOCK)
   // -------------------------------------------------------------------
-  const isPending = await redis.get(pendingKey);
-
-  if (!isPending) {
-    await redis.set(pendingKey, "1", { EX: 180 });
-
-    await inngest.send({
-      name: "lmp/generate.chapterWiseStudyQuestions",
-      data: { className, subject, chapter },
-    });
+  try {
+    const isPending = await redis.get(pendingKey);
+    
+    if (isPending) {
+      // Job already queued by another request
+      return res
+        .status(202)
+        .json(new ApiResponse(202, null, "Important questions generation already in progress"));
+    }
+  } catch (err) {
+    console.error("Redis pending check error:", err);
   }
 
   // -------------------------------------------------------------------
-  // 3️⃣ QUEUED RESPONSE
+  // 3️⃣ ACQUIRE LOCK AND TRIGGER JOB
   // -------------------------------------------------------------------
-  return res
-    .status(202)
-    .json(
-      new ApiResponse(202, null, "Important questions generation queued")
+  try {
+    const lockAcquired = await redis.set(
+      pendingKey,
+      "1",
+      { NX: true, EX: 180 } // 3 min lock (matches your original EX time)
     );
-});
 
+    if (lockAcquired) {
+      await inngest.send({
+        name: "lmp/generate.chapterWiseStudyQuestions",
+        data: { className, subject, chapter },
+      });
+
+      return res
+        .status(202)
+        .json(
+          new ApiResponse(202, null, "Important questions generation queued")
+        );
+    } else {
+      // Lock was acquired by another request in the microseconds between check and set
+      return res
+        .status(202)
+        .json(new ApiResponse(202, null, "Important questions generation already in progress"));
+    }
+  } catch (err) {
+    console.error("Redis lock error:", err);
+    return res
+      .status(500)
+      .json(new ApiResponse(500, null, "Failed to queue generation"));
+  }
+});
 
 const chapterWiseDoubtSolver = asyncHandler(async (req, res) => {
   const { className, subject, chapter, user_doubt} = req.body;
@@ -352,10 +459,5 @@ BookName: ${bookName}
       );
   }
 });
-
-
-
-
-
 
 export {smartChapterSummary, chapterWiseStudyQuestions, chapterWiseShortNotes, chapterWiseMindMap, chapterWiseDoubtSolver}

@@ -4,20 +4,54 @@ import { parseSubject, detectCategory } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
 
-const extractJSON = (text) => {
-  const parsed = JSON.parse(text);
+export const extractJSON = (text) => {
+  if (!text) throw new Error("Empty response received from AI.");
 
-  if (!Array.isArray(parsed.questions)) {
-    throw new Error("Invalid schema");
+  // Remove markdown code fences
+  text = text
+    .replace(/```json/g, "")
+    .replace(/```/g, "")
+    .trim();
+
+  // Extract JSON object boundaries
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+  if (first === -1 || last === -1) {
+    throw new Error("No JSON object found in AI response.");
   }
 
-  if (parsed.questions.length !== 10) {
-    throw new Error(`Expected 10 questions, got ${parsed.questions.length}`);
-  }
+  let jsonString = text.substring(first, last + 1);
 
-  return parsed;
+  // Only remove control characters that break JSON parsing
+  // Preserve ALL backslashes for LaTeX math expressions
+  jsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
+
+  try {
+    const parsed = JSON.parse(jsonString);
+    
+    // Validate structure for predicted questions
+    if (!parsed.questions || !Array.isArray(parsed.questions)) {
+      throw new Error("Invalid structure: 'questions' array not found");
+    }
+    
+
+    // Validate each question
+    parsed.questions.forEach((q, idx) => {
+      if (!q.question || typeof q.question !== 'string') {
+        throw new Error(`Invalid or missing question at index ${idx}`);
+      }
+    });
+    
+    return parsed;
+    
+  } catch (err) {
+    console.error("JSON Parse Error:", err.message);
+    console.error("First 500 chars:", jsonString.substring(0, 500));
+    console.error("Last 200 chars:", jsonString.substring(jsonString.length - 200));
+    
+    throw new Error(`Failed to parse AI response: ${err.message}`);
+  }
 };
-
 
 
 
@@ -26,7 +60,7 @@ export const chapterWiseStudyQuestionsFn = inngest.createFunction(
   {
     name: "Generate Chapter Wise Study Questions",
     id: "chapter-wise-study-questions",
-    retries: 1,
+    retries: 0,
   },
   { event: "lmp/generate.chapterWiseStudyQuestions" },
   async ({ event, step }) => {
@@ -58,7 +92,6 @@ export const chapterWiseStudyQuestionsFn = inngest.createFunction(
           });
         });
 
-        await redis.del(pendingKey);
         return { source: "database" };
       }
 
@@ -78,6 +111,7 @@ the same style and rigor as NCERT back exercises and official CBSE PYQs.
 
 LANGUAGE POLICY (ABSOLUTE — SUBJECT-LOCKED):
 
+- Language of questions is STRICTLY determined by the subject.
 - Language MUST match the subject exactly.
 - Cross-language output is STRICTLY FORBIDDEN.
 
@@ -113,8 +147,6 @@ AUTO-REGENERATION RULE (MANDATORY):
   violates the subject-language rule,
   → IMMEDIATELY discard and regenerate the entire output.
 
-
-
 CHAPTER–TOPIC ISOLATION:
 - Questions MUST belong strictly to the given chapter and its syllabus.
 - Do NOT introduce topics or question types from other chapters or classes.
@@ -133,21 +165,17 @@ UNIVERSAL FORMULA & MATH RULES (APPLY ALWAYS)
 - Every mathematical expression (equations, formulas, fractions, powers, subscripts,
   trigonometric functions, inequalities, derivatives, integrals, chemical equations, units)
   MUST be written using LaTeX and wrapped inside:
-    • Inline math → $ ... $  OR
+    • Inline math → $ ... $
     • Display math → $$ ... $$
 - NEVER output mathematical tokens or operators as plain text (examples below).
-
 
 LATEX DELIMITER RESTRICTION (MANDATORY):
 
 - NEVER use escaped LaTeX delimiters \\( ... \\) or \\[ ... \\].
-- Inline mathematics MUST be written ONLY using:
-  • $ ... $
-- Display mathematics MUST be written ONLY using:
-  • $$ ... $$
+- Inline mathematics MUST be written ONLY using: $ ... $
+- Display mathematics MUST be written ONLY using: $$ ... $$
 - Any occurrence of \\(, \\), \\[, or \\] is STRICTLY FORBIDDEN.
 - If such delimiters appear, regenerate the output.
-
 
 LATEX COMMAND CONTAINMENT RULE (MANDATORY):
 
@@ -165,7 +193,6 @@ LATEX COMMAND CONTAINMENT RULE (MANDATORY):
 - ALL such commands MUST appear ONLY inside $...$ or $$...$$.
 - If any backslash-command appears outside math delimiters, regenerate the output.
 
-
 2) PLAIN-TEXT MATH TOKEN BAN:
 - The following tokens are STRICTLY FORBIDDEN outside LaTeX math delimiters:
   sin, cos, tan, sec, cosec, cot, sin^-1, cos^-1, tan^-1, sec^-1, cosec^-1, cot^-1,
@@ -182,51 +209,134 @@ LATEX COMMAND CONTAINMENT RULE (MANDATORY):
   x \\geq 0, \\; y \\geq 0
   $$
 
-4) CHEMICAL EQUATIONS:
-- ALL chemical reactions MUST be written as display math only: $$ ... $$.
-- NEVER use \\( ... \\) or inline plain text for chemical equations.
+────────────────────────────────────────
+CHEMICAL FORMULAS & EQUATIONS (Chemistry/Science)
+────────────────────────────────────────
 
-5) STATISTICS / TABLES:
-- If question involves statistics (mean, median, mode, variance, SD, frequency),
-  → ALWAYS present data in a markdown table.
-  → If data is ungrouped, FIRST convert to a frequency table.
-  → After every table include exactly one blank line before the following text.
+FOR ALL CHEMICAL CONTENT IN QUESTIONS:
 
-6) NEWLINES & ESCAPED CHARACTERS:
-- NEVER use escaped newlines like \\n in the question text. Use real line breaks.
-- Do NOT include escaped math delimiters like \\( or \\) — use $ or $$ only.
+1) SIMPLE CHEMICAL FORMULAS (in question text):
+   - Use INLINE math mode with subscripts/superscripts
+   - LaTeX backslashes MUST be DOUBLED in JSON strings: \\\\\\\\
+   - Examples in question text:
+     • Water: $H_2O$
+     • Sulfuric acid: $H_2SO_4$
+     • Potassium dichromate: $K_2Cr_2O_7$
+     • Permanganate ion: $MnO_4^-$
+     • Hydronium: $H_3O^+$
+     • Chromate: $CrO_4^{2-}$
 
-7) SUB-PARTS: (Strictly Follow if not regenerate)
-- Each sub-part (a),(b),(c) MUST begin on its own line and be clearly numbered.
+2) CHEMICAL EQUATIONS IN QUESTIONS:
+   - Use DISPLAY math mode for reactions: $$ ... $$
+   - LaTeX backslashes MUST be DOUBLED: \\\\\\\\
+   - Examples in question text:
+     • Simple reaction:
+       $$K_2Cr_2O_7 + H_2SO_4 \\\\\\\\to \\\\\\\\text{products}$$
+     • Equilibrium:
+       $$N_2 + 3H_2 \\\\\\\\rightleftharpoons 2NH_3$$
+     • With conditions:
+       $$\\\\ce{2KMnO_4 \\\\\\\\xrightarrow{\\\\\\\\Delta} K_2MnO_4 + MnO_2 + O_2}$$
 
-8) For every statistics if table is needed give markdown table if not regenerate
+3) FORBIDDEN IN CHEMISTRY:
+   - NEVER write H2O, H2SO4, K2Cr2O7 as plain text without LaTeX
+   - NEVER write subscripts/superscripts without math delimiters
+   - NEVER use single backslashes in JSON (must be \\\\\\\\)
+   - NEVER use \\( or \\) delimiters
 
+4) CHEMISTRY VALIDATION CHECKLIST:
+   - ✓ All chemical formulas wrapped in $...$ or $$...$$
+   - ✓ All LaTeX backslashes are DOUBLED (\\\\\\\\)
+   - ✓ NO plain-text chemical formulas (H2O, CO2, etc.)
+   - ✓ Subscripts use _ and superscripts use ^
+   - ✓ Arrows use \\\\\\\\to, \\\\\\\\rightarrow, or \\\\\\\\rightleftharpoons
+   - ✓ Chemical reactions use display math: $$...$$
+   - If ANY chemistry validation fails → REGENERATE
 
+────────────────────────────────────────
+LOGICAL & SYMBOLIC NOTATION RULE (MANDATORY)
+────────────────────────────────────────
+
+This section applies to subjects like Mathematics, Logic, Discrete Math,
+Reasoning, Proofs, and Theoretical concepts.
+
+1) Logical symbols such as:
+   ¬  (negation)
+   ⇒  (implies)
+   ⇔  (if and only if)
+   ⊥  (contradiction)
+   ∀  (for all)
+   ∃  (there exists)
+   ∈, ∉, ⊆, ⊂
+
+   MUST ALWAYS be written in LaTeX form and MUST be wrapped in $...$ 
+   when they appear in the question text.
+
+2) NEVER write logical symbols as plain text.
+   ❌ Wrong: not p, egp, implies, contradiction
+   ✅ Correct: $\\neg p$, $p \\Rightarrow q$, $\\bot$
+
+3) Examples (CORRECT):
+   "Proof by contradiction assumes $\\neg p$ and derives $\\bot$."
+   "An implication $p \\Rightarrow q$ is false only when $p$ is true and $q$ is false."
+
+4) If logical symbols are required and not written in LaTeX → REGENERATE.
+
+────────────────────────────────────────
+STATISTICS / TABLES RULE (MANDATORY)
+────────────────────────────────────────
+
+1) If question involves statistics (mean, median, mode, variance, SD, frequency):
+   → ALWAYS present data in a PROPER MARKDOWN TABLE.
+   → Each row MUST be on its own line.
+   → Tables MUST use markdown pipe syntax: | Header1 | Header2 |
+
+2) Example of correct markdown table:
+   | Marks | Number of Students |
+   |-------|-------------------|
+   | 0-10  | 5 |
+   | 10-20 | 12 |
+   | 20-30 | 18 |
+
+3) After every table, include exactly one blank line before following text.
+
+4) If statistics data is ungrouped, FIRST convert to a frequency table.
+
+5) If table is needed but not provided → REGENERATE.
 
 MARKDOWN RULE:
-- Markdown is allowed only for line breaks, sub-parts and markdown tables.
-- Do NOT use code blocks or headings.
-- Tables MUST be proper markdown tables with each row on its own line.
+- Use markdown formatting ONLY for: line breaks, sub-parts, and tables.
+- Each sub-part (a),(b),(c) MUST begin on its own line.
+- Do NOT use markdown code blocks (\`\`\`), headings (#), or blockquotes (>).
+- Mathematical content MUST be in LaTeX ($...$ or $$...$$), not markdown.
 
-
+JSON FORMATTING RULE:
+- In JSON strings, use \\n for newlines between sentences/paragraphs.
+- Do NOT use literal line breaks within JSON string values.
+- All strings MUST use double quotes, not single quotes.
+- No trailing commas in JSON arrays/objects.
 
 FINAL SELF-VALIDATION (MANDATORY):
 
-Before returning the JSON:
-- Scan the ENTIRE output.
-- If ANY backslash-command (\\mathbb, \\cap, \\emptyset, \\text, etc.)
-  appears OUTSIDE $...$ or $$...$$ → REGENERATE.
-- If ANY mathematical symbol appears outside LaTeX → REGENERATE.
-- If ANY rule is violated → REGENERATE internally until compliant.
+Before returning the JSON, scan ENTIRE output for:
+1. ✓ Exactly 10 questions
+2. ✓ Language matches subject exactly
+3. ✓ All math/chemical expressions in LaTeX ($...$ or $$...$$)
+4. ✓ No \\(, \\), \\[, or \\] delimiters
+5. ✓ All LaTeX commands inside math delimiters
+6. ✓ No plain-text math/chemical tokens
+7. ✓ Statistics data in proper markdown tables if applicable
+8. ✓ Each sub-part on new line
+9. ✓ Valid JSON structure (double quotes, no trailing commas)
+10. ✓ No markdown code blocks/headings/blockquotes
 
-Return output ONLY after passing ALL checks.
+If ANY violation → REGENERATE COMPLETELY.
 
 OUTPUT JSON (STRICT):
 Return ONLY this exact JSON structure, with exactly 10 questions:
 
 {
   "questions": [
-    { "question": "Complete CBSE-style question in markdown (math inside $...$ or $$...$$)" },
+    { "question": "Complete CBSE-style question with math in $...$ or $$...$$\\nMulti-part on separate lines\\nMarkdown tables if needed" },
     { "question": "..." },
     { "question": "..." },
     { "question": "..." },
@@ -240,16 +350,14 @@ Return ONLY this exact JSON structure, with exactly 10 questions:
 }
 
 CRITICAL:
-- If ANY of the above rules are violated, regenerate the output.
-- NO extra fields, NO stray punctuation, NO partial math outside LaTeX.
-- Output MUST be fully compatible with a Markdown+KaTeX renderer.
+- If ANY rule is violated, regenerate the ENTIRE output.
+- NO extra fields, NO stray punctuation.
+- Output MUST be valid JSON and compatible with Markdown+KaTeX renderer.
 `;
-
-
       // -------------------------------------------------------------------
       // 3️⃣ CALL OPENAI
       // -------------------------------------------------------------------
-     const aiRaw = await askOpenAI(prompt, "gpt-5-mini", {
+     const aiRaw = await askOpenAI(prompt, "gpt-5.1", {
   response_format: { type: "json_object" }
      });
 
@@ -289,8 +397,6 @@ CRITICAL:
           EX: 60 * 60 * 24 * 2,
         });
       });
-
-      await redis.del(pendingKey);
 
       return { source: "generated" };
     } catch (err) {
