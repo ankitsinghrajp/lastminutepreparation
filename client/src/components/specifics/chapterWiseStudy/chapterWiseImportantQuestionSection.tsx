@@ -22,7 +22,9 @@ const ChapterWiseImportantQuestionSection = ({
   const pollTopperStyleAnswer = async (params, idx) => {
     const interval = setInterval(async () => {
       try {
-        const res = await getAnswer("Fetching answer...", params);
+           window.__LMP_POLLING__ = true;
+           const res = await getAnswer("Fetching answer...", params);
+           window.__LMP_POLLING__ = false;
   
         if (res?.data?.statusCode === 200) {
           const answer = res.data.data.answer;
