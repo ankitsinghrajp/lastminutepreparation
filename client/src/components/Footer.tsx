@@ -1,8 +1,11 @@
-import { Sparkles, Mail, Github, Twitter, Linkedin, Instagram } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Mail, Twitter, Linkedin, Instagram } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 import logo from "../assets/logo.png";
 
 export const Footer = () => {
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
+
   return (
     <footer className="border-t border-border/50 bg-card/30 backdrop-blur-sm">
       <div className="container mx-auto px-4 py-12">
@@ -41,14 +44,26 @@ export const Footer = () => {
             <h3 className="font-semibold mb-4 text-foreground">Product</h3>
             <ul className="space-y-3 text-sm">
               <li>
-                <a href="#features" className="text-muted-foreground hover:text-primary transition-colors">
-                  Features
-                </a>
+                {isHomePage ? (
+                  <a href="#features" className="text-muted-foreground hover:text-primary transition-colors">
+                    Features
+                  </a>
+                ) : (
+                  <Link to="/#features" className="text-muted-foreground hover:text-primary transition-colors">
+                    Features
+                  </Link>
+                )}
               </li>
               <li>
-                <a href="#pricing" className="text-muted-foreground hover:text-primary transition-colors">
-                  Pricing
-                </a>
+                {isHomePage ? (
+                  <a href="#pricing" className="text-muted-foreground hover:text-primary transition-colors">
+                    Pricing
+                  </a>
+                ) : (
+                  <Link to="/#pricing" className="text-muted-foreground hover:text-primary transition-colors">
+                    Pricing
+                  </Link>
+                )}
               </li>
               <li>
                 <Link to="/about" className="text-muted-foreground hover:text-primary transition-colors">
