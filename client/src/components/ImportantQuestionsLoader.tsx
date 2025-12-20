@@ -2,19 +2,19 @@ import { useEffect, useState } from "react";
 import logo from "../assets/logo.png";
 
 const LOADER_MESSAGES = [
-  "📚 Fetching your study materials...",
-  "🚀 All of India is on LMP right now!",
-  "⏳ High traffic! Struggling to fetch data...",
-  "💪 India is studying. You are too.",
-  "🔥 Loading premium content for you...",
-  "📖 Filtering only the marks-giving content…",
-  "⚡ Removing confusion, keeping only exam gold…",
-  "🎯 Preparing your exam arsenal...",
-  "📖 Compiling topper secrets...",
+  "📊 Analyzing previous year CBSE question papers…",
+  "📚 Scanning questions asked repeatedly across years…",
+  "🧠 Identifying high-frequency concepts from PYQs…",
+  "📈 Studying exam patterns and chapter weightage…",
+  "🔍 Filtering questions examiners prefer to repeat…",
+  "🧮 Checking predictability using past exam trends…",
+  "🎯 Evaluating probability of questions coming this year…",
+  "📘 Removing low-chance and rarely asked questions…",
+  "🔥 Shortlisting only top-scoring, exam-relevant questions…",
   "✅ Final polish — let’s win this exam."
 ];
 
-const AnimatedLoader = ({ stepLabel = "Loading...", showLoader = true }) => {
+const ImportantQuestionsLoader = ({ stepLabel = "Loading...", showLoader = true }) => {
   const [currentMessage, setCurrentMessage] = useState(LOADER_MESSAGES[0]);
 
   useEffect(() => {
@@ -107,7 +107,7 @@ const AnimatedLoader = ({ stepLabel = "Loading...", showLoader = true }) => {
         }
 
         .animate-fade-in {
-          animation: fade-in 0.5s ease-in-out;
+          animation: fade-in 1s ease-in-out;
         }
 
         .animate-loading-bar {
@@ -118,22 +118,4 @@ const AnimatedLoader = ({ stepLabel = "Loading...", showLoader = true }) => {
   );
 };
 
-export default AnimatedLoader;
-
-// USAGE EXAMPLE:
-// import AnimatedLoader from './AnimatedLoader';
-// 
-// function YourComponent() {
-//   const [isLoading, setIsLoading] = useState(false);
-//   const [currentStep, setCurrentStep] = useState("Generating Summary");
-//
-//   return (
-//     <>
-//       <AnimatedLoader 
-//         stepLabel={currentStep} 
-//         showLoader={isLoading} 
-//       />
-//       {/* Your other content */}
-//     </>
-//   );
-// }
+export default ImportantQuestionsLoader;

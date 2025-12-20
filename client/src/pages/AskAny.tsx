@@ -18,6 +18,7 @@ import "katex/dist/katex.min.css";
 import "highlight.js/styles/github.css";
 import { useSelector } from "react-redux";
 import { Helmet } from "react-helmet-async";
+import AskAnyLoader from "@/components/askAnyLoader";
 
 /* ===================== AI OUTPUT ===================== */
 const AIOutput = ({ content }) => {
@@ -62,6 +63,9 @@ export default function AskAnyQuestion() {
   const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
+  const POLL_INTERVAL_MS = 5 * 1000; // 5 seconds
+const POLL_TIMEOUT_MS = 40 * 1000; // 40 seconds
+
 
   const {user} = useSelector(state=>state.auth);
 
@@ -69,35 +73,52 @@ export default function AskAnyQuestion() {
   const pollRef = useRef(null);
 
 const startPolling = async (formData) => {
+  // Clear any existing poll
+  if (pollRef.current) {
+    clearInterval(pollRef.current);
+    pollRef.current = null;
+  }
+
+  const startTime = Date.now();
+
   pollRef.current = setInterval(async () => {
     try {
+      // ⛔ STOP AFTER 40 SECONDS
+      if (Date.now() - startTime > POLL_TIMEOUT_MS) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+        setLoading(false); // ✅ STOP LOADER
+        toast.error("Answer is taking too long. Please try again.");
+        return;
+      }
+
       const res = await fetch(`${server}/api/v1/ai/ask-any`, {
         method: "POST",
         credentials: "include",
-         headers: {
-         "x-lmp-poll": "1",
-         },
+        headers: {
+          "x-lmp-poll": "1",
+        },
         body: formData,
       });
 
       const data = await res.json();
 
-      // ✅ Final result ready
+      // ✅ FINAL RESULT READY
       if (res.ok && data?.answer) {
         setResponse(data);
-        setLoading(false);
         clearInterval(pollRef.current);
         pollRef.current = null;
-        toast.success("Answer ready!");
+        setLoading(false); // ✅ STOP LOADER
       }
     } catch (err) {
       clearInterval(pollRef.current);
       pollRef.current = null;
-      setLoading(false);
-      toast.error("Polling failed");
+      setLoading(false); // ✅ STOP LOADER
+      toast.error("Polling failed. Please try again.");
     }
-  }, 2500); // 🔁 2.5 seconds
+  }, POLL_INTERVAL_MS);
 };
+
 
 
   const handleImageUpload = (e) => {
@@ -181,8 +202,6 @@ useEffect(() => {
       return;
     }
 
-    // ⏳ CASE 2: Job queued → start polling
-    toast.message("Processing your question…");
     startPolling(formData);
 
   } catch (err) {
@@ -389,7 +408,7 @@ useEffect(() => {
         )}
 
       </div>
-
+      <AskAnyLoader stepLabel="1" showLoader={loading}/>
       <Footer />
     </div>
   );

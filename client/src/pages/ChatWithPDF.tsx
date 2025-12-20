@@ -25,8 +25,8 @@ import "highlight.js/styles/github-dark.css";
 import { server } from "@/constants";
 import { toast } from "sonner";
 import { useSelector } from "react-redux";
-import { Navbar } from "@/components/Navbar";
 import { Helmet } from "react-helmet-async";
+import UploadingLoader from "@/components/UploadingLoader";
 
 /* ===================== AI OUTPUT ===================== */
 const AIOutput = ({ content }) => {
@@ -59,7 +59,7 @@ export default function ChatWithPDF() {
     const {user} = useSelector((state)=>state.auth)
     
 
-  const pollUploadPdf = async (file, maxRetries = 5) => {
+  const pollUploadPdf = async (file, maxRetries = 4) => {
   const formData = new FormData();
   formData.append("pdf", file);
 
@@ -78,7 +78,7 @@ export default function ChatWithPDF() {
     }
 
     // ⏳ Still processing → wait 2s
-    await new Promise((r) => setTimeout(r, 7000));
+    await new Promise((r) => setTimeout(r, 10000));
   }
 
   throw new Error("The pdf is corrupted or not readable try different.");
@@ -323,7 +323,7 @@ const handlePdfUpload = async (e) => {
                   className="hidden"
                   disabled={uploading}
                 />
-
+               <UploadingLoader stepLabel="1" showLoader={uploading}/>
                 <div
                   onClick={() => !uploading && fileInputRef.current?.click()}
                   className={`relative overflow-hidden border-2 border-dashed rounded-2xl sm:rounded-3xl p-8 sm:p-12 text-center transition-all backdrop-blur-sm ${

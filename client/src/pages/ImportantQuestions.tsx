@@ -14,12 +14,16 @@ import { useImportantQuestionGeneratorMutation } from "@/redux/api/api";
 import QuestionBox from "@/components/specifics/ImportantQuestionGenerator/QuestionBox";
 import logo from "../assets/logo.png";
 import { Helmet } from "react-helmet-async";
+import ImportantQuestionsLoader from "@/components/ImportantQuestionsLoader";
 
 const classes = ["9th", "10th", "11th", "12th"];
 
 export default function ImportantQuestions() {
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
+  const POLL_INTERVAL_MS = 10 * 1000; // 10 seconds
+const POLL_TIMEOUT_MS = 90 * 1000;  // 1 min 30 sec
+
   
   const [selectedClass, setSelectedClass] = useState(() => {
     return sessionStorage.getItem("importantQuestions_selectedClass") || "12th";
@@ -223,32 +227,51 @@ export default function ImportantQuestions() {
     }
   }, [ChapterData, isChapterLoading]);
 
-  const pollImportantQuestion = async (params) => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-    }
+ const pollImportantQuestion = async (params) => {
+  // Clear any existing poll
+  if (pollIntervalRef.current) {
+    clearInterval(pollIntervalRef.current);
+    pollIntervalRef.current = null;
+  }
 
-    pollIntervalRef.current = setInterval(async () => {
-      try {
-           window.__LMP_POLLING__ = true;
-           const res = await importantQuestions(null, params);
-           window.__LMP_POLLING__ = false;
+  const startTime = Date.now();
 
-        if (res?.data?.statusCode === 200) {
-          setResponse(res.data.data.data);
-          clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
-          setIsGenerating(false);
-          toast.success("Questions Ready!");
-        }
-      } catch (error) {
+  pollIntervalRef.current = setInterval(async () => {
+    try {
+      // ⛔ STOP AFTER 1.30 MIN
+      if (Date.now() - startTime > POLL_TIMEOUT_MS) {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
-        setIsGenerating(false);
-        toast.error("Error fetching questions...");
+        setIsGenerating(false); // ✅ STOP LOADER
+        toast.error("Generation took too long. Please try again.");
+        return;
       }
-    }, 6000);
-  };
+
+      window.__LMP_POLLING__ = true;
+      const res = await importantQuestions(null, params);
+      window.__LMP_POLLING__ = false;
+
+      if (res?.data?.statusCode === 200) {
+        setResponse(res.data.data.data);
+
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+
+        setIsGenerating(false); // ✅ STOP LOADER
+        toast.success("Questions Ready!");
+      }
+    } catch (error) {
+      window.__LMP_POLLING__ = false;
+
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+
+      setIsGenerating(false); // ✅ STOP LOADER
+      toast.error("Error fetching questions...");
+    }
+  }, POLL_INTERVAL_MS);
+};
+
 
   const handleGenerate = async () => {
     if (!selectedClass || !selectedSubject || !selectedChapter) {
@@ -544,7 +567,7 @@ export default function ImportantQuestions() {
           selectedChapter={selectedChapter}
         />
       </div>
-      
+      <ImportantQuestionsLoader stepLabel="1" showLoader={isGenerating}/>
       <Footer />
     </div>
   );

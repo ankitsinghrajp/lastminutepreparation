@@ -11,6 +11,7 @@ import { useSummarizerMutation } from "@/redux/api/api";
 import AIOutput from "@/components/specifics/AIOutput";
 import { useSelector } from "react-redux";
 import { Helmet } from "react-helmet-async";
+import SummarizerLoader from "@/components/SummarizerLoader";
 
 const detailLevels = ["Short", "Medium", "Long"];
 
@@ -20,17 +21,20 @@ export default function AISummarizer() {
   const [image, setImage] = useState(null);
   const [result, setResult] = useState("");
   const [summarizer, isLoading] = useAsyncMutation(useSummarizerMutation);
+  const [isGenerating, setIsGenerating] = useState(false);
+
 
   const {user} = useSelector(state=>state.auth);
 
 
-  const pollSummary = async (formData) => {
-  const interval = setInterval(async () => {
+const pollSummary = async (formData, maxRetries = 4) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-       window.__LMP_POLLING__ = true;
-          const res = await summarizer(null, formData);
-        window.__LMP_POLLING__ = false;
-      
+      window.__LMP_POLLING__ = true;
+
+      const res = await summarizer(null, formData);
+
+      window.__LMP_POLLING__ = false;
 
       if (res?.data?.statusCode === 200) {
         const aiText =
@@ -40,25 +44,37 @@ export default function AISummarizer() {
 
         if (aiText) {
           setResult(aiText);
-          clearInterval(interval);
-          toast.success("Summary ready!");
+          setIsGenerating(false); // ✅ STOP LOADER
+          return;
         }
       }
+
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, 10000));
+      }
     } catch (err) {
-      clearInterval(interval);
+      window.__LMP_POLLING__ = false;
+      setIsGenerating(false); // ✅ STOP LOADER
       toast.error("Failed while fetching summary");
+      throw err;
     }
-  }, 4500);
+  }
+
+  setIsGenerating(false); // ✅ STOP LOADER
+  toast.error("Summary is taking too long. Please try again.");
+  throw new Error("Summary generation timeout");
 };
 
 
-  const handleSummarize = async () => {
+
+const handleSummarize = async () => {
   if (!topic.trim() && !image) {
     toast.error("Please enter a topic or upload an image");
     return;
   }
 
   setResult("");
+  setIsGenerating(true); // ✅ START LOADER
 
   try {
     const formData = new FormData();
@@ -72,6 +88,7 @@ export default function AISummarizer() {
       { headers: { "Content-Type": "multipart/form-data" } }
     );
 
+    // ✅ Immediate result
     if (response?.data?.statusCode === 200) {
       const aiText =
         response?.data?.data?.summary ||
@@ -80,17 +97,18 @@ export default function AISummarizer() {
 
       if (aiText) {
         setResult(aiText);
+        setIsGenerating(false); // ✅ STOP LOADER
         return;
       }
     }
 
-    // ⏳ QUEUED → START POLLING
+    // ⏳ Queued → poll
     if (response?.data?.statusCode === 202) {
-      toast.message("Generating summary, please wait...");
-      pollSummary(formData);
+      await pollSummary(formData);
     }
 
   } catch (error) {
+    setIsGenerating(false); // ✅ STOP LOADER
     toast.error("Something went wrong");
   }
 };
@@ -298,22 +316,23 @@ export default function AISummarizer() {
 
             {/* Generate Button */}
             <Button
-              onClick={handleSummarize}
-              disabled={isLoading}
-              className="w-full h-11 sm:h-12 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-sm sm:text-base"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 mr-2 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                  Generate Summary
-                </>
-              )}
-            </Button>
+  onClick={handleSummarize}
+  disabled={isGenerating}
+  className="w-full h-11 sm:h-12 bg-gradient-to-r from-emerald-500 to-teal-500 text-white"
+>
+  {isGenerating ? (
+    <>
+      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+      Generating...
+    </>
+  ) : (
+    <>
+      <Sparkles className="h-4 w-4 mr-2" />
+      Generate Summary
+    </>
+  )}
+</Button>
+
           </div>
         </Card>
 
@@ -336,6 +355,8 @@ export default function AISummarizer() {
           </div>
         ) : null}
       </div>
+
+      <SummarizerLoader stepLabel="1" showLoader={isGenerating}/>
 
       <Footer />
     </div>

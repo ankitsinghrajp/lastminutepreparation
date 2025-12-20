@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import ContentArea from "@/components/specifics/chapterWiseStudy/contentArea";
 import logo from "../assets/logo.png";
 import { Helmet } from "react-helmet-async";
+import AnimatedLoader from "@/components/AnimatedLoader";
 
 const classes = ["9th", "10th", "11th", "12th"];
 
@@ -69,6 +70,14 @@ export default function ChapterWiseStudy() {
   const [timerActive, setTimerActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(timerMinutes * 60);
   const [showHistory, setShowHistory] = useState(false);
+
+  // ✅ POLLING CONFIG (NEW)
+const POLL_INTERVAL_MS = 5000; // 5 seconds
+const POLL_TIMEOUT_MS = 150 * 1000; // 150 seconds
+
+const pollTimeoutRefs = useRef({}); // ✅ NEW
+const generationAbortedRef = useRef(false); // ✅ NEW
+
 
   const timerRef = useRef(null);
   const contentEndRef = useRef(null);
@@ -216,40 +225,86 @@ export default function ChapterWiseStudy() {
     }
   };
 
-  // Clear all polling intervals - EXACT COPY
-  const clearAllPolls = () => {
-    Object.values(pollIntervalRefs.current).forEach(interval => clearInterval(interval));
-    pollIntervalRefs.current = {};
-  };
+ const clearAllPolls = () => {
+  Object.values(pollIntervalRefs.current).forEach(clearInterval);
+  Object.values(pollTimeoutRefs.current).forEach(clearTimeout);
 
-  // Generic polling function - EXACT COPY
-  const pollData = async (stepKey, fetcher, setter, dataKey, params, pollInterval) => {
-    pollIntervalRefs.current[stepKey] = setInterval(async () => {
-      try {
-          window.__LMP_POLLING__ = true;
+  pollIntervalRefs.current = {};
+  pollTimeoutRefs.current = {};
+};
+
+
+// ✅ SAFE POLLING (5s interval + 150s timeout)
+const pollData = async (stepKey, fetcher, setter, dataKey, params) => {
+  if (pollIntervalRefs.current[stepKey]) return; // ❌ prevent duplicate polling
+
+  const startTime = Date.now();
+
+  pollIntervalRefs.current[stepKey] = setInterval(async () => {
+    try {
+      // ⛔ HARD TIMEOUT CHECK
+      if (Date.now() - startTime > POLL_TIMEOUT_MS) {
+        generationAbortedRef.current = true;
+
+        clearInterval(pollIntervalRefs.current[stepKey]);
+        clearTimeout(pollTimeoutRefs.current[stepKey]);
+
+        delete pollIntervalRefs.current[stepKey];
+        delete pollTimeoutRefs.current[stepKey];
+
+        toast.error(`${stepKey} is taking too long. Please try again.`);
+        setCurrentStep(-1); // ✅ STOP LOADER
+        return;
+      }
+
+      window.__LMP_POLLING__ = true;
           const res = await fetcher(null, params);
           window.__LMP_POLLING__ = false;
-  
-        if (res?.data?.statusCode === 200) {
-          if (dataKey === "fullData") {
-            // For mindmap which returns the entire data object
-            setter(res.data.data);
-          } else {
-            setter(res.data.data[dataKey]);
-          }
-          clearInterval(pollIntervalRefs.current[stepKey]);
-          delete pollIntervalRefs.current[stepKey];
+      if (res?.data?.statusCode === 200) {
+        if (dataKey === "fullData") {
+          setter(res.data.data);
+        } else {
+          setter(res.data.data[dataKey]);
         }
-      } catch (error) {
+
         clearInterval(pollIntervalRefs.current[stepKey]);
+        clearTimeout(pollTimeoutRefs.current[stepKey]);
+
         delete pollIntervalRefs.current[stepKey];
-        console.error(`Error polling ${stepKey}:`, error);
+        delete pollTimeoutRefs.current[stepKey];
       }
-    }, pollInterval);
-  };
+    } catch (error) {
+      generationAbortedRef.current = true;
+
+      clearInterval(pollIntervalRefs.current[stepKey]);
+      clearTimeout(pollTimeoutRefs.current[stepKey]);
+
+      delete pollIntervalRefs.current[stepKey];
+      delete pollTimeoutRefs.current[stepKey];
+
+      toast.error(`Failed while generating ${stepKey}`);
+      setCurrentStep(-1); // ✅ STOP LOADER
+    }
+  }, POLL_INTERVAL_MS);
+
+  // ⏱️ FAILSAFE TIMEOUT (extra safety)
+  pollTimeoutRefs.current[stepKey] = setTimeout(() => {
+    if (pollIntervalRefs.current[stepKey]) {
+      generationAbortedRef.current = true;
+
+      clearInterval(pollIntervalRefs.current[stepKey]);
+      delete pollIntervalRefs.current[stepKey];
+
+      toast.error(`${stepKey} timeout. Please retry.`);
+      setCurrentStep(-1); // ✅ STOP LOADER
+    }
+  }, POLL_TIMEOUT_MS);
+};
+
 
   // Generate content step by step - EXACT COPY PATTERN
   const generateStep = async (stepIndex, params) => {
+    if (generationAbortedRef.current) return;
     if (stepIndex >= GENERATION_STEPS.length) {
       setCurrentStep(-1);
       toast.success("All chapter materials ready!");
@@ -304,18 +359,17 @@ export default function ChapterWiseStudy() {
         } else {
           setter(res.data.data[dataKey]);
         }
-        toast.success(`${step.label} ready!`);
+       
         // Move to next step
         setTimeout(() => generateStep(stepIndex + 1, params), 500);
       } else if (res?.data?.statusCode === 202) {
         // Data being generated - start polling
-        pollData(step.key, fetcher, setter, dataKey, params, step.pollInterval);
+        pollData(step.key, fetcher, setter, dataKey, params);
         
         // Wait for polling to complete before moving to next step
         const checkInterval = setInterval(() => {
           if (!pollIntervalRefs.current[step.key]) {
             clearInterval(checkInterval);
-            toast.success(`${step.label} ready!`);
             setTimeout(() => generateStep(stepIndex + 1, params), 500);
           }
         }, 500);
@@ -352,6 +406,8 @@ export default function ChapterWiseStudy() {
       subject: selectedSubject,
       chapter: selectedChapter,
     };
+
+    generationAbortedRef.current = false; // ✅ RESET
 
     // Start step-by-step generation
     generateStep(0, params);
@@ -988,6 +1044,7 @@ export default function ChapterWiseStudy() {
                     <span className="text-sm text-muted-foreground">
                       Generating {GENERATION_STEPS[currentStep]?.label}...
                     </span>
+                     <AnimatedLoader stepLabel={currentStep} isLoading={isGenerating}/>
                   </div>
                 </div>
               </div>

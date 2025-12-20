@@ -2,19 +2,14 @@ import { useEffect, useState } from "react";
 import logo from "../assets/logo.png";
 
 const LOADER_MESSAGES = [
-  "📚 Fetching your study materials...",
-  "🚀 All of India is on LMP right now!",
-  "⏳ High traffic! Struggling to fetch data...",
-  "💪 India is studying. You are too.",
-  "🔥 Loading premium content for you...",
-  "📖 Filtering only the marks-giving content…",
-  "⚡ Removing confusion, keeping only exam gold…",
-  "🎯 Preparing your exam arsenal...",
-  "📖 Compiling topper secrets...",
-  "✅ Final polish — let’s win this exam."
+  "📚 Uploading your PDF securely…",
+  "🔍 Extracting text from each page carefully…",
+  "⏳ Analyzing concepts, formulas, and key questions…",
+  "💪 Structuring content in exam-ready format…",
+  "⚡ Understanding context, not just text…"
 ];
 
-const AnimatedLoader = ({ stepLabel = "Loading...", showLoader = true }) => {
+const UploadingLoader = ({ stepLabel = "Loading...", showLoader = true }) => {
   const [currentMessage, setCurrentMessage] = useState(LOADER_MESSAGES[0]);
 
   useEffect(() => {
@@ -118,22 +113,4 @@ const AnimatedLoader = ({ stepLabel = "Loading...", showLoader = true }) => {
   );
 };
 
-export default AnimatedLoader;
-
-// USAGE EXAMPLE:
-// import AnimatedLoader from './AnimatedLoader';
-// 
-// function YourComponent() {
-//   const [isLoading, setIsLoading] = useState(false);
-//   const [currentStep, setCurrentStep] = useState("Generating Summary");
-//
-//   return (
-//     <>
-//       <AnimatedLoader 
-//         stepLabel={currentStep} 
-//         showLoader={isLoading} 
-//       />
-//       {/* Your other content */}
-//     </>
-//   );
-// }
+export default UploadingLoader;

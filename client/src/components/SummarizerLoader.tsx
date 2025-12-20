@@ -2,19 +2,14 @@ import { useEffect, useState } from "react";
 import logo from "../assets/logo.png";
 
 const LOADER_MESSAGES = [
-  "📚 Fetching your study materials...",
-  "🚀 All of India is on LMP right now!",
-  "⏳ High traffic! Struggling to fetch data...",
-  "💪 India is studying. You are too.",
-  "🔥 Loading premium content for you...",
-  "📖 Filtering only the marks-giving content…",
-  "⚡ Removing confusion, keeping only exam gold…",
-  "🎯 Preparing your exam arsenal...",
-  "📖 Compiling topper secrets...",
-  "✅ Final polish — let’s win this exam."
+  "📚 Understanding the topic and its core concepts…",
+  "⏳ Filtering important points from unnecessary details…",
+  "✍️ Creating a clear, exam-ready summary…",
+  "🎯 Keeping only what actually helps in revision…",
+  "✨ Almost done — making it easy to remember"
 ];
 
-const AnimatedLoader = ({ stepLabel = "Loading...", showLoader = true }) => {
+const SummarizerLoader = ({ stepLabel = "Loading...", showLoader = true }) => {
   const [currentMessage, setCurrentMessage] = useState(LOADER_MESSAGES[0]);
 
   useEffect(() => {
@@ -118,7 +113,7 @@ const AnimatedLoader = ({ stepLabel = "Loading...", showLoader = true }) => {
   );
 };
 
-export default AnimatedLoader;
+export default SummarizerLoader;
 
 // USAGE EXAMPLE:
 // import AnimatedLoader from './AnimatedLoader';

@@ -25,27 +25,20 @@ const useAsyncMutation = (mutationHook)=>{
     const executeMutation = async (toastMessage, ...args)=>{
         setIsLoading(true);
 
-        const toastId = toast.loading(toastMessage || "Hang tight, we're working on it...");
-
         try {
             
             const res = await mutate(...args);
             
             if(res.data){
-                toast.success(res?.data?.message || "Success!",{
-                    id:toastId,
-                })
                 setData(res.data);
             }
            else if (res.error) {
-            toast.error(res.error.data?.message || "Something went wrong", { id: toastId });
+            toast.error(res.error.data?.message || "Something went wrong");
             }
             return res;
         } catch (error) {
             console.log(error);
-            toast.error(error?.data?.message || error?.message ||"Something went wrong",{
-                id:toastId
-            })
+            toast.error(error?.data?.message || error?.message ||"Something went wrong")
         }
         finally{
             setIsLoading(false);

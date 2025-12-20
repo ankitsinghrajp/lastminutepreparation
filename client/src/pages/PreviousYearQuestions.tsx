@@ -14,6 +14,7 @@ import { useAsyncMutation, useErrors } from "@/hooks/hook";
 import PyqsComponent from "@/components/specifics/PreviousYearQuestions/PyqsComponent";
 import logo from "../assets/logo.png";
 import { Helmet } from "react-helmet-async";
+import PYQLoader from "@/components/PYQLoader";
 
 const classes = ["9th", "10th", "11th", "12th"];
 const years = ["2025","2024", "2023", "2022", "2021", "2020", "2019", "2018", "2017", "2016", "2015", "2014"];
@@ -31,6 +32,9 @@ interface Question {
 export default function PreviousYearQuestions() {
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
+  const POLL_INTERVAL_MS = 10 * 1000; // 10 seconds
+const POLL_TIMEOUT_MS = 90 * 1000;  // 90 seconds
+
   
   const [selectedClass, setSelectedClass] = useState(() => {
     return sessionStorage.getItem("pyqs_selectedClass") || "12th";
@@ -239,34 +243,46 @@ export default function PreviousYearQuestions() {
     }
   }, [ChapterData, isChapterLoading]);
 
-  const pollPyqs = async (params) => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-    }
+ const pollPyqs = async (params) => {
+  if (pollIntervalRef.current) {
+    clearInterval(pollIntervalRef.current);
+  }
 
-    pollIntervalRef.current = setInterval(async () => {
-      try {
-        
-           window.__LMP_POLLING__ = true;
-            const res = await pyqGenerator(null, params);
-           window.__LMP_POLLING__ = false;
-    
-        if (res?.data?.statusCode === 200) {
-          setQuestions(res.data.data.data.pyqs);
-          setPyqs(res.data.data.data);
-          setIsGenerating(false);
-          clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
-          toast.success("Previous Year Questions Ready!");
-        }
-      } catch (error) {
+  const startTime = Date.now();
+
+  pollIntervalRef.current = setInterval(async () => {
+    try {
+      // ⛔ STOP AFTER 90 SECONDS
+      if (Date.now() - startTime > POLL_TIMEOUT_MS) {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
-        setIsGenerating(false);
-        toast.error("Error fetching questions...");
+        setIsGenerating(false); // ✅ stop loader
+        toast.error("Fetching PYQs is taking too long. Please try again.");
+        return;
       }
-    }, 4000);
-  };
+
+      window.__LMP_POLLING__ = true;
+      const res = await pyqGenerator(null, params);
+      window.__LMP_POLLING__ = false;
+
+      // ✅ RESULT READY
+      if (res?.data?.statusCode === 200) {
+        setQuestions(res.data.data.data.pyqs);
+        setPyqs(res.data.data.data);
+        setIsGenerating(false);
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+        toast.success("Previous Year Questions Ready!");
+      }
+    } catch (error) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+      setIsGenerating(false); // ✅ stop loader
+      toast.error("Error fetching questions...");
+    }
+  }, POLL_INTERVAL_MS);
+};
+
 
   const handleFetchQuestions = async () => {
     if (!selectedClass || !selectedSubject || !selectedChapter) {
@@ -296,8 +312,7 @@ export default function PreviousYearQuestions() {
         setIsGenerating(false);
         toast.success("Previous Year Questions Ready!");
       } else if (res?.data?.statusCode === 202) {
-        // Not ready → queued → start polling
-        toast.message(`Fetching year: ${selectedYear} CBSE board questions...`);
+        
         pollPyqs(params);
       } else {
         setIsGenerating(false);
@@ -564,6 +579,7 @@ export default function PreviousYearQuestions() {
           )}
         </div>
       </div>
+      <PYQLoader stepLabel="1" showLoader={isGenerating}/>
       <Footer/>
     </div>
   );

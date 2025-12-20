@@ -17,6 +17,7 @@ import rehypeHighlight from "rehype-highlight";
 import "katex/dist/katex.min.css";
 import "highlight.js/styles/github.css";
 import { Helmet } from "react-helmet-async";
+import DiagramAnalysisLoader from "@/components/DiagramAnalysisLoader";
 
 
 
@@ -288,37 +289,52 @@ export default function DiagramAnalysis() {
   const [analysis, setAnalysis] = useState("");
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const POLL_INTERVAL_MS = 5 * 1000; // 5 seconds
+const POLL_TIMEOUT_MS = 40 * 1000; // 40 seconds
 
 
-  const pollForResult = async (formData: FormData) => {
+
+ const pollForResult = async (formData: FormData) => {
+  const startTime = Date.now();
+
   const interval = setInterval(async () => {
     try {
+      // ⛔ STOP AFTER 40 SECONDS
+      if (Date.now() - startTime > POLL_TIMEOUT_MS) {
+        clearInterval(interval);
+        setLoading(false); // ✅ STOP LOADER
+        toast.error("Analysis is taking too long. Please try again.");
+        return;
+      }
+
       const res = await axios.post(
         `${server}/api/v1/ai/image-analysis`,
         formData,
         {
-          headers: { "Content-Type": "multipart/form-data",
-                      "x-lmp-poll": "1",
+          headers: {
+            "Content-Type": "multipart/form-data",
+            "x-lmp-poll": "1",
           },
           withCredentials: true,
         }
       );
 
-      // ✅ Result ready
+      // ✅ RESULT READY
       if (res?.status === 200 && res.data?.aiResponse) {
         setAnalysis(res.data.aiResponse);
-        setLoading(false);
+        setLoading(false); // ✅ STOP LOADER
         clearInterval(interval);
         toast.success("Diagram analyzed successfully!");
       }
     } catch (err) {
       console.error("Polling error", err);
       clearInterval(interval);
-      setLoading(false);
+      setLoading(false); // ✅ STOP LOADER
       toast.error("Failed while fetching result");
     }
-  }, 2000);
+  }, POLL_INTERVAL_MS);
 };
+
 
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -391,8 +407,6 @@ export default function DiagramAnalysis() {
       return;
     }
 
-    // ⏳ Otherwise start polling
-    toast.message("Analyzing diagram...");
     pollForResult(formData);
 
   } catch (error: any) {
@@ -602,7 +616,7 @@ export default function DiagramAnalysis() {
         </Card>
 
       </div>
-
+     <DiagramAnalysisLoader stepLabel="1" showLoader={loading}/>
       <Footer />
     </div>
   );

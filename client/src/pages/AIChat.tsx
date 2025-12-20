@@ -19,6 +19,7 @@ import {
 import { useAsyncMutation, useErrors } from "@/hooks/hook";
 import RevisionPanel from "@/components/specifics/RevisionPanel";
 import { Helmet } from "react-helmet-async";
+import AnimatedLoader from "@/components/AnimatedLoader";
 
 const classes = ["9th", "10th", "11th", "12th"];
 
@@ -83,6 +84,7 @@ export default function LastNightBeforeExam() {
   const timerRef = useRef(null);
   const contentEndRef = useRef(null);
   const pollIntervalRefs = useRef({});
+  const pollTimeoutRefs = useRef({});
   
   // Track previous subject to detect changes
   const prevSubjectRef = useRef(selectedSubject);
@@ -107,10 +109,25 @@ export default function LastNightBeforeExam() {
   const [getMemoryBooster] = useAsyncMutation(useGetLastNightMemoryBoosterMutation);
   const [getAiCoach] = useAsyncMutation(useGetLastNightAiCoachMutation);
 
+  // ✅ POLLING CONFIG (NEW)
+const POLL_INTERVAL_MS = 5000; // 5 seconds
+const POLL_TIMEOUT_MS = 90 * 1000; // 1 min 30 sec
+
+
   useErrors([
     { isError: isSubjectError, error: subjectError },
     { isError: isChapterError, error: chapterError },
   ]);
+
+  // Clear all polling intervals & timeouts
+const clearAllPolls = () => {
+  Object.values(pollIntervalRefs.current).forEach(clearInterval);
+  Object.values(pollTimeoutRefs.current).forEach(clearTimeout);
+
+  pollIntervalRefs.current = {};
+  pollTimeoutRefs.current = {};
+};
+
 
   // Load history from localStorage on mount
   useEffect(() => {
@@ -238,33 +255,69 @@ export default function LastNightBeforeExam() {
     }
   };
 
-  // Clear all polling intervals
-  const clearAllPolls = () => {
-    Object.values(pollIntervalRefs.current).forEach(interval => clearInterval(interval));
-    pollIntervalRefs.current = {};
-  };
 
   // Generic polling function
-  const pollData = async (stepKey, fetcher, setter, dataKey, params, pollInterval) => {
-    pollIntervalRefs.current[stepKey] = setInterval(async () => {
-      try {
-       window.__LMP_POLLING__ = true;
+ // ✅ SAFE POLLING (5 sec interval + 90 sec timeout)
+const pollData = async (stepKey, fetcher, setter, dataKey, params) => {
+  const startTime = Date.now();
 
-       const res = await fetcher(null, params);
-       window.__LMP_POLLING__ = false;
+  // ❌ Prevent duplicate polling
+  if (pollIntervalRefs.current[stepKey]) return;
 
-        if (res?.data?.statusCode === 200) {
-          setter(res.data.data[dataKey]);
-          clearInterval(pollIntervalRefs.current[stepKey]);
-          delete pollIntervalRefs.current[stepKey];
-        }
-      } catch (error) {
+  pollIntervalRefs.current[stepKey] = setInterval(async () => {
+    try {
+      // ⏱️ TIMEOUT CHECK (1 min 30 sec)
+      if (Date.now() - startTime > POLL_TIMEOUT_MS) {
         clearInterval(pollIntervalRefs.current[stepKey]);
+        clearTimeout(pollTimeoutRefs.current[stepKey]);
+
         delete pollIntervalRefs.current[stepKey];
-        console.error(`Error polling ${stepKey}:`, error);
+        delete pollTimeoutRefs.current[stepKey];
+
+        toast.error(`${stepKey} generation timed out. Please try again.`);
+        setCurrentStep(-1);
+        return;
       }
-    }, pollInterval);
-  };
+
+       
+           window.__LMP_POLLING__ = true;
+           const res = await fetcher(null, params);
+           window.__LMP_POLLING__ = false;
+
+      if (res?.data?.statusCode === 200) {
+        setter(res.data.data[dataKey]);
+
+        // ✅ STOP POLLING
+        clearInterval(pollIntervalRefs.current[stepKey]);
+        clearTimeout(pollTimeoutRefs.current[stepKey]);
+
+        delete pollIntervalRefs.current[stepKey];
+        delete pollTimeoutRefs.current[stepKey];
+      }
+    } catch (error) {
+      clearInterval(pollIntervalRefs.current[stepKey]);
+      clearTimeout(pollTimeoutRefs.current[stepKey]);
+
+      delete pollIntervalRefs.current[stepKey];
+      delete pollTimeoutRefs.current[stepKey];
+
+      toast.error(`Error while generating ${stepKey}`);
+      setCurrentStep(-1);
+    }
+  }, POLL_INTERVAL_MS);
+
+  // ⛔ HARD SAFETY TIMEOUT (failsafe)
+  pollTimeoutRefs.current[stepKey] = setTimeout(() => {
+    if (pollIntervalRefs.current[stepKey]) {
+      clearInterval(pollIntervalRefs.current[stepKey]);
+      delete pollIntervalRefs.current[stepKey];
+
+      toast.error(`${stepKey} took too long. Please retry.`);
+      setCurrentStep(-1);
+    }
+  }, POLL_TIMEOUT_MS);
+};
+
 
   // Generate content step by step
   const generateStep = async (stepIndex, params) => {
@@ -330,18 +383,16 @@ export default function LastNightBeforeExam() {
       if (res?.data?.statusCode === 200) {
         // Data ready immediately
         setter(res.data.data[dataKey]);
-        toast.success(`${step.label} ready!`);
         // Move to next step
         setTimeout(() => generateStep(stepIndex + 1, params), 500);
       } else if (res?.data?.statusCode === 202) {
         // Data being generated - start polling
-        pollData(step.key, fetcher, setter, dataKey, params, step.pollInterval);
+        pollData(step.key, fetcher, setter, dataKey, params);
         
         // Wait for polling to complete before moving to next step
         const checkInterval = setInterval(() => {
           if (!pollIntervalRefs.current[step.key]) {
             clearInterval(checkInterval);
-            toast.success(`${step.label} ready!`);
             setTimeout(() => generateStep(stepIndex + 1, params), 500);
           }
         }, 500);
@@ -1023,17 +1074,17 @@ const loadFromHistory = (historyItem) => {
             {/* Sequential Loading Indicator */}
             {isGenerating && currentStep >= 0 && (
               <div className="flex items-start gap-3 p-4">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center ml-4 flex-shrink-0">
                   <img className="h-8 w-8" src={logo} alt="" />
                 </div>
-                <div className="flex-1">
-                  <div className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl rounded-tl-sm bg-muted/50 border border-border/50">
-                    <Loader2 className="w-4 h-4 text-orange-500 animate-spin" />
-                    <span className="text-sm text-muted-foreground">
-                      Generating {GENERATION_STEPS[currentStep]?.label}...
-                    </span>
-                  </div>
-                </div>
+                   <div className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl rounded-tl-sm bg-muted/50 border border-border/50">
+                                     <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+                                     <span className="text-sm text-muted-foreground">
+                                       Generating {GENERATION_STEPS[currentStep]?.label}...
+                                     </span>
+                                   </div>
+                  <AnimatedLoader stepLabel={currentStep} isLoading={isGenerating}/>
+              
               </div>
             )}
  
