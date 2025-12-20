@@ -460,7 +460,7 @@ Output MUST be fully compatible with a Markdown+KaTeX renderer.
 `;
 
       const answer = await step.run("OpenAI",async () =>
-        askOpenAI(prompt)
+        askOpenAI(prompt,"gpt-4o-mini")
 
       );
 
