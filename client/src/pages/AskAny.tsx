@@ -17,6 +17,7 @@ import rehypeHighlight from "rehype-highlight";
 import "katex/dist/katex.min.css";
 import "highlight.js/styles/github.css";
 import { useSelector } from "react-redux";
+import { Helmet } from "react-helmet-async";
 
 /* ===================== AI OUTPUT ===================== */
 const AIOutput = ({ content }) => {
@@ -214,6 +215,78 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        {/* Title */}
+        <title>
+          Ask Any Question for CBSE | Upload Image & Get Topper-Style Answers – LMP
+        </title>
+
+        {/* Meta Description */}
+        <meta
+          name="description"
+          content="Upload a photo of any CBSE question or ask directly and get topper-style, exam-ready answers. AI-powered doubt solving built for scoring full marks."
+        />
+
+        {/* Keywords */}
+        <meta
+          name="keywords"
+          content="
+          ask any question cbse,
+          upload question image get answer,
+          cbse doubt solver ai,
+          image based question answer cbse,
+          topper style answers cbse,
+          ai homework help cbse,
+          board exam question solver,
+          photo question answer cbse,
+          instant cbse doubt solving
+          "
+        />
+
+        {/* Canonical */}
+        <link
+          rel="canonical"
+          href="https://lastminutepreparation.in/ask-any"
+        />
+
+        {/* Robots */}
+        <meta name="robots" content="index, follow" />
+
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta
+          property="og:title"
+          content="Ask Any CBSE Question – Upload Image & Get Topper Answers | LMP"
+        />
+        <meta
+          property="og:description"
+          content="Click a photo of any CBSE question or ask directly. Get accurate, topper-style answers written exactly for board exams."
+        />
+        <meta
+          property="og:url"
+          content="https://lastminutepreparation.in/ask-any"
+        />
+        <meta
+          property="og:image"
+          content="https://lastminutepreparation.in/og-ask-any.png"
+        />
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content="Ask Any CBSE Question | Image & Text Answers – LMP"
+        />
+        <meta
+          name="twitter:description"
+          content="Upload a question image or ask anything and get exam-ready CBSE answers instantly."
+        />
+        <meta
+          name="twitter:image"
+          content="https://lastminutepreparation.in/og-ask-any.png"
+        />
+      </Helmet>
+
       <Navbar />
 
       <div className="container mx-auto px-4 py-20 max-w-6xl">

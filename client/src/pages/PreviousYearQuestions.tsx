@@ -13,6 +13,7 @@ import {
 import { useAsyncMutation, useErrors } from "@/hooks/hook";
 import PyqsComponent from "@/components/specifics/PreviousYearQuestions/PyqsComponent";
 import logo from "../assets/logo.png";
+import { Helmet } from "react-helmet-async";
 
 const classes = ["9th", "10th", "11th", "12th"];
 const years = ["2025","2024", "2023", "2022", "2021", "2020", "2019", "2018", "2017", "2016", "2015", "2014"];
@@ -324,6 +325,79 @@ export default function PreviousYearQuestions() {
 
   return (
     <div className="min-h-screen bg-background">
+
+      <Helmet>
+        {/* Title */}
+        <title>
+          CBSE PYQs 2014–2025 | Chapter-Wise Previous Year Questions – LMP
+        </title>
+
+        {/* Meta Description */}
+        <meta
+          name="description"
+          content="Access CBSE Previous Year Questions (PYQs) from 2014 to 2025 in one place. Chapter-wise questions with topper-style, exam-ready answers for smart revision."
+        />
+
+        {/* Keywords */}
+        <meta
+          name="keywords"
+          content="
+          cbse pyqs,
+          cbse previous year questions,
+          cbse pyqs 2014 to 2025,
+          chapter wise pyqs cbse,
+          cbse board previous year questions,
+          pyqs with solutions cbse,
+          topper style answers pyqs,
+          cbse exam pyqs chapter wise,
+          last minute revision pyqs
+          "
+        />
+
+        {/* Canonical */}
+        <link
+          rel="canonical"
+          href="https://lastminutepreparation.in/pyqs"
+        />
+
+        {/* Robots */}
+        <meta name="robots" content="index, follow" />
+
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta
+          property="og:title"
+          content="CBSE PYQs 2014–2025 | Chapter-Wise Solved Questions – LMP"
+        />
+        <meta
+          property="og:description"
+          content="Revise CBSE PYQs from 2014–2025 with chapter-wise questions and topper-style answers. Designed for scoring maximum marks in board exams."
+        />
+        <meta
+          property="og:url"
+          content="https://lastminutepreparation.in/pyqs"
+        />
+        <meta
+          property="og:image"
+          content="https://lastminutepreparation.in/og-pyqs.png"
+        />
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content="CBSE PYQs 2014–2025 | Smart Board Exam Revision – LMP"
+        />
+        <meta
+          name="twitter:description"
+          content="Practice CBSE previous year questions from 2014–2025 with exam-ready, topper-style answers."
+        />
+        <meta
+          name="twitter:image"
+          content="https://lastminutepreparation.in/og-pyqs.png"
+        />
+      </Helmet>
+
       <Navbar />
       
       <div className="container mx-auto px-2 py-24 max-w-7xl">

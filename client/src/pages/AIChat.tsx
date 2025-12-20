@@ -18,6 +18,7 @@ import {
 } from "@/redux/api/api";
 import { useAsyncMutation, useErrors } from "@/hooks/hook";
 import RevisionPanel from "@/components/specifics/RevisionPanel";
+import { Helmet } from "react-helmet-async";
 
 const classes = ["9th", "10th", "11th", "12th"];
 
@@ -695,6 +696,77 @@ const loadFromHistory = (historyItem) => {
 
   return (
     <div className="min-h-screen w-full bg-background">
+        <Helmet>
+        {/* Title */}
+        <title>
+          Last Night Before Exam – One Night CBSE Revision Guide | LMP
+        </title>
+
+        {/* Meta Description */}
+        <meta
+          name="description"
+          content="Haven’t studied enough? Use Last Night Before Exam to revise CBSE chapters in one night with topper-style answers, PYQs, and smart revision to score maximum marks."
+        />
+
+        {/* Keywords */}
+        <meta
+          name="keywords"
+          content="
+          last night before exam cbse,
+          one night study guide cbse,
+          last minute revision cbse,
+          cbse exam preparation in one night,
+          how to score marks in cbse last night,
+          topper style answers cbse,
+          cbse important questions last minute,
+          cbse pyqs last night revision,
+          cbse ai
+          "
+        />
+
+        {/* Canonical */}
+        <link
+          rel="canonical"
+          href="https://lastminutepreparation.in/ai-chat"
+        />
+
+        {/* Robots */}
+        <meta name="robots" content="index, follow" />
+
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta
+          property="og:title"
+          content="Last Night Before Exam – Smart CBSE One-Night Revision | LMP"
+        />
+        <meta
+          property="og:description"
+          content="Revise CBSE syllabus in one night with exam-ready answers, PYQs, and focused revision. Built for students short on time."
+        />
+        <meta
+          property="og:url"
+          content="https://lastminutepreparation.in/ai-chat"
+        />
+        <meta
+          property="og:image"
+          content="https://lastminutepreparation.in/og-ai-chat.png"
+        />
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content="Last Night Before Exam – CBSE Smart Revision | LMP"
+        />
+        <meta
+          name="twitter:description"
+          content="Short on time? Revise CBSE chapters in one night with topper-style answers and PYQs."
+        />
+        <meta
+          name="twitter:image"
+          content="https://lastminutepreparation.in/og-ai-chat.png"
+        />
+      </Helmet>
       <Navbar />
 
       <div className="container mx-auto px-1 pt-20 sm:pt-24 lg:max-w-[90%] xl:max-w-[90%]">

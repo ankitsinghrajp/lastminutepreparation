@@ -13,6 +13,7 @@ import {
 import { useAsyncMutation, useErrors } from "@/hooks/hook";
 import QuizBox from "@/components/specifics/quizGenerator/quizBox";
 import logo from "../assets/logo.png";
+import { Helmet } from "react-helmet-async";
 
 const classes = ["9th", "10th", "11th", "12th"];
 
@@ -303,6 +304,78 @@ export default function QuizGenerator() {
 
   return (
     <div className="min-h-screen bg-background">
+ 
+      <Helmet>
+        {/* Title */}
+        <title>
+          CBSE Quiz, Fill Ups & True False Generator | Most Important Questions – LMP
+        </title>
+
+        {/* Meta Description */}
+        <meta
+          name="description"
+          content="Practice CBSE quiz, fill in the blanks, and true/false questions from the most important exam topics. Smart objective question generator designed for last-minute revision."
+        />
+
+        {/* Keywords */}
+        <meta
+          name="keywords"
+          content="
+          cbse quiz generator,
+          fill in the blanks cbse,
+          true false questions cbse,
+          objective questions cbse,
+          cbse most important mcqs,
+          cbse exam practice questions,
+          last minute quiz cbse,
+          cbse board objective questions
+          "
+        />
+
+        {/* Canonical */}
+        <link
+          rel="canonical"
+          href="https://lastminutepreparation.in/quiz-generator"
+        />
+
+        {/* Robots */}
+        <meta name="robots" content="index, follow" />
+
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta
+          property="og:title"
+          content="CBSE Quiz, Fill Ups & True False – Most Important Questions | LMP"
+        />
+        <meta
+          property="og:description"
+          content="Generate and practice the most important CBSE quiz, fill-ups, and true/false questions for fast exam revision."
+        />
+        <meta
+          property="og:url"
+          content="https://lastminutepreparation.in/quiz-generator"
+        />
+        <meta
+          property="og:image"
+          content="https://lastminutepreparation.in/og-quiz-generator.png"
+        />
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content="CBSE Quiz & Objective Question Generator | LMP"
+        />
+        <meta
+          name="twitter:description"
+          content="Practice CBSE quiz, fill in the blanks, and true/false questions from the most important topics."
+        />
+        <meta
+          name="twitter:image"
+          content="https://lastminutepreparation.in/og-quiz-generator.png"
+        />
+      </Helmet>
+
       <Navbar />
       
       <div className="container mx-auto px-2 py-20 md:py-24 lg:py-28 max-w-7xl">

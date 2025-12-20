@@ -16,6 +16,7 @@ import rehypeKatex from "rehype-katex";
 import rehypeHighlight from "rehype-highlight";
 import "katex/dist/katex.min.css";
 import "highlight.js/styles/github.css";
+import { Helmet } from "react-helmet-async";
 
 
 
@@ -403,6 +404,78 @@ export default function DiagramAnalysis() {
 
   return (
     <div className="min-h-screen bg-background">
+
+      <Helmet>
+        {/* Title */}
+        <title>
+          Diagram Analysis for CBSE | Best Way to Explain Diagrams – LMP
+        </title>
+
+        {/* Meta Description */}
+        <meta
+          name="description"
+          content="Upload or view CBSE diagrams and get clear, step-by-step explanations. Learn the best way to explain diagrams in exams using topper-style points."
+        />
+
+        {/* Keywords */}
+        <meta
+          name="keywords"
+          content="
+          diagram analysis cbse,
+          explain diagram step by step,
+          cbse diagram based questions,
+          biology diagram explanation cbse,
+          physics diagram explanation cbse,
+          topper style diagram answers,
+          how to explain diagram in exam,
+          cbse board diagram questions
+          "
+        />
+
+        {/* Canonical */}
+        <link
+          rel="canonical"
+          href="https://lastminutepreparation.in/diagram-analysis"
+        />
+
+        {/* Robots */}
+        <meta name="robots" content="index, follow" />
+
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta
+          property="og:title"
+          content="CBSE Diagram Analysis – Step-by-Step Exam Explanation | LMP"
+        />
+        <meta
+          property="og:description"
+          content="Get clear, exam-ready explanations of CBSE diagrams with proper labeling and topper-style points."
+        />
+        <meta
+          property="og:url"
+          content="https://lastminutepreparation.in/diagram-analysis"
+        />
+        <meta
+          property="og:image"
+          content="https://lastminutepreparation.in/og-diagram-analysis.png"
+        />
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content="CBSE Diagram Explanation & Analysis | LMP"
+        />
+        <meta
+          name="twitter:description"
+          content="Learn the best way to explain CBSE diagrams with clear, step-by-step, exam-ready answers."
+        />
+        <meta
+          name="twitter:image"
+          content="https://lastminutepreparation.in/og-diagram-analysis.png"
+        />
+      </Helmet>
+
       <Navbar />
 
       <div className="container mx-auto px-2 py-20 max-w-7xl">

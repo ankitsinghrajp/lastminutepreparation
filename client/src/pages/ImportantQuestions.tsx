@@ -13,6 +13,7 @@ import { useAsyncMutation, useErrors } from "@/hooks/hook";
 import { useImportantQuestionGeneratorMutation } from "@/redux/api/api";
 import QuestionBox from "@/components/specifics/ImportantQuestionGenerator/QuestionBox";
 import logo from "../assets/logo.png";
+import { Helmet } from "react-helmet-async";
 
 const classes = ["9th", "10th", "11th", "12th"];
 
@@ -303,6 +304,78 @@ export default function ImportantQuestions() {
 
   return (
     <div className="min-h-screen bg-background">
+
+      <Helmet>
+        {/* Title */}
+        <title>
+          Important Questions for CBSE Exams | 95% Accurate Exam Questions – LMP
+        </title>
+
+        {/* Meta Description */}
+        <meta
+          name="description"
+          content="Get highly important CBSE exam questions with up to 95% accuracy. Based on PYQs, exam trends, and smart analysis to help you score maximum marks."
+        />
+
+        {/* Keywords */}
+        <meta
+          name="keywords"
+          content="
+          important questions cbse,
+          cbse important questions,
+          95 percent accurate cbse questions,
+          cbse most expected questions,
+          cbse exam important questions,
+          topper predicted questions cbse,
+          cbse board exam questions list,
+          last minute important questions cbse
+          "
+        />
+
+        {/* Canonical */}
+        <link
+          rel="canonical"
+          href="https://lastminutepreparation.in/question-generator"
+        />
+
+        {/* Robots */}
+        <meta name="robots" content="index, follow" />
+
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta
+          property="og:title"
+          content="CBSE Important Questions (95% Accuracy) | LMP"
+        />
+        <meta
+          property="og:description"
+          content="Revise the most important CBSE exam questions with high accuracy. Designed using PYQs and exam patterns for last-minute preparation."
+        />
+        <meta
+          property="og:url"
+          content="https://lastminutepreparation.in/question-generator"
+        />
+        <meta
+          property="og:image"
+          content="https://lastminutepreparation.in/og-question-generator.png"
+        />
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content="Important Questions for CBSE Exams | LMP"
+        />
+        <meta
+          name="twitter:description"
+          content="Prepare smart with highly important CBSE questions based on PYQs and exam trends."
+        />
+        <meta
+          name="twitter:image"
+          content="https://lastminutepreparation.in/og-question-generator.png"
+        />
+      </Helmet>
+
       <Navbar />
       
       <div className="container mx-auto px-2 py-20 sm:py-24 max-w-7xl">

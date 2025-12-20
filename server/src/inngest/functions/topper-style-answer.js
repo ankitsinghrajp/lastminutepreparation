@@ -345,7 +345,7 @@ Answer now:`;
 
 
       const answer = await step.run("OpenAI Call", async () =>
-        askOpenAI(prompt,"gpt-5.1")
+        askOpenAI(prompt,"gpt-4o-mini")
       );
 
       const finalAnswer = { answer };

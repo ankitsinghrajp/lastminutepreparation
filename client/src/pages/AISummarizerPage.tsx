@@ -10,6 +10,7 @@ import { useAsyncMutation } from "@/hooks/hook";
 import { useSummarizerMutation } from "@/redux/api/api";
 import AIOutput from "@/components/specifics/AIOutput";
 import { useSelector } from "react-redux";
+import { Helmet } from "react-helmet-async";
 
 const detailLevels = ["Short", "Medium", "Long"];
 
@@ -108,6 +109,79 @@ export default function AISummarizer() {
 
   return (
     <div className="min-h-screen bg-background">
+
+      <Helmet>
+        {/* Title */}
+        <title>
+          AI Topic Summarizer for CBSE | Smart Chapter Summaries – LMP
+        </title>
+
+        {/* Meta Description */}
+        <meta
+          name="description"
+          content="Summarize CBSE chapters instantly using AI. Get short, exam-focused topic summaries designed for last-minute revision and better retention."
+        />
+
+        {/* Keywords */}
+        <meta
+          name="keywords"
+          content="
+          ai topic summarizer cbse,
+          cbse chapter summary,
+          ai notes summarizer for students,
+          cbse syllabus summary,
+          last minute revision summary cbse,
+          smart chapter summaries,
+          cbse exam preparation ai,
+          topper style short notes,
+          cbse ai
+          "
+        />
+
+        {/* Canonical */}
+        <link
+          rel="canonical"
+          href="https://lastminutepreparation.in/summarizer"
+        />
+
+        {/* Robots */}
+        <meta name="robots" content="index, follow" />
+
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta
+          property="og:title"
+          content="AI Topic Summarizer for CBSE Chapters | LMP"
+        />
+        <meta
+          property="og:description"
+          content="Get instant AI-generated summaries of CBSE chapters. Perfect for last-minute revision and quick understanding."
+        />
+        <meta
+          property="og:url"
+          content="https://lastminutepreparation.in/summarizer"
+        />
+        <meta
+          property="og:image"
+          content="https://lastminutepreparation.in/og-summarizer.png"
+        />
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta
+          name="twitter:title"
+          content="AI Topic Summarizer for CBSE | LMP"
+        />
+        <meta
+          name="twitter:description"
+          content="Summarize CBSE chapters using AI and revise faster with exam-focused short notes."
+        />
+        <meta
+          name="twitter:image"
+          content="https://lastminutepreparation.in/og-summarizer.png"
+        />
+      </Helmet>
+
       <Navbar />
 
       <div className="container mx-auto px-3 sm:px-4 py-20 max-w-7xl">
