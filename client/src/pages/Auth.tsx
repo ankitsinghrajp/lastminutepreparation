@@ -13,6 +13,7 @@ import { useRegisterMutation } from "@/redux/api/api";
 import { useAsyncMutation } from "@/hooks/hook";
 import { useForm, SubmitHandler } from 'react-hook-form';
 import LoginForm from '@/components/specifics/LoginForm';
+import logo from "../assets/logo.png";
 
 export default function Auth() {
 
@@ -69,10 +70,10 @@ export default function Auth() {
 
       <div className="container mx-auto px-4 relative z-10">
         <div className="max-w-md mx-auto">
-          <div className="text-center mb-8">
+          <div className="text-center mb-4 mt-4">
             <Link to="/" className="inline-flex items-center space-x-2 mb-6">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg gradient-primary">
-                <Sparkles className="h-6 w-6 text-white" />
+                <img className='w-20' src={logo} alt="" />
               </div>
               <span className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 LastMinutePreparation
