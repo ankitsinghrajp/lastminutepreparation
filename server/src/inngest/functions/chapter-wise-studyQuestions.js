@@ -4,16 +4,12 @@ import { parseSubject, detectCategory } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
 
+/* -------------------- JSON EXTRACTOR (UNCHANGED) -------------------- */
 export const extractJSON = (text) => {
   if (!text) throw new Error("Empty response received from AI.");
 
-  // Remove markdown code fences
-  text = text
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
+  text = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
-  // Extract JSON object boundaries
   const first = text.indexOf("{");
   const last = text.lastIndexOf("}");
   if (first === -1 || last === -1) {
@@ -22,40 +18,25 @@ export const extractJSON = (text) => {
 
   let jsonString = text.substring(first, last + 1);
 
-  // Only remove control characters that break JSON parsing
-  // Preserve ALL backslashes for LaTeX math expressions
+  // Preserve ALL backslashes for LaTeX
   jsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
 
-  try {
-    const parsed = JSON.parse(jsonString);
-    
-    // Validate structure for predicted questions
-    if (!parsed.questions || !Array.isArray(parsed.questions)) {
-      throw new Error("Invalid structure: 'questions' array not found");
-    }
-    
+  const parsed = JSON.parse(jsonString);
 
-    // Validate each question
-    parsed.questions.forEach((q, idx) => {
-      if (!q.question || typeof q.question !== 'string') {
-        throw new Error(`Invalid or missing question at index ${idx}`);
-      }
-    });
-    
-    return parsed;
-    
-  } catch (err) {
-    console.error("JSON Parse Error:", err.message);
-    console.error("First 500 chars:", jsonString.substring(0, 500));
-    console.error("Last 200 chars:", jsonString.substring(jsonString.length - 200));
-    
-    throw new Error(`Failed to parse AI response: ${err.message}`);
+  if (!parsed.questions || !Array.isArray(parsed.questions)) {
+    throw new Error("Invalid structure: 'questions' array missing");
   }
+
+  parsed.questions.forEach((q, idx) => {
+    if (!q.question || typeof q.question !== "string") {
+      throw new Error(`Invalid question at index ${idx}`);
+    }
+  });
+
+  return parsed;
 };
 
-
-
-
+/* -------------------- INNGEST FUNCTION -------------------- */
 export const chapterWiseStudyQuestionsFn = inngest.createFunction(
   {
     name: "Generate Chapter Wise Study Questions",
@@ -66,7 +47,7 @@ export const chapterWiseStudyQuestionsFn = inngest.createFunction(
   async ({ event, step }) => {
     const { className, subject, chapter } = event.data;
     const { mainSubject, bookName } = parseSubject(subject);
-    const category = detectCategory(subject); // ✅ correct input
+    const category = detectCategory(subject);
 
     const cacheKey = `lmp:studyq:${className}:${mainSubject}:${chapter}`;
     const pendingKey = `lmp:studyq:pending:${className}:${mainSubject}:${chapter}`;
@@ -84,21 +65,14 @@ export const chapterWiseStudyQuestionsFn = inngest.createFunction(
       });
 
       if (dbData) {
-        const safeDBContent = JSON.parse(JSON.stringify(dbData.content));
-
-        await step.run("Save Redis", async () => {
-          await redis.set(cacheKey, JSON.stringify(safeDBContent), {
-            EX: 60 * 60 * 24 * 2,
-          });
+        await redis.set(cacheKey, JSON.stringify(dbData.content), {
+          EX: 60 * 60 * 24 * 2,
         });
-
+        await redis.del(pendingKey);
         return { source: "database" };
       }
 
-      // -------------------------------------------------------------------
-      // 2️⃣ PROMPT (UNCHANGED)
-      // -------------------------------------------------------------------
-const prompt = `
+   const prompt = `
 You are an API that returns ONLY valid JSON. No extra text, no explanation outside JSON.
 
 Class: ${className} | Subject: ${mainSubject} | Book: ${bookName}
@@ -355,30 +329,104 @@ CRITICAL:
 - Output MUST be valid JSON and compatible with Markdown+KaTeX renderer.
 `;
       // -------------------------------------------------------------------
-      // 3️⃣ CALL OPENAI
+      // 3️⃣ FIRST AI CALL (PRIMARY GENERATION)
       // -------------------------------------------------------------------
-     const aiRaw = await askOpenAI(prompt, "gpt-5.1", {
-  response_format: { type: "json_object" }
-     });
-
-
-      // -------------------------------------------------------------------
-      // 4️⃣ PARSE + VALIDATE
-      // -------------------------------------------------------------------
-      const parsed = await step.run("Extract JSON", async () => {
-        return extractJSON(aiRaw);
+      const primaryRaw = await step.run("Call OpenAI (Primary)", async () => {
+        return await askOpenAI(prompt, "gpt-5.1", {
+          response_format: { type: "json_object" },
+        });
       });
 
-      parsed.questions.forEach((q, idx) => {
-        if (!q.question) {
-          throw new Error(`Invalid question structure at index ${idx}`);
-        }
+      // -------------------------------------------------------------------
+      // 🔁 4️⃣ SECOND AI CALL (FIX ONLY — NO CONFLICT)
+      // -------------------------------------------------------------------
+      const fixerPrompt = `
+You are a STRICT JSON + MARKDOWN + LaTeX FIXER
+for CBSE CHAPTER-WISE IMPORTANT QUESTIONS.
+
+The input JSON is MOSTLY CORRECT.
+DO NOT regenerate questions.
+DO NOT rewrite wording.
+DO NOT change order, language, or meaning.
+
+==============================
+ABSOLUTE ALIGNMENT RULES
+==============================
+
+✔ Inline math $...$ is ALLOWED
+✔ Display math $$...$$ is ALLOWED
+✔ Markdown formatting MUST be preserved
+✔ JSON string newlines MUST remain \\n
+
+❌ NEVER introduce \\( \\) or \\[ \\]
+❌ NEVER remove existing $$ blocks
+❌ NEVER convert $$ to $
+❌ NEVER add or remove questions
+
+==============================
+ALLOWED FIXES ONLY
+==============================
+
+✔ Fix JSON syntax errors (quotes, commas)
+✔ Fix LaTeX backslash escaping inside JSON strings
+✔ Ensure LaTeX commands stay INSIDE $...$ or $$...$$
+✔ Fix broken $$ blocks
+✔ Normalize LaTeX symbols (Phi → \\Phi, theta → \\theta, etc.)
+
+==============================
+STRICTLY FORBIDDEN
+==============================
+
+❌ Regeneration
+❌ Rewriting text
+❌ Language changes
+❌ Adding explanations
+❌ Removing sub-parts or tables
+
+==============================
+CHEMISTRY RULES
+==============================
+
+✔ Chemical equations MUST remain inside $$...$$
+✔ Proper arrows only: \\to, \\rightarrow, \\rightleftharpoons
+✔ NO plain-text formulas (H2O, CO2)
+
+==============================
+FINAL VALIDATION
+==============================
+
+✓ Exactly 10 questions remain
+✓ Markdown tables preserved
+✓ No LaTeX outside math delimiters
+✓ No forbidden delimiters
+✓ JSON.parse() must succeed
+
+==============================
+INPUT JSON
+==============================
+
+<<<
+${primaryRaw}
+>>>
+
+Return ONLY the corrected JSON.
+No explanations.
+`.trim();
+
+      const finalRaw = await step.run("Fix JSON + LaTeX", async () => {
+        return await askOpenAI(fixerPrompt, "gpt-4o", {
+          response_format: { type: "json_object" },
+        });
       });
 
+      // -------------------------------------------------------------------
+      // 5️⃣ PARSE FINAL OUTPUT (ONCE)
+      // -------------------------------------------------------------------
+      const parsed = extractJSON(finalRaw);
       const safeParsed = JSON.parse(JSON.stringify(parsed));
 
       // -------------------------------------------------------------------
-      // 5️⃣ SAVE DB
+      // 6️⃣ SAVE DB
       // -------------------------------------------------------------------
       await step.run("Save DB", async () => {
         await ChapterWiseImportantQuestionModel.create({
@@ -390,15 +438,16 @@ CRITICAL:
       });
 
       // -------------------------------------------------------------------
-      // 6️⃣ SAVE REDIS
+      // 7️⃣ SAVE REDIS
       // -------------------------------------------------------------------
-      await step.run("Save Redis", async () => {
-        await redis.set(cacheKey, JSON.stringify(safeParsed), {
-          EX: 60 * 60 * 24 * 2,
-        });
+      await redis.set(cacheKey, JSON.stringify(safeParsed), {
+        EX: 60 * 60 * 24 * 2,
       });
 
+      await redis.del(pendingKey);
+
       return { source: "generated" };
+
     } catch (err) {
       await redis.del(pendingKey);
       throw new Error(`chapterWiseStudyQuestions error: ${err.message}`);

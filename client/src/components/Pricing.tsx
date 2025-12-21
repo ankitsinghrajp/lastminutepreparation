@@ -4,6 +4,7 @@ import { Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useSelector } from "react-redux";
+import {server} from "../constants";
 
 const plans = [
   {
@@ -12,7 +13,7 @@ const plans = [
     period: "per month",
     description: "Best for exploring LastMinutePreparation",
     features: [
-      "40 AI requests per month",
+      "20 AI requests per month",
       "Limited access to Last Night Before Exam",
       "Limited AI summaries & questions",
       "Limited PYQs access",
@@ -31,11 +32,11 @@ const plans = [
   },
   {
     name: "BASIC",
-    price: "₹199",
+    price: "₹299",
     period: "per month",
     description: "Ideal for regular CBSE exam preparation",
     features: [
-      "500 AI requests per month",
+      "400 AI requests per month",
       "Last Night Before Exam (limited)",
       "AI Topic Summarizer (limited)",
       "Predicted Important Questions (limited)",
@@ -54,11 +55,11 @@ const plans = [
   },
   {
     name: "PRO",
-    price: "₹299",
+    price: "₹599",
     period: "per month",
     description: "Unlimited power for serious toppers",
     features: [
-      "Unlimited AI requests",
+      "1000 AI requests",
       "Last Night Before Exam (unlimited)",
       "AI Topic Summarizer (unlimited)",
       "Predicted Important Questions (unlimited)",
@@ -85,12 +86,12 @@ export const Pricing = () => {
   const navigate = useNavigate();
 
   const checkoutHandler = async (amount,planType)=>{
-
-    const {data:{data:{key}}} = await axios.get("http://localhost:3000/api/v1/payment/get-key");
     if(!user) navigate("/auth");
+    const {data:{data:{key}}} = await axios.get(`${server}/api/v1/payment/get-key`);
+    
     const numeric = Number(amount.replace("₹", "").trim());
     
-     const {data:{data:{order}}} = await axios.post("http://localhost:3000/api/v1/payment/checkout",{
+     const {data:{data:{order}}} = await axios.post(`${server}/api/v1/payment/checkout`,{
       amount:numeric,
       planType,
       userId:user._id
@@ -104,7 +105,7 @@ export const Pricing = () => {
       description: "AI-powered study assistant with unlimited uploads, advanced summaries, diagram analysis, and priority support.",
       image: "https://res.cloudinary.com/dove6tipv/image/upload/v1763279909/logo_wjvuqb.png",
       order_id: order.id, 
-      callback_url: "http://localhost:3000/api/v1/payment/verify",
+      callback_url: `${server}/api/v1/payment/verify`,
       prefill: {
         name: user.name,
         email: user.email,

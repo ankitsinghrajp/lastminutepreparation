@@ -1,5 +1,5 @@
 import { inngest } from "../../libs/inngest.js";
-import {ChapterWiseShortNotesModel} from "../../models/chapterWiseStudy/chapterWiseShortNotes.model.js"
+import { ChapterWiseShortNotesModel } from "../../models/chapterWiseStudy/chapterWiseShortNotes.model.js";
 import { parseSubject } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
@@ -31,21 +31,14 @@ export const chapterWiseShortNotesFn = inngest.createFunction(
       });
 
       if (dbNotes) {
-        const safeData = dbNotes.content;
-
-        await step.run("Save Redis", async () => {
-          await redis.set(cacheKey, safeData, {
-            EX: 60 * 60 * 24 * 2,
-          });
+        await redis.set(cacheKey, dbNotes.content, {
+          EX: 60 * 60 * 24 * 2,
         });
-
+        await redis.del(pendingKey);
         return { source: "database" };
       }
 
-      // -------------------------------------------------------------------
-      // 2️⃣ PROMPT (UNCHANGED)
-      // -------------------------------------------------------------------
-const prompt = `
+   const prompt = `
 You are an API that returns ONLY valid Markdown.
 No explanations, no meta text, no thinking output.
 
@@ -338,36 +331,153 @@ OUTPUT ONLY THE MARKDOWN CONTENT.
 `;
 
       // -------------------------------------------------------------------
-      // 3️⃣ CALL OPENAI
+      // 3️⃣ FIRST AI CALL (PRIMARY GENERATION)
       // -------------------------------------------------------------------
-      const aiOutput = await step.run("Call OpenAI", async () => {
-        const safePrompt = prompt.replace(/\\/g, "\\\\");
-        return await askOpenAI(safePrompt, "gpt-5-mini");
+      const aiOutput = await step.run("Call OpenAI (Primary)", async () => {
+     
+        return await askOpenAI(prompt, "gpt-5.1");
       });
 
       // -------------------------------------------------------------------
-      // 4️⃣ SAVE DB
+      // 🔁 4️⃣ SECOND AI CALL (FIX ONLY — NO CONFLICT)
+      // -------------------------------------------------------------------
+const fixerPrompt = `
+You are a STRICT LaTeX FORMULA VALIDATION FIXER
+for CBSE Chapter-Wise Short Notes.
+
+The input is a RAW STRING that may contain Markdown-like text.
+DO NOT treat it as Markdown.
+DO NOT format it.
+DO NOT re-render it.
+
+The content is MOSTLY CORRECT.
+DO NOT regenerate content.
+DO NOT rewrite explanations.
+DO NOT change wording, language, order, or structure.
+DO NOT add or remove concepts.
+
+Your ONLY responsibility is to FIX LaTeX FORMULA VALIDITY
+inside existing $$ ... $$ blocks.
+
+====================================================
+ABSOLUTE ALIGNMENT WITH ORIGINAL GENERATION PROMPT
+====================================================
+
+- ALL formulas MUST remain inside existing $$ ... $$ blocks
+- Inline math ($...$) is STRICTLY FORBIDDEN
+- NEVER use \\( \\) or \\[ \\]
+- Each $$ block MUST remain exactly where it is
+
+❌ Do NOT add new $$ blocks
+❌ Do NOT remove existing $$ blocks
+❌ Do NOT move formulas
+❌ Do NOT move or edit non-formula text
+❌ Do NOT reformat spacing or lines
+
+====================================================
+ALLOWED FIXES ONLY (INSIDE $$ BLOCKS)
+====================================================
+
+You may ONLY fix LaTeX validity issues inside $$ blocks:
+
+1) Fix broken or truncated LaTeX commands
+   (\\fra → \\frac, \\sq → \\sqrt, etc.)
+
+2) Fix unbalanced braces { } or parentheses ( )
+
+3) Fix invalid or partial symbols ONLY when required for LaTeX parsing
+   (Phi → \\Phi, theta → \\theta, pi → \\pi)
+
+4) Fix invalid subscripts/superscripts
+   (q1 → q_1, r2 → r^{2})
+
+5) Fix invalid arrow syntax
+   (-> → \\to)
+
+6) Ensure EXACTLY ONE valid equation per $$ block
+
+====================================================
+STRICTLY FORBIDDEN ACTIONS
+====================================================
+
+❌ Do NOT add \\text{}
+❌ Do NOT add units (m, s, kg, J, etc.)
+❌ Do NOT split or merge equations
+❌ Do NOT introduce new operators
+❌ Do NOT normalize explanation text
+❌ Do NOT modify concept names
+❌ Do NOT modify spacing or blank lines
+❌ Do NOT move LaTeX outside $$ blocks
+
+====================================================
+CHEMISTRY SAFETY RULES
+====================================================
+
+✔ Chemical equations MUST remain in existing $$ blocks
+✔ Allowed arrows only: \\to, \\rightarrow, \\rightleftharpoons
+✔ Fix subscripts/superscripts ONLY if broken
+✔ Do NOT rewrite reactions
+
+====================================================
+FINAL VALIDATION CHECK
+====================================================
+
+Before returning output, verify:
+
+✓ Every $$ block is balanced
+✓ LaTeX inside $$ parses correctly
+✓ No text exists inside $$ blocks
+✓ No LaTeX exists outside $$ blocks
+✓ The STRING structure is unchanged
+
+If a formula cannot be fixed WITHOUT changing meaning,
+leave it EXACTLY AS IT IS.
+
+====================================================
+INPUT STRING
+====================================================
+
+<<<
+${aiOutput}
+>>>
+
+IMPORTANT OUTPUT RULE:
+- Return ONLY the corrected STRING
+- Do NOT say “Markdown”
+- Do NOT add explanations
+- Do NOT add commentary
+- Do NOT add formatting
+`.trim();
+
+
+
+      const finalOutput = await step.run("Fix Markdown + LaTeX", async () => {
+        return await askOpenAI(fixerPrompt, "gpt-4o");
+      });
+
+      // -------------------------------------------------------------------
+      // 5️⃣ SAVE DB
       // -------------------------------------------------------------------
       await step.run("Save DB", async () => {
         await ChapterWiseShortNotesModel.create({
           className,
           subject: mainSubject,
           chapter,
-          content: aiOutput,
+          content: finalOutput,
         });
       });
 
       // -------------------------------------------------------------------
-      // 5️⃣ SAVE REDIS
+      // 6️⃣ SAVE REDIS
       // -------------------------------------------------------------------
-      await step.run("Save Redis", async () => {
-        await redis.set(cacheKey, aiOutput, {
-          EX: 60 * 60 * 24 * 2,
-        });
+      await redis.set(cacheKey, finalOutput, {
+        EX: 60 * 60 * 24 * 2,
       });
 
+      await redis.del(pendingKey);
 
       return { source: "generated" };
+
     } catch (err) {
       await redis.del(pendingKey);
       throw new Error(`chapterWiseShortNotes error: ${err.message}`);

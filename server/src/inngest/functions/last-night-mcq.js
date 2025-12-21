@@ -1,37 +1,35 @@
+
+
 import { inngest } from "../../libs/inngest.js";
 import { LastMinuteMCQModel } from "../../models/LastMinuteBeforeExam/lastMinuteMcq.model.js";
 import { parseSubject, detectCategory } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
 
-
+/* -------------------- JSON EXTRACTOR (UNCHANGED) -------------------- */
 const extractJSON = (text) => {
   if (!text) throw new Error("Empty response received from AI.");
 
-  // Remove markdown code fences
-  text = text
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
+  text = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
-  // Extract JSON object boundaries
   const first = text.indexOf("{");
   const last = text.lastIndexOf("}");
   if (first === -1 || last === -1) throw new Error("No JSON found.");
 
   let jsonString = text.substring(first, last + 1);
 
-  // Remove control characters but PRESERVE backslashes for LaTeX
+  // Remove control chars but PRESERVE backslashes for LaTeX
   jsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
 
   return JSON.parse(jsonString);
 };
 
+/* -------------------- INNGEST FUNCTION -------------------- */
 export const lastNightMCQsFn = inngest.createFunction(
   {
     id: "lmp-mcqs",
     name: "Generate LMP MCQs",
-    retries:0,
+    retries: 0,
   },
   { event: "lmp/generate.mcqs" },
   async ({ event, step }) => {
@@ -65,7 +63,7 @@ export const lastNightMCQsFn = inngest.createFunction(
         return { mcqs: safeDBContent.mcqs, source: "database" };
       }
 
-  const prompt = `
+       const prompt = `
 You are an API that returns ONLY valid JSON.
 No extra text, no explanation outside JSON.
 
@@ -374,35 +372,111 @@ CRITICAL (NON-NEGOTIABLE)
 - Subject-based language compliance has HIGHEST priority
 - Output MUST be fully compatible with Markdown + KaTeX renderer
 `;
-
-
-
       // -------------------------------------------------------------------
-      // 3️⃣ CALL OPENAI
+      // 3️⃣ FIRST AI CALL (PRIMARY)
       // -------------------------------------------------------------------
-      const aiRaw = await step.run("Call OpenAI",async () => {
+      const primaryRaw = await step.run("Call OpenAI (Primary)", async () => {
         return await askOpenAI(prompt);
       });
 
-     
-      const parsed = extractJSON(aiRaw);
+      // -------------------------------------------------------------------
+      // 🔁 4️⃣ SECOND AI CALL (FIX ONLY — SAFE)
+      // -------------------------------------------------------------------
+      const fixerPrompt = `
+You are a STRICT JSON + LaTeX ESCAPING FIXER for CBSE MCQs.
 
+The input JSON is MOSTLY CORRECT.
+DO NOT regenerate MCQs.
+DO NOT rewrite questions, options, explanations, or formulas.
+DO NOT change meaning, language, order, or formatting.
+
+==============================
+ABSOLUTE ALIGNMENT WITH FIRST PROMPT
+==============================
+
+- Inline math $...$ is ALLOWED
+- Display math $$...$$ is ALLOWED and REQUIRED where present
+- Markdown formatting and REAL line breaks MUST be preserved
+- LaTeX commands MUST remain inside math delimiters
+
+❌ Do NOT remove $$...$$
+❌ Do NOT convert $$ to $
+❌ Do NOT introduce \\( \\) or \\[ \\]
+❌ Do NOT introduce escaped newlines (\\n)
+
+==============================
+ALLOWED FIXES ONLY
+==============================
+
+1) Fix JSON syntax (quotes, commas, structure)
+2) Fix JSON-level LaTeX backslash escaping
+3) Ensure JSON.parse() succeeds
+
+==============================
+FIELD RULES
+==============================
+
+• question / options / explanation:
+  - Preserve markdown
+  - Preserve $...$ and $$...$$
+
+• formula field:
+  - RAW LaTeX ONLY
+  - NO $ or $$ delimiters
+  - Single backslashes only
+  - Keep "" if empty
+
+==============================
+STRICTLY FORBIDDEN
+==============================
+
+- ❌ Regeneration
+- ❌ Rewriting
+- ❌ Reordering
+- ❌ Changing correct option
+- ❌ Changing language
+- ❌ Adding/removing MCQs
+
+==============================
+INPUT JSON
+==============================
+
+<<<
+${primaryRaw}
+>>>
+
+Return ONLY the corrected JSON.
+`.trim();
+
+      const finalRaw = await step.run("Fix JSON + LaTeX", async () => {
+        return await askOpenAI(fixerPrompt, "gpt-4o", {
+          response_format: { type: "json_object" },
+        });
+      });
+
+      // -------------------------------------------------------------------
+      // 5️⃣ PARSE FINAL OUTPUT (ONCE)
+      // -------------------------------------------------------------------
+      const parsed = extractJSON(finalRaw);
 
       parsed.mcqs.forEach((mcq, idx) => {
-        if (!mcq.question || !mcq.correct || !mcq.options)
-          throw new Error(`Invalid MCQ structure at ${idx}`);
+        if (!mcq.question || !mcq.correct || !mcq.options) {
+          throw new Error(`Invalid MCQ structure at index ${idx}`);
+        }
 
-        if (!Array.isArray(mcq.options) || mcq.options.length !== 4)
+        if (!Array.isArray(mcq.options) || mcq.options.length !== 4) {
           throw new Error(`MCQ ${idx} must contain exactly 4 options`);
+        }
 
-        if (!mcq.options.includes(mcq.correct))
-          throw new Error(`Correct answer mismatch in MCQ ${idx}`);
+        if (!mcq.options.includes(mcq.correct)) {
+          throw new Error(`Correct option mismatch at MCQ ${idx}`);
+        }
       });
 
       const safeParsed = JSON.parse(JSON.stringify(parsed));
 
       // -------------------------------------------------------------------
-      // 5️⃣ SAVE DB
+      // 6️⃣ SAVE DB
       // -------------------------------------------------------------------
       await step.run("Save DB", async () => {
         await LastMinuteMCQModel.create({
@@ -414,11 +488,13 @@ CRITICAL (NON-NEGOTIABLE)
       });
 
       // -------------------------------------------------------------------
-      // 6️⃣ SAVE REDIS
+      // 7️⃣ SAVE REDIS
       // -------------------------------------------------------------------
       await redis.set(cacheKey, JSON.stringify(safeParsed), {
         EX: 60 * 60 * 24 * 2,
       });
+
+      await redis.del(pendingKey);
 
       return { mcqs: safeParsed.mcqs, source: "generated" };
 

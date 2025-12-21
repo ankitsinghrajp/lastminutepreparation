@@ -1,18 +1,16 @@
+
 import { inngest } from "../../libs/inngest.js";
 import { ImpTopicsModel } from "../../models/LastMinuteBeforeExam/impTopics.model.js";
 import { parseSubject, detectCategory } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
+
+/* -------------------- JSON EXTRACTOR (UNCHANGED) -------------------- */
 export const extractJSON = (text) => {
   if (!text) throw new Error("Empty response received from AI.");
 
-  // Remove markdown code fences
-  text = text
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
+  text = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
-  // Extract JSON object boundaries
   const first = text.indexOf("{");
   const last = text.lastIndexOf("}");
   if (first === -1 || last === -1) {
@@ -20,94 +18,76 @@ export const extractJSON = (text) => {
   }
 
   let jsonString = text.substring(first, last + 1);
-
-  // Only remove control characters that break JSON parsing
-  // Preserve ALL backslashes for LaTeX formulas and math expressions
   jsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
 
   try {
     const parsed = JSON.parse(jsonString);
-    
-    // Validate structure for important topics
+
     if (!parsed.topics || !Array.isArray(parsed.topics)) {
       throw new Error("Invalid structure: 'topics' array not found");
     }
-    
+
     if (parsed.topics.length !== 6) {
       throw new Error(`Expected exactly 6 topics, got ${parsed.topics.length}`);
     }
-    
-    // Validate each topic
+
     parsed.topics.forEach((topic, idx) => {
-      if (!topic.topic || typeof topic.topic !== 'string') {
-        throw new Error(`Missing or invalid 'topic' field at index ${idx}`);
+      if (!topic.topic || typeof topic.topic !== "string") {
+        throw new Error(`Invalid topic at index ${idx}`);
       }
-      
-      if (!topic.explanation || typeof topic.explanation !== 'string') {
-        throw new Error(`Missing or invalid 'explanation' field at index ${idx}`);
+      if (!topic.explanation || typeof topic.explanation !== "string") {
+        throw new Error(`Invalid explanation at index ${idx}`);
       }
-      
-      if (!topic.hasOwnProperty('formula') || typeof topic.formula !== 'string') {
-        throw new Error(`Missing or invalid 'formula' field at index ${idx}`);
+      if (!topic.hasOwnProperty("formula") || typeof topic.formula !== "string") {
+        throw new Error(`Invalid formula at index ${idx}`);
       }
     });
-    
+
     return parsed;
-    
   } catch (err) {
-    console.error("JSON Parse Error:", err.message);
-    console.error("First 500 chars:", jsonString.substring(0, 500));
-    console.error("Last 200 chars:", jsonString.substring(jsonString.length - 200));
-    
     throw new Error(`Failed to parse AI response: ${err.message}`);
   }
 };
+
+/* -------------------- INNGEST FUNCTION -------------------- */
 export const lastNightImportantTopicsFn = inngest.createFunction(
-  { name: "Generate LMP Important Topics",
+  {
+    name: "Generate LMP Important Topics",
     id: "last-night-important-topics",
-    retries:0,
-   },
+    retries: 0,
+  },
   { event: "lmp/generate.importantTopics" },
-  async ({ event, step }) => {
+  async ({ event }) => {
+    const { className, subject, chapter } = event.data;
+    const { mainSubject, bookName } = parseSubject(subject);
+    const category = detectCategory(mainSubject);
 
-     const { className, subject, chapter } = event.data;
-      const { mainSubject, bookName } = parseSubject(subject);
-      const category = detectCategory(mainSubject);
-
-      const cacheKey = `lmp:imptopics:${className}:${mainSubject}:${chapter}`;
-      const pendingKey = `lmp:imptopics:pending:${className}:${mainSubject}:${chapter}`;
+    const cacheKey = `lmp:imptopics:${className}:${mainSubject}:${chapter}`;
+    const pendingKey = `lmp:imptopics:pending:${className}:${mainSubject}:${chapter}`;
 
     try {
-     
       // -------------------------------------------------------------------
       // 1️⃣ DB CHECK
       // -------------------------------------------------------------------
-      const dbCache = await step.run("DB Check", async () => {
-        return await ImpTopicsModel.findOne({
-          className,
-          subject: mainSubject,
-          chapter,
-        });
+      const dbCache = await ImpTopicsModel.findOne({
+        className,
+        subject: mainSubject,
+        chapter,
       });
 
       if (dbCache) {
-        const safeDBContent = JSON.parse(JSON.stringify(dbCache.content));
-
-        await step.run("Save Redis", async () => {
-          await redis.set(cacheKey, JSON.stringify(safeDBContent), {
-            EX: 60 * 60 * 24 * 2,
-          });
+        await redis.set(cacheKey, JSON.stringify(dbCache.content), {
+          EX: 60 * 60 * 24 * 2,
         });
-
         await redis.del(pendingKey);
-        return { topics: safeDBContent, source: "database" };
+        return { topics: dbCache.content.topics, source: "database" };
       }
 
       // -------------------------------------------------------------------
       // 2️⃣ BUILD PROMPT (UNCHANGED)
-      // -------------------------------------------------------------------
-   const prompt = await step.run("Build Prompt", async () => {
-      return `
+      // ---------------------------------------------------------
+
+      const prompt =`
 You are an API that returns ONLY valid JSON.
 No extra text, no explanation outside JSON.
 
@@ -298,56 +278,145 @@ CRITICAL
 - Explanation field: use $...$ for any math symbols
 - Formula field: raw LaTeX code without delimiters
 - Must render correctly in Markdown + KaTeX
-`;
+`;906
 
-
-
+      // -------------------------------------------------------------------
+      // 3️⃣ FIRST AI CALL (PRIMARY)
+      // -------------------------------------------------------------------
+      const primaryRaw = await askOpenAI(prompt, "gpt-5.1", {
+        response_format: { type: "json_object" },
       });
 
       // -------------------------------------------------------------------
-      // 3️⃣ CALL OPENAI
+      // 🔁 4️⃣ SECOND AI CALL (FIX ONLY — SAME AS AI COACH)
       // -------------------------------------------------------------------
-      const aiRaw = await step.run("Call OpenAI" ,async () => {
-        return await askOpenAI(prompt);
+    const fixerPrompt = `
+You are a STRICT JSON + LaTeX ESCAPING FIXER for IMPORTANT TOPICS.
+
+The input JSON is MOSTLY CORRECT.
+DO NOT regenerate.
+DO NOT rewrite text.
+DO NOT change meaning, wording, order, or structure.
+
+==============================
+ABSOLUTE NON-NEGOTIABLE RULE
+==============================
+
+❌ NEVER use $$ ... $$  
+❌ NEVER introduce display math  
+❌ NEVER use \\[ ... \\] or \\( ... \\)  
+
+ALL math MUST remain INLINE using $ ... $ ONLY (and only inside "explanation").
+
+==============================
+FIELD-SPECIFIC RULES
+==============================
+
+1. "topic" FIELD:
+- Plain text only
+- NO LaTeX
+- NO math
+- Leave unchanged
+
+--------------------------------------------------
+
+2. "explanation" FIELD:
+- Inline math allowed using $...$ ONLY
+- ALL LaTeX commands MUST have DOUBLED backslashes (\\\\)
+- Math MUST remain inline
+
+Wrong:
+"explanation": "Flux is given by $\\Phi = EA$"
+
+Correct:
+"explanation": "Flux is given by $\\\\Phi = E \\\\cdot A$"
+
+❌ Do NOT introduce $$  
+❌ Do NOT move formulas here  
+❌ Do NOT rewrite explanations  
+
+--------------------------------------------------
+
+3. "formula" FIELD (RAW LaTeX ONLY):
+- Use SINGLE backslashes (\\)
+- NO $ or $$ delimiters
+- EXACTLY one formula
+- NO text, no labels, no explanation
+
+Wrong:
+"formula": "$\\Phi = EA$"
+"formula": "$$\\Phi = EA$$"
+"formula": "\\\\Phi = EA"
+
+Correct:
+"formula": "\\Phi = \\vec{E} \\cdot \\vec{A}"
+
+--------------------------------------------------
+
+4. JSON SYNTAX:
+- Use DOUBLE quotes only
+- Escape newlines as \\n
+- No trailing commas
+- Preserve structure exactly
+
+==============================
+STRICTLY FORBIDDEN
+==============================
+
+- ❌ Introducing $$ anywhere
+- ❌ Introducing \\[ \\] or \\( \\)
+- ❌ Changing topic names
+- ❌ Rephrasing explanations
+- ❌ Moving formulas into explanation
+- ❌ Adding or removing topics
+
+==============================
+INPUT JSON TO FIX
+==============================
+
+${primaryRaw}
+
+==============================
+OUTPUT
+==============================
+
+Return ONLY the corrected JSON.
+NO explanation.
+NO markdown.
+NO extra text.
+`.trim();
+
+
+      const finalRaw = await askOpenAI(fixerPrompt, "gpt-4o", {
+        response_format: { type: "json_object" },
       });
 
       // -------------------------------------------------------------------
-      // 4️⃣ EXTRACT JSON
+      // 5️⃣ PARSE ONLY ONCE (FINAL OUTPUT)
       // -------------------------------------------------------------------
-   
-      const parsed = extractJSON(aiRaw);
-
-
-      if (!parsed.topics || !Array.isArray(parsed.topics)) {
-        throw new Error("Invalid topics format");
-      }
-
+      const parsed = extractJSON(finalRaw);
       const safeParsed = JSON.parse(JSON.stringify(parsed));
 
       // -------------------------------------------------------------------
-      // 5️⃣ SAVE DB
+      // 6️⃣ SAVE DB
       // -------------------------------------------------------------------
-      await step.run("Save DB", async () => {
-        await ImpTopicsModel.create({
-          className,
-          subject: mainSubject,
-          chapter,
-          content: safeParsed,
-        });
+      await ImpTopicsModel.create({
+        className,
+        subject: mainSubject,
+        chapter,
+        content: safeParsed,
       });
 
       // -------------------------------------------------------------------
-      // 6️⃣ SAVE REDIS
+      // 7️⃣ SAVE REDIS
       // -------------------------------------------------------------------
-      await step.run("Save Redis", async () => {
-        await redis.set(cacheKey, JSON.stringify(safeParsed), {
-          EX: 60 * 60 * 24 * 2,
-        });
+      await redis.set(cacheKey, JSON.stringify(safeParsed), {
+        EX: 60 * 60 * 24 * 2,
       });
+
+      await redis.del(pendingKey);
 
       return { topics: safeParsed.topics, source: "generated" };
-
-
     } catch (err) {
       await redis.del(pendingKey);
       throw new Error(`generateImportantTopics error: ${err.message}`);

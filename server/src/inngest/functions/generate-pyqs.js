@@ -4,6 +4,40 @@ import { detectCategory, parseSubject } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
 
+// 🔒 Robust JSON extractor (same standard as other generators)
+export const extractJSON = (text) => {
+  if (!text) throw new Error("Empty response received from AI.");
+
+  text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+  if (first === -1 || last === -1) {
+    throw new Error("No JSON object found in AI response.");
+  }
+
+  let jsonString = text.substring(first, last + 1);
+
+  // Remove control chars that break JSON.parse
+  jsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
+
+  try {
+    const parsed = JSON.parse(jsonString);
+
+    if (
+      typeof parsed !== "object" ||
+      !parsed.pyqs ||
+      !Array.isArray(parsed.pyqs)
+    ) {
+      throw new Error("Invalid PYQ JSON structure");
+    }
+
+    return parsed;
+  } catch (err) {
+    throw new Error(`Failed to parse AI response: ${err.message}`);
+  }
+};
+
 export const generatePYQsFn = inngest.createFunction(
   {
     name: "Generate PYQs",
@@ -35,10 +69,8 @@ export const generatePYQsFn = inngest.createFunction(
       if (dbCache) {
         const safeDB = JSON.parse(JSON.stringify(dbCache.content));
 
-        await step.run("Save Redis", async () => {
-          await redis.set(cacheKey, JSON.stringify(safeDB), {
-            EX: 60 * 60 * 24 * 2,
-          });
+        await redis.set(cacheKey, JSON.stringify(safeDB), {
+          EX: 60 * 60 * 24 * 2,
         });
 
         await redis.del(pendingKey);
@@ -46,9 +78,9 @@ export const generatePYQsFn = inngest.createFunction(
       }
 
       // -------------------------------------------------------------------
-      // 2️⃣ PROMPT (UNCHANGED)
+      // 2️⃣ PRIMARY PROMPT (UNCHANGED)
       // -------------------------------------------------------------------
- const prompt = `
+       const prompt = `
 You are a CBSE PYQ Expert. Your ONLY task is to generate synthetic but EXTREMELY ACCURATE
 CBSE-style Previous Year Questions for ONE specific year provided by the user.
 
@@ -537,31 +569,79 @@ Return STRICT JSON ONLY. NOTHING ELSE.
 Output MUST be fully compatible with a Markdown+KaTeX renderer.
 `;
       // -------------------------------------------------------------------
-      // 3️⃣ CALL OPENAI
+      // 3️⃣ FIRST AI CALL (PRIMARY GENERATION)
       // -------------------------------------------------------------------
-      const aiRaw = await step.run("Call OpenAI",async () => {
-        return await askOpenAI(prompt, "gpt-5.1",{
-           response_format: { type: "json_object" }
+      const primaryRaw = await step.run("Call OpenAI (Primary)", async () => {
+        return await askOpenAI(prompt, "gpt-5.1", {
+          response_format: { type: "json_object" },
         });
       });
 
       // -------------------------------------------------------------------
-      // 4️⃣ PARSE JSON
+      // 4️⃣ SECOND AI CALL (STRICT JSON + LaTeX FIXER)
+      // -------------------------------------------------------------------
+      const fixerPrompt = `
+You are a STRICT JSON + LaTeX ESCAPING FIXER for CBSE PREVIOUS YEAR QUESTIONS.
+
+The input JSON is MOSTLY CORRECT.
+DO NOT regenerate.
+DO NOT rewrite questions.
+DO NOT change year, marks, wording, order, or structure.
+
+==============================
+ALLOWED FIXES
+==============================
+- Fix invalid JSON syntax
+- Fix broken quotes or commas
+- Fix LaTeX escaping for JSON strings
+- Preserve $...$ and $$...$$ exactly
+- Preserve \\n newlines
+
+==============================
+STRICTLY FORBIDDEN
+==============================
+- ❌ Regeneration
+- ❌ Rewriting content
+- ❌ Adding or removing questions
+- ❌ Changing marks or year
+- ❌ Changing math mode
+
+==============================
+INPUT JSON
+==============================
+<<<
+${primaryRaw}
+>>>
+
+==============================
+OUTPUT
+==============================
+Return ONLY corrected JSON.
+No explanation.
+`.trim();
+
+      const fixedRaw = await step.run("Call OpenAI (Fixer)", async () => {
+        return await askOpenAI(fixerPrompt, "gpt-4o",{
+          response_format: { type: "json_object" },
+        });
+      });
+
+      // -------------------------------------------------------------------
+      // 5️⃣ PARSE + VALIDATE (STRICT)
       // -------------------------------------------------------------------
       let finalJson;
       try {
-        const cleaned = aiRaw
-          .replace(/```json/g, "")
-          .replace(/```/g, "")
-          .trim();
+        const extracted = extractJSON(fixedRaw);
+        finalJson = JSON.parse(JSON.stringify(extracted));
 
-        finalJson = JSON.parse(cleaned);
+
+
       } catch (err) {
-        throw new Error("Failed to parse PYQ JSON: " + err.message);
+        throw new Error("Failed to parse AI response: " + err.message);
       }
 
       // -------------------------------------------------------------------
-      // 5️⃣ SAVE DB
+      // 6️⃣ SAVE DB
       // -------------------------------------------------------------------
       await step.run("Save DB", async () => {
         await PyqModel.create({
@@ -574,16 +654,13 @@ Output MUST be fully compatible with a Markdown+KaTeX renderer.
       });
 
       // -------------------------------------------------------------------
-      // 6️⃣ SAVE REDIS
+      // 7️⃣ SAVE REDIS
       // -------------------------------------------------------------------
-      await step.run("Save Redis", async () => {
-        await redis.set(cacheKey, JSON.stringify(finalJson), {
-          EX: 60 * 60 * 24 * 2,
-        });
+      await redis.set(cacheKey, JSON.stringify(finalJson), {
+        EX: 60 * 60 * 24 * 2,
       });
 
       await redis.del(pendingKey);
-
       return { source: "generated" };
     } catch (err) {
       await redis.del(pendingKey);

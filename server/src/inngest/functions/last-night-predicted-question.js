@@ -1,18 +1,16 @@
+
 import { inngest } from "../../libs/inngest.js";
 import { PredictedQuestionModel } from "../../models/LastMinuteBeforeExam/predictedQuestion.model.js";
 import { parseSubject, detectCategory } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
+
+/* -------------------- JSON EXTRACTOR (UNCHANGED) -------------------- */
 export const extractJSON = (text) => {
   if (!text) throw new Error("Empty response received from AI.");
 
-  // Remove markdown code fences
-  text = text
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
+  text = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
-  // Extract JSON object boundaries
   const first = text.indexOf("{");
   const last = text.lastIndexOf("}");
   if (first === -1 || last === -1) {
@@ -20,48 +18,40 @@ export const extractJSON = (text) => {
   }
 
   let jsonString = text.substring(first, last + 1);
-
-  // Only remove control characters that break JSON parsing
-  // Preserve ALL backslashes for LaTeX math expressions
   jsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
 
   try {
     const parsed = JSON.parse(jsonString);
-    
-    // Validate structure for predicted questions
+
     if (!parsed.questions || !Array.isArray(parsed.questions)) {
       throw new Error("Invalid structure: 'questions' array not found");
     }
-    
+
     if (parsed.questions.length !== 6) {
       throw new Error(`Expected exactly 6 questions, got ${parsed.questions.length}`);
     }
-    
-    // Validate each question
+
     parsed.questions.forEach((q, idx) => {
-      if (!q.question || typeof q.question !== 'string') {
+      if (!q.question || typeof q.question !== "string") {
         throw new Error(`Invalid or missing question at index ${idx}`);
       }
     });
-    
+
     return parsed;
-    
   } catch (err) {
-    console.error("JSON Parse Error:", err.message);
-    console.error("First 500 chars:", jsonString.substring(0, 500));
-    console.error("Last 200 chars:", jsonString.substring(jsonString.length - 200));
-    
     throw new Error(`Failed to parse AI response: ${err.message}`);
   }
 };
+
+/* -------------------- INNGEST FUNCTION -------------------- */
 export const lastNightPredictedQuestionsFn = inngest.createFunction(
   {
     id: "lmp-predicted-questions",
     name: "Generate LMP Predicted Questions",
-    retries:0,
+    retries: 0,
   },
   { event: "lmp/generate.predictedQuestions" },
-  async ({ event, step }) => {
+  async ({ event }) => {
     const { className, subject, chapter } = event.data;
     const { mainSubject, bookName } = parseSubject(subject);
     const category = detectCategory(mainSubject);
@@ -73,26 +63,24 @@ export const lastNightPredictedQuestionsFn = inngest.createFunction(
       // -------------------------------------------------------------------
       // 1️⃣ DB CHECK
       // -------------------------------------------------------------------
-      const dbCache = await step.run("DB Check", async () => {
-        return await PredictedQuestionModel.findOne({
-          className,
-          subject: mainSubject,
-          chapter,
-        });
+      const dbCache = await PredictedQuestionModel.findOne({
+        className,
+        subject: mainSubject,
+        chapter,
       });
 
       if (dbCache) {
-        const safeDBContent = JSON.parse(JSON.stringify(dbCache.content));
-
-        await redis.set(cacheKey, JSON.stringify(safeDBContent), {
+        await redis.set(cacheKey, JSON.stringify(dbCache.content), {
           EX: 60 * 60 * 24 * 2,
         });
-
         await redis.del(pendingKey);
-        return { questions: safeDBContent, source: "database" };
+        return { questions: dbCache.content.questions, source: "database" };
       }
 
-const prompt = `
+      // -------------------------------------------------------------------
+      // 2️⃣ BUILD PROMPT (UNCHANGED)
+      // -------------------------------------------------------------------
+     const prompt = `
 You are an API that returns ONLY valid JSON. No extra text, no explanation outside JSON.
 
 Class: ${className} | Subject: ${mainSubject} | Book: ${bookName}
@@ -387,49 +375,118 @@ CRITICAL:
 - Output MUST be fully compatible with a Markdown+KaTeX renderer.
 `;
 
-
-
-
       // -------------------------------------------------------------------
-      // 3️⃣ CALL OPENAI
+      // 3️⃣ FIRST AI CALL (PRIMARY)
       // -------------------------------------------------------------------
-      const aiRaw = await step.run("Call OpenAI", async () => {
-        return await askOpenAI(prompt);
+      const primaryRaw = await askOpenAI(prompt, "gpt-5.1", {
+        response_format: { type: "json_object" },
       });
 
-      
-      const parsed = extractJSON(aiRaw);
+      // -------------------------------------------------------------------
+      // 🔁 4️⃣ SECOND AI CALL (FIX ONLY — SAME PATTERN)
+      // -------------------------------------------------------------------
+      const fixerPrompt = `
+You are a STRICT JSON + LaTeX ESCAPING FIXER for PREDICTED QUESTIONS.
 
-   
-      parsed.questions.forEach((q, idx) => {
-        if (!q.question) {
-          throw new Error(`Invalid question at index ${idx}`);
-        }
+The input JSON is MOSTLY CORRECT.
+DO NOT regenerate.
+DO NOT rewrite questions.
+DO NOT change wording, meaning, order, or structure.
+
+==============================
+ABSOLUTE RULES (MATCH FIRST PROMPT)
+==============================
+
+- Inline math $...$ is ALLOWED
+- Display math $$...$$ is ALLOWED and MUST be preserved
+- Markdown formatting and REAL line breaks MUST be preserved
+- LaTeX commands MUST remain inside existing math delimiters
+
+❌ Do NOT remove $$...$$
+❌ Do NOT convert display math to inline
+❌ Do NOT introduce \\( \\) or \\[ \\]
+
+==============================
+WHAT YOU ARE ALLOWED TO FIX
+==============================
+
+1. JSON SYNTAX ONLY:
+   - Fix missing or incorrect double quotes
+   - Remove trailing commas
+   - Ensure valid JSON structure
+   - Ensure JSON.parse() succeeds
+
+2. LaTeX ESCAPING (JSON-LEVEL ONLY):
+   - Ensure backslashes are correctly escaped for JSON strings
+   - Preserve the SAME LaTeX commands, SAME math mode ($ or $$)
+   - Do NOT change math content
+
+3. NEWLINES:
+   - Preserve REAL line breaks inside question strings
+   - Do NOT replace real line breaks with \\n
+   - Do NOT collapse formatting
+
+==============================
+STRICTLY FORBIDDEN
+==============================
+
+- ❌ Regenerating questions
+- ❌ Rewriting sentences
+- ❌ Changing math mode ($ ↔ $$)
+- ❌ Moving LaTeX outside math delimiters
+- ❌ Adding or removing questions
+- ❌ Reordering questions
+- ❌ Adding explanations or comments
+
+==============================
+INPUT JSON TO FIX
+==============================
+
+<<<
+${primaryRaw}
+>>>
+
+==============================
+OUTPUT
+==============================
+
+Return ONLY the corrected JSON.
+NO explanation.
+NO markdown.
+NO extra text.
+`.trim();
+
+
+      const finalRaw = await askOpenAI(fixerPrompt, "gpt-4o", {
+        response_format: { type: "json_object" },
       });
 
+      // -------------------------------------------------------------------
+      // 5️⃣ PARSE ONLY ONCE (FINAL OUTPUT)
+      // -------------------------------------------------------------------
+      const parsed = extractJSON(finalRaw);
       const safeParsed = JSON.parse(JSON.stringify(parsed));
 
       // -------------------------------------------------------------------
-      // 5️⃣ SAVE DB
+      // 6️⃣ SAVE DB
       // -------------------------------------------------------------------
-      await step.run("Save DB", async () => {
-        await PredictedQuestionModel.create({
-          className,
-          subject: mainSubject,
-          chapter,
-          content: safeParsed,
-        });
+      await PredictedQuestionModel.create({
+        className,
+        subject: mainSubject,
+        chapter,
+        content: safeParsed,
       });
 
       // -------------------------------------------------------------------
-      // 6️⃣ SAVE REDIS
+      // 7️⃣ SAVE REDIS
       // -------------------------------------------------------------------
       await redis.set(cacheKey, JSON.stringify(safeParsed), {
         EX: 60 * 60 * 24 * 2,
       });
 
-      return { questions: safeParsed, source: "generated" };
+      await redis.del(pendingKey);
 
+      return { questions: safeParsed.questions, source: "generated" };
     } catch (err) {
       await redis.del(pendingKey);
       throw new Error(`generatePredictedQuestions error: ${err.message}`);

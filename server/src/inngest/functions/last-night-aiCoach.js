@@ -1,18 +1,16 @@
+
 import { inngest } from "../../libs/inngest.js";
 import { AiCoach } from "../../models/LastMinuteBeforeExam/aiCoach.model.js";
 import { parseSubject, detectCategory } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
+
+/* -------------------- JSON EXTRACTOR (UNCHANGED) -------------------- */
 export const extractJSON = (text) => {
   if (!text) throw new Error("Empty response received from AI.");
 
-  // Remove markdown code fences
-  text = text
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
+  text = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
-  // Extract JSON object boundaries
   const first = text.indexOf("{");
   const last = text.lastIndexOf("}");
   if (first === -1 || last === -1) {
@@ -20,67 +18,35 @@ export const extractJSON = (text) => {
   }
 
   let jsonString = text.substring(first, last + 1);
-
-  // Only remove control characters that break JSON parsing
-  // Preserve ALL backslashes for LaTeX formulas and math expressions
   jsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
 
-  try {
-    const parsed = JSON.parse(jsonString);
-    
-    // Validate structure for AI Coach
-    if (!parsed.steps || !Array.isArray(parsed.steps)) {
-      throw new Error("Invalid structure: 'steps' array not found");
-    }
-    
-    if (parsed.steps.length !== 6) {
-      throw new Error(`Expected exactly 6 steps, got ${parsed.steps.length}`);
-    }
-    
-    // Validate each step
-    parsed.steps.forEach((step, idx) => {
-      if (!step.hasOwnProperty('priority') || typeof step.priority !== 'number') {
-        throw new Error(`Missing or invalid 'priority' field at index ${idx}`);
-      }
-      
-      if (step.priority < 1 || step.priority > 6) {
-        throw new Error(`Priority must be between 1-6, got ${step.priority} at index ${idx}`);
-      }
-      
-      if (!step.action || typeof step.action !== 'string') {
-        throw new Error(`Missing or invalid 'action' field at index ${idx}`);
-      }
-      
-      if (!step.hasOwnProperty('formula') || typeof step.formula !== 'string') {
-        throw new Error(`Missing or invalid 'formula' field at index ${idx}`);
-      }
-    });
-    
-    // Check for duplicate priorities
-    const priorities = parsed.steps.map(s => s.priority);
-    const uniquePriorities = new Set(priorities);
-    if (uniquePriorities.size !== 6) {
-      throw new Error("Duplicate priorities found. Each step must have unique priority 1-6");
-    }
-    
-    return parsed;
-    
-  } catch (err) {
-    console.error("JSON Parse Error:", err.message);
-    console.error("First 500 chars:", jsonString.substring(0, 500));
-    console.error("Last 200 chars:", jsonString.substring(jsonString.length - 200));
-    
-    throw new Error(`Failed to parse AI response: ${err.message}`);
+  const parsed = JSON.parse(jsonString);
+
+  if (!parsed.steps || !Array.isArray(parsed.steps)) {
+    throw new Error("Invalid structure: steps missing");
   }
+
+  if (parsed.steps.length !== 6) {
+    throw new Error(`Expected 6 steps, got ${parsed.steps.length}`);
+  }
+
+  const priorities = parsed.steps.map((s) => s.priority);
+  if (new Set(priorities).size !== 6) {
+    throw new Error("Duplicate priorities detected");
+  }
+
+  return parsed;
 };
+
+/* -------------------- INNGEST FUNCTION -------------------- */
 export const lastNightAICoachFn = inngest.createFunction(
   {
     id: "lmp-ai-coach",
     name: "Generate LMP AI Coach",
-    retries:0,
+    retries: 0,
   },
   { event: "lmp/generate.aiCoach" },
-  async ({ event, step }) => {
+  async ({ event }) => {
     const { className, subject, chapter } = event.data;
     const { mainSubject, bookName } = parseSubject(subject);
     const category = detectCategory(mainSubject);
@@ -92,29 +58,24 @@ export const lastNightAICoachFn = inngest.createFunction(
       // -------------------------------------------------------------------
       // 1️⃣ DB CHECK
       // -------------------------------------------------------------------
-      const dbCache = await step.run("DB Check", async () => {
-        return await AiCoach.findOne({
-          className,
-          subject: mainSubject,
-          chapter,
-        });
+      const dbCache = await AiCoach.findOne({
+        className,
+        subject: mainSubject,
+        chapter,
       });
 
       if (dbCache) {
-        const safeDBContent = JSON.parse(JSON.stringify(dbCache.content));
-
-        await redis.set(cacheKey, JSON.stringify(safeDBContent), {
+        await redis.set(cacheKey, JSON.stringify(dbCache.content), {
           EX: 60 * 60 * 24 * 2,
         });
-
         await redis.del(pendingKey);
-        return { steps: safeDBContent.steps, source: "database" };
+        return { steps: dbCache.content.steps, source: "database" };
       }
 
       // -------------------------------------------------------------------
       // 2️⃣ BUILD PROMPT (UNCHANGED)
       // -------------------------------------------------------------------
-     const prompt = `
+         const prompt = `
 You are an API that returns ONLY valid JSON.
 No extra text, no explanation outside JSON.
 
@@ -581,45 +542,76 @@ FINAL CHECK BEFORE SUBMITTING:
 6. Verify JSON.parse() compatibility
 7. Only then return the output
 `.trim();
+
       // -------------------------------------------------------------------
-      // 3️⃣ CALL OPENAI
+      // 3️⃣ FIRST AI CALL (PRIMARY)
       // -------------------------------------------------------------------
-      const aiRaw = await step.run("Call OpenAI", async () => {
-        return await askOpenAI(prompt);
+      const primaryRaw = await askOpenAI(prompt, "gpt-5.1", {
+        response_format: { type: "json_object" },
       });
 
-      const parsed = extractJSON(aiRaw);
 
+const fixerPrompt = `
+You are a JSON LaTeX escaping fixer. Fix ONLY the LaTeX backslash escaping. Do NOT change any text content.
 
-      if (!parsed.steps || !Array.isArray(parsed.steps)) {
-        throw new Error("Invalid AI Coach format");
-      }
+CRITICAL ESCAPING RULES:
 
-      parsed.steps.sort((a, b) => a.priority - b.priority);
+1. IN "action" FIELD - Double backslashes before LaTeX commands:
+   Wrong: "action": "Solve $\\frac{a}{b}$"
+   Correct: "action": "Solve $\\\\frac{a}{b}$"
+   
+   Apply to ALL LaTeX commands: \\frac, \\sin, \\cos, \\sqrt, \\log, \\lim, \\to, \\Rightarrow, etc.
 
+2. IN "formula" FIELD - Single backslashes, NO $ delimiters:
+   Wrong: "formula": "$\\frac{a}{b}$"
+   Wrong: "formula": "\\\\frac{a}{b}"
+   Correct: "formula": "\\frac{a}{b}"
+
+3. JSON syntax:
+   - Use double quotes (") only
+   - Escape newlines as \\n
+   - No trailing commas
+
+EXAMPLES:
+Action field: "Differentiate $\\\\frac{dy}{dx}$ and $\\\\sin(x)$"
+Formula field: "\\frac{dy}{dx}"
+
+INPUT JSON TO FIX:
+${primaryRaw}
+
+OUTPUT: Return the corrected JSON only, no explanation.
+`.trim();
+
+      const finalRaw = await askOpenAI(fixerPrompt, "gpt-4o", {
+        response_format: { type: "json_object" },
+      });
+
+      // -------------------------------------------------------------------
+      // 5️⃣ PARSE ONLY ONCE (FINAL OUTPUT)
+      // -------------------------------------------------------------------
+      const parsed = extractJSON(finalRaw);
       const safeParsed = JSON.parse(JSON.stringify(parsed));
 
       // -------------------------------------------------------------------
-      // 5️⃣ SAVE DB
+      // 6️⃣ SAVE DB
       // -------------------------------------------------------------------
-      await step.run("Save DB", async () => {
-        await AiCoach.create({
-          className,
-          subject: mainSubject,
-          chapter,
-          content: safeParsed,
-        });
+      await AiCoach.create({
+        className,
+        subject: mainSubject,
+        chapter,
+        content: safeParsed,
       });
 
       // -------------------------------------------------------------------
-      // 6️⃣ SAVE REDIS
+      // 7️⃣ SAVE REDIS
       // -------------------------------------------------------------------
       await redis.set(cacheKey, JSON.stringify(safeParsed), {
         EX: 60 * 60 * 24 * 2,
       });
 
-      return { steps: safeParsed.steps, source: "generated" };
+      await redis.del(pendingKey);
 
+      return { steps: safeParsed.steps, source: "generated" };
     } catch (err) {
       await redis.del(pendingKey);
       throw new Error(`generateAICoach error: ${err.message}`);

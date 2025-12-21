@@ -4,36 +4,20 @@ import { parseSubject, detectCategory } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
 
-// NEW: Dedicated extraction function for memory boosters
+// Dedicated extraction function
 const extractMemoryBoosterJSON = (text) => {
   if (!text) throw new Error("Empty response received from AI.");
 
-  // Remove markdown code blocks
-  text = text
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
+  text = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
-  // Extract only JSON object
   const first = text.indexOf("{");
   const last = text.lastIndexOf("}");
   if (first === -1 || last === -1) throw new Error("No JSON found.");
 
   let jsonString = text.substring(first, last + 1);
-
-  // CRITICAL FIX: Do NOT double backslashes if they're already escaped
-  // The AI should return properly escaped JSON already
-  // Only clean up control characters
   jsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
 
-  try {
-    return JSON.parse(jsonString);
-  } catch (parseError) {
-    // Enhanced error logging
-    console.error("JSON Parse Error:", parseError.message);
-    console.error("Attempted to parse:", jsonString.substring(0, 500));
-    throw new Error(`JSON parsing failed: ${parseError.message}`);
-  }
+  return JSON.parse(jsonString);
 };
 
 export const lastNightMemoryBoosterFn = inngest.createFunction(
@@ -43,7 +27,7 @@ export const lastNightMemoryBoosterFn = inngest.createFunction(
     retries: 0,
   },
   { event: "lmp/generate.memoryBooster" },
-  async ({ event, step }) => {
+  async ({ event }) => {
     const { className, subject, chapter } = event.data;
     const { mainSubject, bookName } = parseSubject(subject);
     const category = detectCategory(mainSubject);
@@ -55,30 +39,24 @@ export const lastNightMemoryBoosterFn = inngest.createFunction(
       // -------------------------------------------------------------------
       // 1️⃣ DB CHECK
       // -------------------------------------------------------------------
-      const dbCache = await step.run("DB Check", async () => {
-        return await Booster.findOne({
-          className,
-          subject: mainSubject,
-          chapter,
-        });
+      const dbCache = await Booster.findOne({
+        className,
+        subject: mainSubject,
+        chapter,
       });
 
       if (dbCache) {
-        const safeDBContent = JSON.parse(JSON.stringify(dbCache.content));
-
-        await redis.set(cacheKey, JSON.stringify(safeDBContent), {
+        await redis.set(cacheKey, JSON.stringify(dbCache.content), {
           EX: 60 * 60 * 24 * 2,
         });
-
         await redis.del(pendingKey);
-        return { boosters: safeDBContent.boosters, source: "database" };
+        return { boosters: dbCache.content.boosters, source: "database" };
       }
 
       // -------------------------------------------------------------------
-      // 2️⃣ BUILD PROMPT
+      // 2️⃣ BUILD PROMPT (UNCHANGED)
       // -------------------------------------------------------------------
-      const prompt = await step.run("Build Prompt", async () => {
-        return `
+          const prompt = `
 You are an API that returns ONLY valid JSON.
 No extra text, no explanation outside JSON.
 
@@ -581,66 +559,73 @@ FINAL CHECK BEFORE SUBMITTING:
 5. Check: Line breaks use \\n
 6. Only then return the output
 `;
-      });
 
       // -------------------------------------------------------------------
-      // 3️⃣ CALL OPENAI
+      // 3️⃣ FIRST AI CALL (PRIMARY)
       // -------------------------------------------------------------------
-      const aiRaw = await step.run("Call OpenAI", async () => {
-        return await askOpenAI(prompt);
-      });
+      const primaryRaw = await askOpenAI(prompt,"gpt-5.1",{
+  response_format: { type: "json_object" }
+     });
 
       // -------------------------------------------------------------------
-      // 4️⃣ PARSE RESPONSE WITH ENHANCED ERROR HANDLING
+      // 🔁 4️⃣ SECOND AI CALL (DIRECT — NO CHECKS)
       // -------------------------------------------------------------------
-      const parsed = await step.run("Parse AI Response", async () => {
-        try {
-          console.log("Raw AI Response (first 500 chars):", aiRaw.substring(0, 500));
-          return extractMemoryBoosterJSON(aiRaw);
-        } catch (parseError) {
-          console.error("Parse Error Details:", {
-            error: parseError.message,
-            rawResponse: aiRaw.substring(0, 1000),
-          });
-          throw parseError;
-        }
-      });
+ // Replace your regenPrompt with this improved version:
 
-      // Validate structure
-      if (
-        !parsed.boosters ||
-        !Array.isArray(parsed.boosters) ||
-        parsed.boosters.length !== 3
-      ) {
-        throw new Error("Invalid booster format: expected 3 boosters in array");
-      }
+const fixerPrompt = `
+You are a JSON LaTeX escaping fixer. Fix ONLY the LaTeX backslash escaping. Do NOT change any text content.
 
-      // Validate each booster has required fields
-      parsed.boosters.forEach((booster, index) => {
-        if (!booster.type || !booster.content) {
-          throw new Error(`Booster ${index} missing required fields (type or content)`);
-        }
-        if (!["acronym", "story", "pattern"].includes(booster.type)) {
-          throw new Error(`Booster ${index} has invalid type: ${booster.type}`);
-        }
-      });
+CRITICAL ESCAPING RULES:
 
+1. IN "action" FIELD - Double backslashes before LaTeX commands:
+   Wrong: "action": "Solve $\\frac{a}{b}$"
+   Correct: "action": "Solve $\\\\frac{a}{b}$"
+   
+   Apply to ALL LaTeX commands: \\frac, \\sin, \\cos, \\sqrt, \\log, \\lim, \\to, \\Rightarrow, etc.
+
+2. IN "formula" FIELD - Single backslashes, NO $ delimiters:
+   Wrong: "formula": "$\\frac{a}{b}$"
+   Wrong: "formula": "\\\\frac{a}{b}"
+   Correct: "formula": "\\frac{a}{b}"
+
+3. JSON syntax:
+   - Use double quotes (") only
+   - Escape newlines as \\n
+   - No trailing commas
+
+EXAMPLES:
+Action field: "Differentiate $\\\\frac{dy}{dx}$ and $\\\\sin(x)$"
+Formula field: "\\frac{dy}{dx}"
+
+INPUT JSON TO FIX:
+${primaryRaw}
+
+OUTPUT: Return the corrected JSON only, no explanation.
+`.trim();
+
+      const finalRaw = await askOpenAI(fixerPrompt,"gpt-4o",{
+  response_format: { type: "json_object" }
+     });
+
+
+      // -------------------------------------------------------------------
+      // 5️⃣ PARSE ONLY ONCE (FINAL OUTPUT)
+      // -------------------------------------------------------------------
+      const parsed = extractMemoryBoosterJSON(finalRaw);
       const safeParsed = JSON.parse(JSON.stringify(parsed));
 
       // -------------------------------------------------------------------
-      // 5️⃣ SAVE DB
+      // 6️⃣ SAVE DB
       // -------------------------------------------------------------------
-      await step.run("Save DB", async () => {
-        await Booster.create({
-          className,
-          subject: mainSubject,
-          chapter,
-          content: safeParsed,
-        });
+      await Booster.create({
+        className,
+        subject: mainSubject,
+        chapter,
+        content: safeParsed,
       });
 
       // -------------------------------------------------------------------
-      // 6️⃣ SAVE REDIS
+      // 7️⃣ SAVE REDIS
       // -------------------------------------------------------------------
       await redis.set(cacheKey, JSON.stringify(safeParsed), {
         EX: 60 * 60 * 24 * 2,
@@ -652,11 +637,6 @@ FINAL CHECK BEFORE SUBMITTING:
 
     } catch (err) {
       await redis.del(pendingKey);
-      console.error("Memory Booster Generation Error:", {
-        error: err.message,
-        stack: err.stack,
-        data: event.data,
-      });
       throw new Error(`generateMemoryBooster error: ${err.message}`);
     }
   }
