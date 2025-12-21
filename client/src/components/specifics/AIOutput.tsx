@@ -82,7 +82,7 @@ const AIOutput = ({ content }) => {
       "
     >
       <ReactMarkdown
-        children={content.replace(/\n/g, "  \n")}
+        children={content}
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
       />

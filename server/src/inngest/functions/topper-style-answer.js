@@ -181,6 +181,26 @@ $$
 x + 2y = 10 \\\\
 3x - y = 5
 $$
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INLINE SYMBOL RULE (ABSOLUTE):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+• ANY mathematical symbol appearing inside a sentence MUST be wrapped in $...$
+• This includes:
+  - Single variables: A, B, x, y
+  - Expressions in brackets: (A), (A^T), (m × n)
+  - Orders of matrices
+  - Superscripts and subscripts
+
+❌ NEVER write:
+(A), (A^T), (m \\times n), (n \\times m)
+
+✅ ALWAYS write:
+$A$, $(A^T)$, $(m \\times n)$, $(n \\times m)$
+
+If ANY math symbol appears outside $...$ → REGENERATE IMMEDIATELY
+
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🌍 LANGUAGE RULES (SUBJECT-LOCKED)

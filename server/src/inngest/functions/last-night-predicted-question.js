@@ -285,6 +285,7 @@ Before returning JSON with chemistry content:
 If ANY chemistry validation fails → REGENERATE
 
 
+
 ────────────────────────────────────────
 LOGICAL & SYMBOLIC NOTATION RULE (MANDATORY)
 ────────────────────────────────────────

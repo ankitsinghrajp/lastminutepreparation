@@ -272,6 +272,27 @@ For Mathematics, Logic, Proofs:
    "Proof by contradiction assumes $\\neg p$ and derives $\\bot$."
    "An implication $p \\Rightarrow q$ is false only when $p$ is true and $q$ is false."
 
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INLINE SYMBOL RULE (ABSOLUTE):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+• ANY mathematical symbol appearing inside a sentence MUST be wrapped in $...$
+• This includes:
+  - Single variables: A, B, x, y
+  - Expressions in brackets: (A), (A^T), (m × n)
+  - Orders of matrices
+  - Superscripts and subscripts
+
+❌ NEVER write:
+(A), (A^T), (m \\times n), (n \\times m)
+
+✅ ALWAYS write:
+$A$, $(A^T)$, $(m \\times n)$, $(n \\times m)$
+
+If ANY math symbol appears outside $...$ → REGENERATE IMMEDIATELY
+
+
 ----------------------------------
 SPECIAL CASE — DERIVATION / NUMERICAL / MATHS
 ----------------------------------

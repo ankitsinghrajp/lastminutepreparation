@@ -15,9 +15,8 @@ const normalizeContent = (content) => {
   if (typeof content !== "string") return content;
 
   return content
-    .replace(/\\\\/g, "\\")     // LaTeX fix
-    .replace(/\\n/g, "\n")      // Newlines
-    .replace(/\n\s*\|/g, "\n|") // Tables
+    .replace(/\r\n/g, "\n")
+    .replace(/\n\s*\|/g, "\n|")
     .trim();
 };
 

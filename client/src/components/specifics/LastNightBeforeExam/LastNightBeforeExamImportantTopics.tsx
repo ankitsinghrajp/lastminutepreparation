@@ -13,11 +13,8 @@ const normalizeContent = (content) => {
   if (typeof content !== "string") return content;
 
   return content
-    // 🔥 FIX: convert double-escaped LaTeX to single (\\\\ → \\)
-    .replace(/\\\\/g, "\\")
-    // 🔥 convert escaped newlines to real newlines
-    .replace(/\\n/g, "\n")
-    // 🔥 clean table pipe alignment
+    // DO NOT TOUCH LaTeX BACKSLASHES
+    .replace(/\r\n/g, "\n")
     .replace(/\n\s*\|/g, "\n|")
     .trim();
 };

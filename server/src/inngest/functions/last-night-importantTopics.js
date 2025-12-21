@@ -214,6 +214,8 @@ FORMULA SEPARATION RULE (STRICT)
 - Avoid writing full formulas in the explanation field.
 - Simple variables or symbols in explanation are allowed if wrapped in $...$.
 
+
+
 ────────────────────────────────────────
 FORMULA FIELD RULE (VERY IMPORTANT)
 ────────────────────────────────────────

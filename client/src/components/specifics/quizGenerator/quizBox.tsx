@@ -23,12 +23,11 @@ const normalizeContent = (content) => {
   if (typeof content !== "string") return content;
 
   return content
-    .replace(/\\\\/g, "\\")
-    .replace(/\\n/g, "\n")
+    // DO NOT TOUCH LaTeX BACKSLASHES
+    .replace(/\r\n/g, "\n")
     .replace(/\n\s*\|/g, "\n|")
     .trim();
 };
-
 // Function to wrap mathematical formulas with $ signs for KaTeX rendering
 const wrapMathFormulas = (text) => {
   if (!text || typeof text !== "string") return text;
