@@ -101,7 +101,7 @@ const summarizer = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 120 } // 2 min lock (matches your original EX time)
+      { NX: true, EX: 60 } // 2 min lock (matches your original EX time)
     );
 
     if (lockAcquired) {
@@ -210,7 +210,7 @@ const topperStyleAnswer = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 300 } // 5 min lock (matches your original EX time)
+      { NX: true, EX: 60 }
     );
 
     if (lockAcquired) {
@@ -314,7 +314,7 @@ const importantQuestionGenerator = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 300 } // 5 min lock (matches your original EX time)
+      { NX: true, EX: 150 }
     );
 
     if (lockAcquired) {
@@ -416,7 +416,7 @@ const quizMcqFillupTrueFalse = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 300 } // 5 min lock (matches your original EX time)
+      { NX: true, EX: 150 } 
     );
 
     if (lockAcquired) {
@@ -549,7 +549,7 @@ const askAnyQuestion = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 300 } // 5 min lock (matches your original EX time)
+      { NX: true, EX: 60 } 
     );
 
     if (lockAcquired) {
@@ -654,7 +654,7 @@ const generatePYQs = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 300 } // 5 min lock (matches your original EX time)
+      { NX: true, EX: 150 } 
     );
 
     if (lockAcquired) {

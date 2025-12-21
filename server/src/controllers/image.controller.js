@@ -76,7 +76,7 @@ export const diagramImageAnalysis = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 120 } // 2 min lock (matches your original EX time)
+      { NX: true, EX: 90 } // 2 min lock (matches your original EX time)
     );
 
     if (lockAcquired) {
