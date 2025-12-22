@@ -128,7 +128,7 @@ export const Footer = () => {
               </li>
               <li>
                 <Link to="/pyqs" className="text-muted-foreground hover:text-primary transition-colors">
-                  PYQs (2014-2024)
+                  PYQs (2014-2025)
                 </Link>
               </li>
             </ul>

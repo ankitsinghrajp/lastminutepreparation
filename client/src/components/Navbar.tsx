@@ -1,4 +1,15 @@
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useAsyncMutation } from "@/hooks/hook";
 import { useLazyResendEmailQuery, useLogoutMutation } from "@/redux/api/api";
 import { userNotExists } from "@/redux/reducers/auth";
@@ -42,9 +53,33 @@ export const Navbar = () => {
             
             <div className="flex items-center space-x-3">
               {user ? (
-                <Button variant={'destructive'} disabled={isLogoutLoading} onClick={handleLogout}>
-                  <LogOut className="h-4 w-4"/>
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant={'destructive'} disabled={isLogoutLoading}>
+                      <LogOut className="h-4 w-4"/>
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you sure you want to logout?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        You will be logged out of your account and redirected to the home page.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={handleLogout} disabled={isLogoutLoading}>
+                        {isLogoutLoading ? (
+                          <span className="flex items-center gap-2">
+                            <Loader className="animate-spin h-4 w-4"/> Logging out...
+                          </span>
+                        ) : (
+                          "Logout"
+                        )}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               ) : (
                 <Button className="gradient-primary border-0" asChild>
                   <Link to="/auth">Start Free</Link>

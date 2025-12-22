@@ -92,7 +92,7 @@ export default function ContactPage() {
             </div>
             <p className="text-sm text-muted-foreground">
               LastMinutePreparation AI<br />
-              Bangalore, India
+              Indore, Madhya Pradesh, India
             </p>
           </Card>
 
@@ -108,7 +108,7 @@ export default function ContactPage() {
             </p>
             <div className="flex flex-col gap-2">
               <a 
-                href="https://instagram.com/lastminutepreparation" 
+                href="https://www.instagram.com/lastminutepreparation_2025" 
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-pink-500 hover:text-pink-600 font-medium"
@@ -116,20 +116,20 @@ export default function ContactPage() {
                 📷 Instagram
               </a>
               <a 
-                href="https://t.me/lastminutepreparation" 
+                href="https://x.com/L202520886" 
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-blue-500 hover:text-blue-600 font-medium"
               >
-                ✈️ Telegram
+                🐥 Twitter
               </a>
               <a 
-                href="https://facebook.com/lastminutepreparation" 
+                href="https://www.linkedin.com/in/lastminutepreparationai-lmp-7a2272395" 
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-blue-600 hover:text-blue-700 font-medium"
               >
-                📘 Facebook
+                📘 LinkedIn
               </a>
             </div>
           </Card>
