@@ -209,6 +209,8 @@ INEQUALITIES & SYSTEMS
   3x + y \\geq 5
   $$
 
+// REPLACE THE CHEMICAL FORMULAS & EQUATIONS SECTION WITH THIS:
+
 ──────────────────────────────────────────
 CHEMICAL FORMULAS & EQUATIONS (Chemistry/Science)
 ──────────────────────────────────────────
@@ -223,27 +225,53 @@ FOR ALL CHEMICAL CONTENT:
      • Potassium dichromate: $K_2Cr_2O_7$
      • Permanganate ion: $MnO_4^-$
      • Chromate ion: $CrO_4^{2-}$
+     • Zinc: $Zn$, Hydrochloric acid: $HCl$
      
 2) CHEMICAL EQUATIONS/REACTIONS:
    - Use DISPLAY math mode ($$...$$) ONLY
-   - Use proper arrow notation with LaTeX:
-     • $$ \\ce{A + B -> C + D} $$
-     • $$ \\ce{A <=> B} $$ (equilibrium)
-   - Example:
-     $$ \\ce{K_2Cr_2O_7 + H_2SO_4 -> products} $$
+   - Write formulas with subscripts and use proper arrow notation
+   - Use $\\to$ for reaction arrows
+   - Use $\\rightleftharpoons$ for equilibrium
+   - DO NOT use \\ce{} notation (not supported)
+   
+   Examples:
+   $$Zn + 2HCl \\to ZnCl_2 + H_2$$
+   $$2H_2 + O_2 \\to 2H_2O$$
+   $$N_2 + 3H_2 \\rightleftharpoons 2NH_3$$
+   $$K_2Cr_2O_7 + H_2SO_4 \\to K_2SO_4 + Cr_2(SO_4)_3 + H_2O + O_2$$
 
-3) FORBIDDEN IN CHEMISTRY:
-   - NEVER write H2O, H2SO4, K2Cr2O7 as plain text
+3) BALANCING NOTATION:
+   - Coefficients go BEFORE formulas: $2H_2$, $3O_2$
+   - Subscripts for atoms in molecule: $H_2O$, $CO_2$
+   - Superscripts for charges: $Na^+$, $SO_4^{2-}$
+   
+4) FORBIDDEN IN CHEMISTRY:
+   - NEVER write H2O, HCl, Zn as plain text
    - NEVER write subscripts/superscripts without LaTeX
+   - NEVER use \\ce{} notation (not supported by renderer)
    - NEVER use escaped delimiters \\( or \\)
    
-4) WHEN TO USE INLINE vs DISPLAY:
+5) WHEN TO USE INLINE vs DISPLAY:
    - Inline ($...$): Chemical formulas in question text or options
    - Display ($$...$$): Complete chemical reactions/equations
 
 EXAMPLE MCQ WITH CHEMISTRY:
 {
-  "question": "Which reagent selectively oxidizes primary alcohols to aldehydes without forming carboxylic acids?",
+  "question": "Which of the following is a correct balanced chemical equation?",
+  "options": [
+    "$Zn + HCl \\\\to ZnCl_2 + H_2$",
+    "$Zn + 2HCl \\\\to ZnCl_2 + H_2$",
+    "$Zn + HCl \\\\to ZnCl + H_2$",
+    "$2Zn + HCl \\\\to 2ZnCl + H_2$"
+  ],
+  "correct": "$Zn + 2HCl \\\\to ZnCl_2 + H_2$",
+  "explanation": "Zinc reacts with hydrochloric acid to form zinc chloride and hydrogen gas. The equation must be balanced: 1 $Zn$ atom reacts with 2 $HCl$ molecules to produce 1 $ZnCl_2$ molecule and 1 $H_2$ molecule.",
+  "formula": "Zn + 2HCl \\to ZnCl_2 + H_2"
+}
+
+EXAMPLE WITH OXIDATION:
+{
+  "question": "Which reagent selectively oxidizes primary alcohols to aldehydes?",
   "options": [
     "Concentrated $HNO_3$",
     "$K_2Cr_2O_7$/dilute $H_2SO_4$ with heat",
@@ -255,6 +283,13 @@ EXAMPLE MCQ WITH CHEMISTRY:
   "formula": "R-CH_2OH \\xrightarrow{PCC} R-CHO"
 }
 
+
+// Key changes:
+// 1. Removed ALL \ce{} notation
+// 2. Added explicit instructions to NOT use \ce{}
+// 3. Showed correct format: $$Zn + 2HCl \to ZnCl_2 + H_2$$
+// 4. Added proper examples without \ce
+// 5. Kept subscripts and arrows in standard LaTeX
 
 ────────────────────────────────────────
 LOGICAL & SYMBOLIC NOTATION RULE (MANDATORY)

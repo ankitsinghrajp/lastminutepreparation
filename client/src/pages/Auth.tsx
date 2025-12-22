@@ -38,7 +38,7 @@ export default function Auth() {
   const handleRegisterSubmit: SubmitHandler<RegisterInputs> = async (data) => {
     
      const res = await isRegister("Setting up your account securely...",{name:data.name, email:data.email, password:data.password});
-      console.log("This is from register user: ",res?.data?.data);
+      console.log("This is from register user: ",res);
       if(res?.data){
         dispatch(userExists(res?.data?.data));
       }

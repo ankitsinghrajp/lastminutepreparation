@@ -116,12 +116,6 @@ const LastNightAiCoach = ({aiCoach}) => {
                     <p className="text-sm leading-relaxed text-foreground/90 mb-2">
                        <Output content={step.action}/>
                     </p>
-
-                    {step.formula && (
-                      <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20 mt-3">
-                        <Output content={`$$${step.formula}$$`}/>
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}

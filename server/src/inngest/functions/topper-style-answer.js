@@ -373,8 +373,9 @@ Answer now:`;
       // -------------------------------------------------------------------
       // 3️⃣ SECOND PASS FIXER PROMPT (NO REWRITE)
       // -------------------------------------------------------------------
-      const fixerPrompt = `
-You are a STRICT CBSE ANSWER FORMAT + LATEX FIXER.
+ // Replace the fixerPrompt section with this corrected version:
+
+const fixerPrompt = `You are a STRICT CBSE ANSWER FORMAT + LATEX FIXER.
 
 The answer below is ALREADY CORRECT in content.
 DO NOT rewrite ideas.
@@ -383,43 +384,205 @@ DO NOT expand.
 DO NOT change meaning.
 DO NOT add or remove steps.
 
-==============================
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ALLOWED FIXES ONLY
-==============================
-- Fix LaTeX wrapping ($...$ / $$...$$)
-- Move stray math symbols inside LaTeX
-- Fix spacing and line breaks
-- Fix minor formatting issues
-- Ensure all formulas follow CBSE topper standards
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✓ Fix LaTeX wrapping ($...$ or $$...$$)
+✓ Move stray math symbols inside LaTeX delimiters
+✓ Fix spacing and line breaks
+✓ Fix minor formatting issues
+✓ Ensure all formulas follow CBSE topper standards
 
-==============================
-FORBIDDEN
-==============================
-- ❌ Regeneration
-- ❌ Rewriting explanation
-- ❌ Changing structure
-- ❌ Adding/removing content
-- ❌ Changing final answers
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FORBIDDEN ACTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✗ Regeneration or rewriting explanations
+✗ Changing structure or logic
+✗ Adding or removing content
+✗ Changing final answers or numerical values
+✗ Modifying step sequences
 
-==============================
-INPUT ANSWER
-==============================
-<<<
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRITICAL LATEX FIXING RULES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**MUST WRAP IN LATEX $...$:**
+• Variables: $x$, $y$, $n$, $a$, $b$, $c$
+• Greek letters: $\\theta$, $\\pi$, $\\alpha$, $\\beta$, $\\mu$, $\\lambda$, $\\Delta$, $\\Sigma$
+• Superscripts: $x^2$, $2^n$, $a^b$ (NEVER use raw ^ outside $)
+• Subscripts: $a_1$, $v_0$, $x_i$ (NEVER use raw _ outside $)
+• Comparisons: $\\geq$, $\\leq$, $\\neq$, $>$, $<$, $=$ when in equations
+• Fractions: $\\frac{a}{b}$ (NEVER a/b in math context)
+• Roots: $\\sqrt{x}$, $\\sqrt[3]{x}$
+• Chemistry: $H_2O$, $CO_2$, $NaCl$, $CH_3COOH$, $Na^+$, $SO_4^{2-}$
+• Trig functions: $\\sin$, $\\cos$, $\\tan$, $\\cot$, $\\sec$, $\\csc$
+• Log functions: $\\log$, $\\ln$, $\\log_{10}$
+• Calculus: $\\frac{dy}{dx}$, $\\frac{d^2y}{dx^2}$, $\\int$, $\\sum$, $\\prod$, $\\lim$
+• Vectors: $\\vec{v}$, $\\vec{F}$, $\\vec{a}$
+• Matrices: $(A)$, $(A^T)$, $(m \\times n)$ — wrap entire expression in $...$
+• Absolute value: $\\lvert x \\rvert$ or $|x|$
+• Degree symbol: $30^\\circ$, $90^\\circ$ (NEVER use raw °)
+• Set notation: $\\in$, $\\notin$, $\\subset$, $\\cup$, $\\cap$, $\\emptyset$
+• Logic: $\\Rightarrow$, $\\Leftrightarrow$, $\\forall$, $\\exists$
+• Special: $\\times$, $\\div$, $\\pm$, $\\mp$, $\\approx$, $\\equiv$, $\\propto$
+• Infinity: $\\infty$
+
+**DISPLAY MATH $$...$$:**
+Use for standalone equations on their own line:
+$$F = ma$$
+$$E = mc^2$$
+$$v^2 = u^2 + 2as$$
+
+**MULTI-LINE EQUATIONS:**
+$$
+x + 2y = 10 \\\\
+3x - y = 5
+$$
+
+**CHEMICAL EQUATIONS:**
+$$2H_2 + O_2 \\to 2H_2O$$
+$$CaCO_3 \\xrightarrow{\\Delta} CaO + CO_2$$
+
+**INLINE MATRICES:**
+If matrix notation appears in text like (A), (m × n), wrap entire expression:
+$(A)$, $(A^T)$, $(m \\times n)$, $(n \\times m)$
+
+**UNITS RULE:**
+ALWAYS keep units OUTSIDE math delimiters:
+✓ $$F = 50$$ N
+✓ $$v = 25$$ m/s
+✓ The value of $g$ is $9.8$ m/s²
+
+✗ $$F = 50 \\text{ N}$$ (WRONG)
+✗ $$v = 25 \\text{ m/s}$$ (WRONG)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIXING CHECKLIST (SCAN FOR THESE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. **Scan for naked symbols:**
+   - Any ^, _, >, <, ≥, ≤, ≠ outside $ → wrap in $
+   - Any Greek letters (π, θ, α, β, μ, λ, Δ, Σ) outside $ → wrap in $
+   - Any degree symbol ° → convert to $^\\circ$
+
+2. **Scan for chemistry formulas:**
+   - H2O, CO2, NaCl → convert to $H_2O$, $CO_2$, $NaCl$
+   - Chemical equations → wrap in $$...$$ with \\to or \\rightarrow
+
+3. **Scan for fractions:**
+   - Any a/b in equation context → $\\frac{a}{b}$
+
+4. **Scan for inline expressions:**
+   - (A), (A^T), (m × n) → wrap as $(A)$, $(A^T)$, $(m \\times n)$
+
+5. **Scan for comparison operators:**
+   - >= → $\\geq$
+   - <= → $\\leq$
+   - != → $\\neq$
+   - × → $\\times$
+
+6. **Verify balanced delimiters:**
+   - Every $ has closing $
+   - Every $$ has closing $$
+   - No nested $ inside $ (use $$ for display math)
+
+7. **Check units:**
+   - All units are OUTSIDE math delimiters
+   - Format: $$value$$ unit (with space)
+
+8. **Check backslash commands:**
+   - All \\command only inside $...$ or $...$
+   - Never bare \\sin, \\theta, \\frac outside delimiters
+
+9. **Check table formatting:**
+   - Tables must use proper markdown format
+   - Must have header row with pipes: | Header1 | Header2 |
+   - Must have separator row: |---------|---------|
+   - All data rows must align with pipes
+   - Must have blank line BEFORE table
+   - Must have blank line AFTER table
+   - No escaped characters in tables
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TABLE FORMATTING RULES (CRITICAL)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**CORRECT TABLE FORMAT:**
+
+(blank line before)
+
+| Column 1 | Column 2 | Column 3 |
+|----------|----------|----------|
+| Data 1   | Data 2   | Data 3   |
+| Data 4   | Data 5   | Data 6   |
+
+(blank line after)
+
+**TABLE REQUIREMENTS:**
+✓ Blank line BEFORE table
+✓ Blank line AFTER table
+✓ Header row with pipes: | Header1 | Header2 |
+✓ Separator row with dashes: |---------|---------|
+✓ All data rows properly aligned with pipes
+✓ No \\n or escaped characters
+✓ No extra backslashes
+✓ Math in cells must use $...$ or $...$
+
+**COMMON TABLE ERRORS TO FIX:**
+✗ Missing blank lines before/after
+✗ Broken pipe alignment
+✗ Escaped \\n in table
+✗ Missing separator row
+✗ Inconsistent column count
+✗ Math symbols outside $ in cells
+
+**EXAMPLE - STATISTICS TABLE:**
+
+The data is as follows:
+
+| Variable | Value | Unit |
+|----------|-------|------|
+| Mean ($\\bar{x}$) | $25.5$ | cm |
+| Median | $24.0$ | cm |
+| Mode | $23.0$ | cm |
+
+From the table, we can observe...
+
+**EXAMPLE - COMPARISON TABLE:**
+
+| Property | Acid | Base |
+|----------|------|------|
+| Taste | Sour | Bitter |
+| pH | $< 7$ | $> 7$ |
+| Litmus | Red | Blue |
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INPUT ANSWER (TO BE FIXED)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${primaryRaw}
->>>
 
-==============================
-OUTPUT
-==============================
-Return ONLY the corrected answer text.
-No explanations.
-No markdown headers.
-No JSON.
-`;
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+YOUR TASK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Scan the entire answer for LaTeX errors using the checklist above
+2. Fix ALL LaTeX wrapping issues
+3. Ensure proper delimiter usage
+4. Keep ALL content, explanations, and structure EXACTLY the same
+5. Return ONLY the corrected answer text
+
+**OUTPUT FORMAT:**
+- No JSON
+- No markdown headers
+- No explanations or comments
+- Just the corrected answer text directly
+- Start immediately with the answer content
+
+Now output the corrected answer:`;
 
     
       const fixedAnswer = await step.run("Call OpenAI (Fixer)", async () =>
-        askOpenAI(fixerPrompt, "gpt-4o-mini")
+        askOpenAI(fixerPrompt, "gpt-4.1-mini")
       );
 
       const finalAnswer = { answer: fixedAnswer };

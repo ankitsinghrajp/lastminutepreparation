@@ -75,7 +75,9 @@ export const lastNightAICoachFn = inngest.createFunction(
       // -------------------------------------------------------------------
       // 2️⃣ BUILD PROMPT (UNCHANGED)
       // -------------------------------------------------------------------
-         const prompt = `
+// Complete updated prompt for AI Coach with fixed LaTeX escaping
+
+const prompt = `
 You are an API that returns ONLY valid JSON.
 No extra text, no explanation outside JSON.
 
@@ -162,7 +164,23 @@ UNIVERSAL FORMULA & MATH RULES (MANDATORY)
   they MUST be wrapped in LaTeX delimiters.
 - Inline math → $ ... $
 - Display math → $$ ... $$
-- Keep mathematical content in actions minimal.
+- **CRITICAL JSON ESCAPING**: LaTeX backslashes MUST be DOUBLED in the action field
+  - Write \\\\frac not \\frac
+  - Write \\\\sin not \\sin
+  - Write \\\\to not \\to
+  - Write \\\\lim not \\lim
+  - Write \\\\sqrt not \\sqrt
+
+**CORRECT EXAMPLES for action field:**
+- "Practice differentiation of $\\\\frac{dy}{dx}$ for composite functions"
+- "Revise trigonometric identities like $\\\\sin^2(x) + \\\\cos^2(x) = 1$"
+- "Study limits: $\\\\lim_{x \\\\to 0} \\\\frac{\\\\sin(x)}{x} = 1$"
+- "Revise sum formula: $S_n = \\\\frac{n}{2}[2a + (n-1)d]$"
+
+**WRONG EXAMPLES (will break rendering):**
+- "Practice $\\frac{dy}{dx}$" ❌ (single backslash)
+- "Study $\\sin(x)$" ❌ (single backslash)
+- "Revise $S_n = \\frac{n}{2}[2a + (n-1)d]$" ❌ (single backslashes)
 
 ────────────────────────────────────────
 CHEMICAL FORMULAS & EQUATIONS (Chemistry/Science)
@@ -236,8 +254,6 @@ Note the pattern:
 - ACTION field: Chemical formulas use $...$, arrows use \\\\
 - FORMULA field: Raw LaTeX, single backslashes, NO delimiters
 
-
-
 ────────────────────────────────────────
 CHEMISTRY VALIDATION CHECKLIST
 ────────────────────────────────────────
@@ -254,7 +270,6 @@ Before returning JSON with chemistry content:
 8. ✓ Arrows use \\to, \\rightarrow, or \\rightleftharpoons in formula field
 
 If ANY chemistry validation fails → REGENERATE
-
 
 ────────────────────────────────────────
 LOGICAL & SYMBOLIC NOTATION RULE (MANDATORY)
@@ -273,34 +288,32 @@ Reasoning, Proofs, and Theoretical concepts.
    ∈, ∉, ⊆, ⊂
 
    MUST ALWAYS be written in LaTeX form and MUST be wrapped in $...$ 
-   when they appear in the explanation field.
+   when they appear in the action field.
 
 2) NEVER write logical symbols as plain text.
-   ❌ Wrong: not p, egp, implies, contradiction
-   ✅ Correct: $\\neg p$, $p \\Rightarrow q$, $\\bot$
+   ❌ Wrong: not p, negp, implies, contradiction
+   ✅ Correct: $\\\\neg p$, $p \\\\Rightarrow q$, $\\\\bot$
 
 3) If a topic involves logic or proofs:
-   - Use symbolic expressions ONLY inside $...$ in explanation.
-   - Do NOT place logical expressions in the formula field.
-   - The formula field should be "" unless the chapter explicitly
-     defines a standard formula.
+   - Use symbolic expressions ONLY inside $...$ in action.
+   - Do NOT place logical expressions in the formula field unless it's a standard formula.
+   - The formula field should be "" unless the chapter explicitly defines a standard formula.
 
 4) Examples (CORRECT):
 
-   Explanation:
-   "Proof by contradiction assumes $\\neg p$ and derives $\\bot$."
+   Action:
+   "Study proof by contradiction that assumes $\\\\neg p$ and derives $\\\\bot$."
 
-   Explanation:
-   "An implication $p \\Rightarrow q$ is false only when $p$ is true and $q$ is false."
+   Action:
+   "Understand that implication $p \\\\Rightarrow q$ is false only when $p$ is true and $q$ is false."
 
 5) Examples (WRONG):
 
-   "Assume egp and derive contradiction"
+   "Assume negp and derive contradiction"
    "p implies q"
    "not p leads to bottom"
 
 If logical symbols are required and not written in LaTeX → REGENERATE.
-
 
 ────────────────────────────────────────
 LATEX DELIMITER RESTRICTION
@@ -308,6 +321,32 @@ LATEX DELIMITER RESTRICTION
 
 - NEVER use \\( ... \\) or \\[ ... \\].
 - Use ONLY $...$ or $$...$$ in the action field.
+
+────────────────────────────────────────
+JSON FIELD-SPECIFIC ESCAPING RULES (CRITICAL)
+────────────────────────────────────────
+
+Different fields have different escaping rules!
+
+1. **ACTION FIELD** (contains text with optional LaTeX):
+   - LaTeX backslashes MUST be DOUBLED: \\\\
+   - Example: "action": "Practice $\\\\frac{dy}{dx}$ problems"
+   - Example: "action": "Revise $S_n = \\\\frac{n}{2}[2a + (n-1)d]$"
+
+2. **FORMULA FIELD** (contains ONLY raw LaTeX):
+   - LaTeX backslashes are SINGLE: \\
+   - NO $ or $$ delimiters
+   - Example: "formula": "\\frac{dy}{dx}"
+   - Example: "formula": "S_n = \\frac{n}{2}[2a + (n-1)d]"
+
+3. **PRIORITY FIELD**:
+   - Plain number, no quotes
+   - Example: "priority": 1
+
+**Why this matters:**
+- The action field is a JSON string that gets parsed, then rendered with LaTeX
+- The formula field is raw LaTeX code stored for direct rendering
+- Mixing these rules will break the rendering
 
 ────────────────────────────────────────
 FORMULA FIELD RULE (VERY IMPORTANT)
@@ -330,6 +369,9 @@ F = ma
 
 Example (CORRECT for Quadratic Formula):
 x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}
+
+Example (CORRECT for AP Sum):
+S_n = \\frac{n}{2}[2a + (n-1)d]
 
 Example (WRONG - has delimiters):
 $F = ma$
@@ -412,50 +454,52 @@ VALIDATION BEFORE RETURN:
 - Confirm valid JSON structure
 
 ────────────────────────────────────────
-JSON FIELD-SPECIFIC ESCAPING RULES
-────────────────────────────────────────
-
-CRITICAL: Different fields have different escaping rules!
-
-1. **ACTION FIELD** (contains text with optional LaTeX):
-   - LaTeX backslashes MUST be DOUBLED: \\\\
-   - Example: "action": "Practice $\\\\frac{dy}{dx}$ problems"
-
-2. **FORMULA FIELD** (contains ONLY raw LaTeX):
-   - LaTeX backslashes are NOT doubled: \\
-   - Example: "formula": "\\frac{dy}{dx}"
-   - This field stores raw LaTeX for direct rendering
-
-3. **PRIORITY FIELD**:
-   - Plain number, no quotes
-   - Example: "priority": 1
-
-────────────────────────────────────────
 COMPLETE EXAMPLES OF CORRECT JSON
 ────────────────────────────────────────
 
 Example 1 - Math/Science subject with formula:
 {
   "priority": 1,
-  "action": "Revise Newton's Second Law and practice numerical problems on force, mass, and acceleration.",
+  "action": "Revise Newton's Second Law and practice numerical problems on force, mass, and acceleration using $F = ma$.",
   "formula": "F = ma"
 }
 
 Example 2 - Math subject with complex formula:
 {
   "priority": 2,
-  "action": "Practice differentiation using chain rule for composite functions like $\\\\sin(x^2)$.",
+  "action": "Practice differentiation using chain rule for composite functions like $\\\\sin(x^2)$ and $\\\\frac{d}{dx}[f(g(x))]$.",
   "formula": "\\frac{dy}{dx} = f'(g(x)) \\cdot g'(x)"
 }
 
-Example 3 - Step without specific formula:
+Example 3 - Arithmetic Progression:
 {
   "priority": 3,
+  "action": "Revise sum of first $n$ terms: $S_n = \\\\frac{n}{2}[2a + (n-1)d]$ and practice finding $n$, $a$, or $d$ when $S_n$ is given.",
+  "formula": "S_n = \\frac{n}{2}[2a + (n-1)d]"
+}
+
+Example 4 - Trigonometry:
+{
+  "priority": 4,
+  "action": "Practice problems on $\\\\sin(A + B) = \\\\sin A \\\\cos B + \\\\cos A \\\\sin B$ and derive related identities.",
+  "formula": "\\sin(A + B) = \\sin A \\cos B + \\cos A \\sin B"
+}
+
+Example 5 - Quadratic Equations:
+{
+  "priority": 5,
+  "action": "Master the quadratic formula $x = \\\\frac{-b \\\\pm \\\\sqrt{b^2 - 4ac}}{2a}$ and practice discriminant analysis.",
+  "formula": "x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}"
+}
+
+Example 6 - Step without specific formula:
+{
+  "priority": 6,
   "action": "Understand the concept of continuity and practice graph-based questions.",
   "formula": ""
 }
 
-Example 4 - Hindi subject (no formula):
+Example 7 - Hindi subject (no formula):
 {
   "priority": 1,
   "action": "पाठ के मुख्य पात्रों का चरित्र-चित्रण दोहराएँ।",
@@ -463,8 +507,8 @@ Example 4 - Hindi subject (no formula):
 }
 
 Note in examples above:
-- Action field: LaTeX backslashes are DOUBLED (\\\\frac, \\\\sin)
-- Formula field: LaTeX backslashes are SINGLE (\\frac, \\cdot)
+- Action field: LaTeX backslashes are DOUBLED (\\\\frac, \\\\sin, \\\\sqrt)
+- Formula field: LaTeX backslashes are SINGLE (\\frac, \\cdot, \\sin)
 - Priority: plain number
 - All strings use double quotes
 
@@ -552,29 +596,56 @@ FINAL CHECK BEFORE SUBMITTING:
 
 
 const fixerPrompt = `
-You are a JSON LaTeX escaping fixer. Fix ONLY the LaTeX backslash escaping. Do NOT change any text content.
+You are a JSON LaTeX escaping fixer. Fix ONLY the LaTeX backslash escaping and math delimiters in the action field. Do NOT change any text content.
 
 CRITICAL ESCAPING RULES:
 
-1. IN "action" FIELD - Double backslashes before LaTeX commands:
-   Wrong: "action": "Solve $\\frac{a}{b}$"
-   Correct: "action": "Solve $\\\\frac{a}{b}$"
+1. IN "action" FIELD - Double backslashes before LaTeX commands AND use inline math:
+   Wrong: "action": "Formula $$\\frac{a}{b}$$"
+   Wrong: "action": "Formula $\\frac{a}{b}$"
+   Correct: "action": "Formula $\\\\frac{a}{b}$"
    
+2. MATH DELIMITER RULE IN ACTION FIELD:
+   - ALWAYS use inline math $...$ 
+   - NEVER use display math $$...$$ in action field
+   - If you see $$...$$ in action field, convert to $...$
+   
+3. BACKSLASH DOUBLING IN ACTION FIELD:
    Apply to ALL LaTeX commands: \\frac, \\sin, \\cos, \\sqrt, \\log, \\lim, \\to, \\Rightarrow, etc.
+   - Count existing backslashes
+   - If single backslash (\\), double it to \\\\
+   - If already doubled (\\\\), keep as is
 
-2. IN "formula" FIELD - Single backslashes, NO $ delimiters:
+4. IN "formula" FIELD - Single backslashes, NO $ delimiters:
    Wrong: "formula": "$\\frac{a}{b}$"
    Wrong: "formula": "\\\\frac{a}{b}"
    Correct: "formula": "\\frac{a}{b}"
 
-3. JSON syntax:
+5. JSON syntax:
    - Use double quotes (") only
    - Escape newlines as \\n
    - No trailing commas
 
-EXAMPLES:
-Action field: "Differentiate $\\\\frac{dy}{dx}$ and $\\\\sin(x)$"
-Formula field: "\\frac{dy}{dx}"
+SPECIFIC FIXES NEEDED:
+
+Example input with errors:
+{
+  "action": "Revise $$S_n = \\frac{n}{2}[2a + (n-1)d]$$ and practice",
+  "formula": "S_n = \\frac{n}{2}[2a + (n-1)d]"
+}
+
+Correct output:
+{
+  "action": "Revise $S_n = \\\\frac{n}{2}[2a + (n-1)d]$ and practice",
+  "formula": "S_n = \\frac{n}{2}[2a + (n-1)d]"
+}
+
+FIXING ALGORITHM:
+1. Scan action field for $$...$$ blocks → convert to $...$
+2. Inside action field math $...$ blocks: count backslashes before LaTeX commands
+3. If single backslash before command → double it
+4. Leave formula field unchanged (it should have single backslashes, no delimiters)
+5. Verify all strings use double quotes
 
 INPUT JSON TO FIX:
 ${primaryRaw}
