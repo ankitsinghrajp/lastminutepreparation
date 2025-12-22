@@ -449,10 +449,18 @@ IMPORTANT OUTPUT RULE:
 - Do NOT add formatting
 `.trim();
 
+  const subjectHardness = ["physics","chemistry","mathematics","applied mathematics", "accountancy", "bio technology"];
 
+      let secondPassModel;
+      if(subjectHardness.includes(mainSubject)){
+        secondPassModel = "gpt-4o";
+      }
+      else{
+        secondPassModel = "gpt-4o-mini"
+      }
 
       const finalOutput = await step.run("Fix Markdown + LaTeX", async () => {
-        return await askOpenAI(fixerPrompt, "gpt-4o");
+        return await askOpenAI(fixerPrompt, secondPassModel);
       });
 
       // -------------------------------------------------------------------

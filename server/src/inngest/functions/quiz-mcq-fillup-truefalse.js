@@ -594,8 +594,19 @@ Return ONLY corrected JSON.
 No explanation.
 `.trim();
 
+        const subjectHardness = ["physics","chemistry","mathematics","applied mathematics", "accountancy", "bio technology"];
+
+      let secondPassModel;
+      if(subjectHardness.includes(mainSubject)){
+        secondPassModel = "gpt-4o";
+      }
+      else{
+        secondPassModel = "gpt-4o-mini"
+      }
+
+
       const fixedRaw = await step.run("Call OpenAI (Fixer)", async () => {
-        return await askOpenAI(fixerPrompt, "gpt-4o",{
+        return await askOpenAI(fixerPrompt, secondPassModel,{
           response_format: { type: "json_object" },
         });
       });

@@ -60,9 +60,6 @@ export function detectCategory(mainSubject) {
      "home science",
      "heritage crafts",
      "fine arts",
-
-
-
   ]
 
   // 1️⃣ If main subject is a language → ALWAYS language

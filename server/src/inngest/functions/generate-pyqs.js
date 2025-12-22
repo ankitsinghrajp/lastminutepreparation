@@ -454,6 +454,19 @@ FORBIDDEN PATTERNS:
 
 ❌ Incomplete table cells or structure
 
+NEWLINES (JSON + MARKDOWN SAFE):
+
+- Inside markdown tables, line breaks MAY be represented using \\n
+  if required for valid JSON encoding.
+- Table structure MUST remain intact:
+  | header | header |
+  |--------|--------|
+  | value  | value  |
+
+- Outside tables, use real line breaks.
+- Do NOT collapse table rows into a single line.
+
+
 ====================================================
 NEWLINES & ESCAPED CHARACTERS
 ====================================================
@@ -620,8 +633,19 @@ Return ONLY corrected JSON.
 No explanation.
 `.trim();
 
+    const subjectHardness = ["physics","chemistry","mathematics","applied mathematics", "accountancy", "bio technology"];
+
+      let secondPassModel;
+      if(subjectHardness.includes(mainSubject)){
+        secondPassModel = "gpt-4o";
+      }
+      else{
+        secondPassModel = "gpt-4o-mini"
+      }
+
+
       const fixedRaw = await step.run("Call OpenAI (Fixer)", async () => {
-        return await askOpenAI(fixerPrompt, "gpt-4o",{
+        return await askOpenAI(fixerPrompt, secondPassModel,{
           response_format: { type: "json_object" },
         });
       });

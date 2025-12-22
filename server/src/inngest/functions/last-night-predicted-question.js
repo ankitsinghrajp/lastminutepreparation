@@ -325,9 +325,18 @@ If logical symbols are required and not written in LaTeX → REGENERATE.
   → If data is ungrouped, FIRST convert to a frequency table.
   → After every table include exactly one blank line before the following text.
 
-6) NEWLINES & ESCAPED CHARACTERS:
-- NEVER use escaped newlines like \\n in the question text. Use real line breaks.
-- Do NOT include escaped math delimiters like \\( or \\) — use $ or $$ only.
+6) NEWLINES (JSON + MARKDOWN SAFE):
+
+- Inside markdown tables, line breaks MAY be represented using \\n
+  if required for valid JSON encoding.
+- Table structure MUST remain intact:
+  | header | header |
+  |--------|--------|
+  | value  | value  |
+
+- Outside tables, use real line breaks.
+- Do NOT collapse table rows into a single line.
+
 
 7) SUB-PARTS:
 - Each sub-part (a),(b),(c) MUST begin on its own line and be clearly numbered.
@@ -456,8 +465,19 @@ NO markdown.
 NO extra text.
 `.trim();
 
+    const subjectHardness = ["physics","chemistry","mathematics","applied mathematics", "accountancy", "bio technology"];
 
-      const finalRaw = await askOpenAI(fixerPrompt, "gpt-4o", {
+      let secondPassModel;
+      if(subjectHardness.includes(mainSubject)){
+        secondPassModel = "gpt-4o";
+      }
+      else{
+        secondPassModel = "gpt-4o-mini"
+      }
+
+
+
+      const finalRaw = await askOpenAI(fixerPrompt, secondPassModel, {
         response_format: { type: "json_object" },
       });
 

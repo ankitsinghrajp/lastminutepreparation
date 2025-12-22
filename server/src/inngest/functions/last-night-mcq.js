@@ -448,8 +448,19 @@ ${primaryRaw}
 Return ONLY the corrected JSON.
 `.trim();
 
+    const subjectHardness = ["physics","chemistry","mathematics","applied mathematics", "accountancy", "bio technology"];
+
+      let secondPassModel;
+      if(subjectHardness.includes(mainSubject)){
+        secondPassModel = "gpt-4o";
+      }
+      else{
+        secondPassModel = "gpt-4o-mini"
+      }
+
+
       const finalRaw = await step.run("Fix JSON + LaTeX", async () => {
-        return await askOpenAI(fixerPrompt, "gpt-4o", {
+        return await askOpenAI(fixerPrompt, secondPassModel, {
           response_format: { type: "json_object" },
         });
       });

@@ -582,7 +582,18 @@ ${primaryRaw}
 OUTPUT: Return the corrected JSON only, no explanation.
 `.trim();
 
-      const finalRaw = await askOpenAI(fixerPrompt, "gpt-4o", {
+        const subjectHardness = ["physics","chemistry","mathematics","applied mathematics", "accountancy", "bio technology"];
+
+      let secondPassModel;
+      if(subjectHardness.includes(mainSubject)){
+        secondPassModel = "gpt-4o";
+      }
+      else{
+        secondPassModel = "gpt-4o-mini"
+      }
+
+
+      const finalRaw = await askOpenAI(fixerPrompt, secondPassModel, {
         response_format: { type: "json_object" },
       });
 

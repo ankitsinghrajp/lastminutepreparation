@@ -7,7 +7,7 @@ export const topperStyleAnswerFn = inngest.createFunction(
   {
     id: "topper-style-answer",
     name: "Generate Topper Style Answer",
-    retries:0,
+    retries: 0,
   },
   { event: "lmp/generate.topperAnswer" },
   async ({ event, step }) => {
@@ -19,14 +19,14 @@ export const topperStyleAnswerFn = inngest.createFunction(
       selectedChapter,
     } = event.data;
 
-     const { mainSubject, bookName } = parseSubject(selectedSubject);
-     
+    const { mainSubject, bookName } = parseSubject(selectedSubject);
+
     const cacheKey = `lmp:topper:${jobId}`;
     const pendingKey = `lmp:topper:pending:${jobId}`;
 
     try {
-      
-        const prompt = `You are a CBSE Board exam expert. Write answers EXACTLY as TOPPERS write to get FULL MARKS.
+     
+         const prompt = `You are a CBSE Board exam expert. Write answers EXACTLY as TOPPERS write to get FULL MARKS.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 INPUT CONTEXT
@@ -363,17 +363,75 @@ If you see ANY math/Greek/subscript outside $...$ in output → REGENERATE IMMED
 
 Answer now:`;
 
-
-      const answer = await step.run("OpenAI Call", async () =>
-        askOpenAI(prompt,"gpt-4o-mini")
+      // -------------------------------------------------------------------
+      // 2️⃣ FIRST AI CALL (PRIMARY GENERATION)
+      // -------------------------------------------------------------------
+      const primaryRaw = await step.run("Call OpenAI (Primary)", async () =>
+        askOpenAI(prompt, "gpt-4o-mini")
       );
 
-      const finalAnswer = { answer };
+      // -------------------------------------------------------------------
+      // 3️⃣ SECOND PASS FIXER PROMPT (NO REWRITE)
+      // -------------------------------------------------------------------
+      const fixerPrompt = `
+You are a STRICT CBSE ANSWER FORMAT + LATEX FIXER.
 
-      // 🔹 SAVE CACHE (2 DAYS)
+The answer below is ALREADY CORRECT in content.
+DO NOT rewrite ideas.
+DO NOT shorten.
+DO NOT expand.
+DO NOT change meaning.
+DO NOT add or remove steps.
+
+==============================
+ALLOWED FIXES ONLY
+==============================
+- Fix LaTeX wrapping ($...$ / $$...$$)
+- Move stray math symbols inside LaTeX
+- Fix spacing and line breaks
+- Fix minor formatting issues
+- Ensure all formulas follow CBSE topper standards
+
+==============================
+FORBIDDEN
+==============================
+- ❌ Regeneration
+- ❌ Rewriting explanation
+- ❌ Changing structure
+- ❌ Adding/removing content
+- ❌ Changing final answers
+
+==============================
+INPUT ANSWER
+==============================
+<<<
+${primaryRaw}
+>>>
+
+==============================
+OUTPUT
+==============================
+Return ONLY the corrected answer text.
+No explanations.
+No markdown headers.
+No JSON.
+`;
+
+    
+      const fixedAnswer = await step.run("Call OpenAI (Fixer)", async () =>
+        askOpenAI(fixerPrompt, "gpt-4o-mini")
+      );
+
+      const finalAnswer = { answer: fixedAnswer };
+
+      // -------------------------------------------------------------------
+      // 5️⃣ SAVE CACHE (30 DAYS)
+      // -------------------------------------------------------------------
       await redis.set(cacheKey, finalAnswer, {
         EX: 60 * 60 * 24 * 30,
       });
+
+      await redis.del(pendingKey);
 
       return { success: true };
     } catch (err) {
