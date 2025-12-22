@@ -52,23 +52,23 @@ export default function LastNightBeforeExam() {
   });
   const [importantTopics, setImportantTopics] = useState(() => {
     const saved = sessionStorage.getItem("lastNight_importantTopics");
-    return saved ? JSON.parse(saved) : [];
+   return saved && saved !== "undefined" ? JSON.parse(saved) : [];
   });
   const [predictedQuestion, setPredictedQuestion] = useState(() => {
     const saved = sessionStorage.getItem("lastNight_predictedQuestion");
-    return saved ? JSON.parse(saved) : [];
+    return saved && saved !== "undefined" ? JSON.parse(saved) : [];
   });
   const [mcqs, setMcqs] = useState(() => {
     const saved = sessionStorage.getItem("lastNight_mcqs");
-    return saved ? JSON.parse(saved) : [];
+    return saved && saved !== "undefined" ? JSON.parse(saved) : [];
   });
   const [memoryBooster, setMemoryBooster] = useState(() => {
     const saved = sessionStorage.getItem("lastNight_memoryBooster");
-    return saved ? JSON.parse(saved) : [];
+     return saved && saved !== "undefined" ? JSON.parse(saved) : [];
   });
   const [aiCoach, setAiCoach] = useState(() => {
     const saved = sessionStorage.getItem("lastNight_aiCoach");
-    return saved ? JSON.parse(saved) : [];
+    return saved && saved !== "undefined" ? JSON.parse(saved) : [];
   });
 
   const [showHistory, setShowHistory] = useState(false);

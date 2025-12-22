@@ -50,15 +50,15 @@ export default function ChapterWiseStudy() {
   });
   const [shortNotes, setShortNotes] = useState(() => {
     const saved = sessionStorage.getItem("chapterWise_shortNotes");
-    return saved ? JSON.parse(saved) : [];
+    return saved && saved !== "undefined" ? JSON.parse(saved) : [];
   });
   const [mindMap, setMindMap] = useState(() => {
     const saved = sessionStorage.getItem("chapterWise_mindMap");
-    return saved ? JSON.parse(saved) : {};
+    return saved && saved !== "undefined" ? JSON.parse(saved) : [];
   });
   const [importantQuestions, setImportantQuestions] = useState(() => {
     const saved = sessionStorage.getItem("chapterWise_importantQuestions");
-    return saved ? JSON.parse(saved) : {};
+    return saved && saved !== "undefined" ? JSON.parse(saved) : [];
   });
 
   const [currentStep, setCurrentStep] = useState(-1);
@@ -234,72 +234,62 @@ const generationAbortedRef = useRef(false); // ✅ NEW
 };
 
 
-// ✅ SAFE POLLING (5s interval + 150s timeout)
-const pollData = async (stepKey, fetcher, setter, dataKey, params) => {
-  if (pollIntervalRefs.current[stepKey]) return; // ❌ prevent duplicate polling
-
+// Update the pollData function signature
+const pollData = async (
+  stepKey,
+  fetcher,
+  setter,
+  dataKey,
+  params,
+  customInterval = POLL_INTERVAL_MS
+) => {
   const startTime = Date.now();
+
+  if (pollIntervalRefs.current[stepKey]) return;
 
   pollIntervalRefs.current[stepKey] = setInterval(async () => {
     try {
-      // ⛔ HARD TIMEOUT CHECK
       if (Date.now() - startTime > POLL_TIMEOUT_MS) {
-        generationAbortedRef.current = true;
-
         clearInterval(pollIntervalRefs.current[stepKey]);
         clearTimeout(pollTimeoutRefs.current[stepKey]);
-
         delete pollIntervalRefs.current[stepKey];
         delete pollTimeoutRefs.current[stepKey];
-
-        toast.error(`${stepKey} is taking too long. Please try again.`);
-        setCurrentStep(-1); // ✅ STOP LOADER
+        toast.error(`${stepKey} generation timed out. Please try again.`);
+        setCurrentStep(-1);
         return;
       }
 
       window.__LMP_POLLING__ = true;
-          const res = await fetcher(null, params);
-          window.__LMP_POLLING__ = false;
-      if (res?.data?.statusCode === 200) {
-        if (dataKey === "fullData") {
-          setter(res.data.data);
-        } else {
-          setter(res.data.data[dataKey]);
-        }
+      const res = await fetcher(null, params);
+      window.__LMP_POLLING__ = false;
 
+      if (res?.data?.statusCode === 200) {
+        setter(res.data.data[dataKey]);
         clearInterval(pollIntervalRefs.current[stepKey]);
         clearTimeout(pollTimeoutRefs.current[stepKey]);
-
         delete pollIntervalRefs.current[stepKey];
         delete pollTimeoutRefs.current[stepKey];
       }
     } catch (error) {
-      generationAbortedRef.current = true;
-
       clearInterval(pollIntervalRefs.current[stepKey]);
       clearTimeout(pollTimeoutRefs.current[stepKey]);
-
       delete pollIntervalRefs.current[stepKey];
       delete pollTimeoutRefs.current[stepKey];
-
-      toast.error(`Failed while generating ${stepKey}`);
-      setCurrentStep(-1); // ✅ STOP LOADER
+      toast.error(`Error while generating ${stepKey}`);
+      setCurrentStep(-1);
     }
-  }, POLL_INTERVAL_MS);
+  }, customInterval); // ✅ custom interval applied here
 
-  // ⏱️ FAILSAFE TIMEOUT (extra safety)
   pollTimeoutRefs.current[stepKey] = setTimeout(() => {
     if (pollIntervalRefs.current[stepKey]) {
-      generationAbortedRef.current = true;
-
       clearInterval(pollIntervalRefs.current[stepKey]);
       delete pollIntervalRefs.current[stepKey];
-
-      toast.error(`${stepKey} timeout. Please retry.`);
-      setCurrentStep(-1); // ✅ STOP LOADER
+      toast.error(`${stepKey} took too long. Please retry.`);
+      setCurrentStep(-1);
     }
   }, POLL_TIMEOUT_MS);
 };
+
 
 
   // Generate content step by step - EXACT COPY PATTERN
@@ -363,17 +353,20 @@ const pollData = async (stepKey, fetcher, setter, dataKey, params) => {
         // Move to next step
         setTimeout(() => generateStep(stepIndex + 1, params), 500);
       } else if (res?.data?.statusCode === 202) {
-        // Data being generated - start polling
-        pollData(step.key, fetcher, setter, dataKey, params);
-        
-        // Wait for polling to complete before moving to next step
-        const checkInterval = setInterval(() => {
-          if (!pollIntervalRefs.current[step.key]) {
-            clearInterval(checkInterval);
-            setTimeout(() => generateStep(stepIndex + 1, params), 500);
-          }
-        }, 500);
-      }
+  // Data being generated - start polling
+  const pollInterval = step.key === "summary" ? 2000 : POLL_INTERVAL_MS;
+
+  pollData(step.key, fetcher, setter, dataKey, params, pollInterval);
+
+  // Wait for polling to complete before moving to next step
+  const checkInterval = setInterval(() => {
+    if (!pollIntervalRefs.current[step.key]) {
+      clearInterval(checkInterval);
+      setTimeout(() => generateStep(stepIndex + 1, params), 500);
+    }
+  }, 500);
+}
+
     } catch (error) {
       toast.error(`Failed to generate ${step.label}`);
       setCurrentStep(-1);
