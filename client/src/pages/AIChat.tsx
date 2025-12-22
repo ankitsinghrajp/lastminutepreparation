@@ -258,60 +258,49 @@ const clearAllPolls = () => {
 
   // Generic polling function
  // ✅ SAFE POLLING (5 sec interval + 90 sec timeout)
-const pollData = async (stepKey, fetcher, setter, dataKey, params) => {
+// Update the pollData function signature
+const pollData = async (stepKey, fetcher, setter, dataKey, params, customInterval = POLL_INTERVAL_MS) => {
   const startTime = Date.now();
 
-  // ❌ Prevent duplicate polling
   if (pollIntervalRefs.current[stepKey]) return;
 
   pollIntervalRefs.current[stepKey] = setInterval(async () => {
     try {
-      // ⏱️ TIMEOUT CHECK (1 min 30 sec)
       if (Date.now() - startTime > POLL_TIMEOUT_MS) {
         clearInterval(pollIntervalRefs.current[stepKey]);
         clearTimeout(pollTimeoutRefs.current[stepKey]);
-
         delete pollIntervalRefs.current[stepKey];
         delete pollTimeoutRefs.current[stepKey];
-
         toast.error(`${stepKey} generation timed out. Please try again.`);
         setCurrentStep(-1);
         return;
       }
 
-       
-           window.__LMP_POLLING__ = true;
-           const res = await fetcher(null, params);
-           window.__LMP_POLLING__ = false;
+      window.__LMP_POLLING__ = true;
+      const res = await fetcher(null, params);
+      window.__LMP_POLLING__ = false;
 
       if (res?.data?.statusCode === 200) {
         setter(res.data.data[dataKey]);
-
-        // ✅ STOP POLLING
         clearInterval(pollIntervalRefs.current[stepKey]);
         clearTimeout(pollTimeoutRefs.current[stepKey]);
-
         delete pollIntervalRefs.current[stepKey];
         delete pollTimeoutRefs.current[stepKey];
       }
     } catch (error) {
       clearInterval(pollIntervalRefs.current[stepKey]);
       clearTimeout(pollTimeoutRefs.current[stepKey]);
-
       delete pollIntervalRefs.current[stepKey];
       delete pollTimeoutRefs.current[stepKey];
-
       toast.error(`Error while generating ${stepKey}`);
       setCurrentStep(-1);
     }
-  }, POLL_INTERVAL_MS);
+  }, customInterval); // Use custom interval here
 
-  // ⛔ HARD SAFETY TIMEOUT (failsafe)
   pollTimeoutRefs.current[stepKey] = setTimeout(() => {
     if (pollIntervalRefs.current[stepKey]) {
       clearInterval(pollIntervalRefs.current[stepKey]);
       delete pollIntervalRefs.current[stepKey];
-
       toast.error(`${stepKey} took too long. Please retry.`);
       setCurrentStep(-1);
     }
@@ -386,17 +375,18 @@ const pollData = async (stepKey, fetcher, setter, dataKey, params) => {
         // Move to next step
         setTimeout(() => generateStep(stepIndex + 1, params), 500);
       } else if (res?.data?.statusCode === 202) {
-        // Data being generated - start polling
-        pollData(step.key, fetcher, setter, dataKey, params);
-        
-        // Wait for polling to complete before moving to next step
-        const checkInterval = setInterval(() => {
-          if (!pollIntervalRefs.current[step.key]) {
-            clearInterval(checkInterval);
-            setTimeout(() => generateStep(stepIndex + 1, params), 500);
-          }
-        }, 500);
-      }
+  // Data being generated - start polling
+  const pollInterval = step.key === "summary" ? 2000 : POLL_INTERVAL_MS;
+  pollData(step.key, fetcher, setter, dataKey, params, pollInterval);
+  
+  // Wait for polling to complete before moving to next step
+  const checkInterval = setInterval(() => {
+    if (!pollIntervalRefs.current[step.key]) {
+      clearInterval(checkInterval);
+      setTimeout(() => generateStep(stepIndex + 1, params), 500);
+    }
+  }, 500);
+}
     } catch (error) {
       toast.error(`Failed to generate ${step.label}`);
       setCurrentStep(-1);
