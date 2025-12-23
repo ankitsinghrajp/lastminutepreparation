@@ -43,6 +43,7 @@ const MCQMarkdown = ({ content }) => {
         [&_th]:border [&_td]:border
         [&_th]:bg-muted [&_th]:px-2 [&_th]:py-1
         [&_td]:px-2 [&_td]:py-1
+        [&_table]:min-w-full
 
         [&_.katex]:text-[15px]
         [&_.katex-display]:my-4
@@ -55,11 +56,13 @@ const MCQMarkdown = ({ content }) => {
         [&_code]:text-[13px]
       "
     >
-      <ReactMarkdown
-        children={normalized}
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
-      />
+      <div className="overflow-x-auto -mx-1 px-1">
+        <ReactMarkdown
+          children={normalized}
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
+        />
+      </div>
     </div>
   );
 };
@@ -145,7 +148,7 @@ const LastNightMcqs = ({ mcqs }) => {
                 <span className="font-bold text-foreground/70 shrink-0 text-sm md:text-base">
                   Q{idx + 1}.
                 </span>
-                <div className="font-semibold text-sm md:text-base text-foreground">
+                <div className="font-semibold text-sm md:text-base text-foreground flex-1 min-w-0">
                   <MCQMarkdown content={question} />
                 </div>
               </div>
@@ -169,7 +172,7 @@ const LastNightMcqs = ({ mcqs }) => {
                             {String.fromCharCode(65 + i)}.
                           </span>
                           <div
-                            className={`leading-relaxed text-sm md:text-base ${
+                            className={`leading-relaxed text-sm md:text-base flex-1 min-w-0 ${
                               isCorrect
                                 ? "font-medium text-green-700 dark:text-green-300"
                                 : "text-foreground/90"
@@ -186,11 +189,13 @@ const LastNightMcqs = ({ mcqs }) => {
 
               {/* Formula (ONLY SOURCE OF FORMULAS) */}
               {formula && typeof formula === "string" && formula.trim() !== "" && (
-                <div className="p-2.5 md:p-3 bg-blue-500/10 rounded-lg border border-blue-500/20 mb-3 ml-0 md:ml-2 overflow-x-auto">
+                <div className="p-2.5 md:p-3 bg-blue-500/10 rounded-lg border border-blue-500/20 mb-3 ml-0 md:ml-2">
                   <p className="text-xs font-semibold text-blue-600 mb-2">
                     Formula:
                   </p>
-                  {<MCQMarkdown content={`$${formula}$`}/>}
+                  <div className="overflow-x-auto -mx-1 px-1">
+                    <MCQMarkdown content={`$${formula}$`}/>
+                  </div>
                 </div>
               )}
 

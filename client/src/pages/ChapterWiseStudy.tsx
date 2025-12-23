@@ -54,7 +54,7 @@ export default function ChapterWiseStudy() {
   });
   const [mindMap, setMindMap] = useState(() => {
     const saved = sessionStorage.getItem("chapterWise_mindMap");
-    return saved && saved !== "undefined" ? JSON.parse(saved) : [];
+    return saved && saved !== "undefined" ? JSON.parse(saved) : null;
   });
   const [importantQuestions, setImportantQuestions] = useState(() => {
     const saved = sessionStorage.getItem("chapterWise_importantQuestions");
