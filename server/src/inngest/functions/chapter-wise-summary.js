@@ -36,7 +36,7 @@ export const smartChapterSummaryFn = inngest.createFunction(
 
         await step.run("Save Redis", async () => {
           await redis.set(cacheKey, JSON.stringify(safeDBContent), {
-            EX: 60 * 60 * 24 * 2,
+            ex: 60 * 60 * 24 * 2,
           });
         });
 
@@ -153,7 +153,7 @@ Stream: ${category}
       // -------------------------------------------------------------------
       await step.run("Save Redis", async () => {
         await redis.set(cacheKey, JSON.stringify(safeParsed), {
-          EX: 60 * 60 * 24 * 2,
+          ex: 60 * 60 * 24 * 2,
         });
       });
 

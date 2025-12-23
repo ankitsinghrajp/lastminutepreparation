@@ -74,7 +74,7 @@ const LastMinutePanelSummary = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 60 } 
+      { nx: true, ex: 60 } 
     );
 
     if (lockAcquired) {
@@ -166,7 +166,7 @@ const LastMinutePanelImportantTopics = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 120 } 
+      { nx: true, ex: 120 } 
     );
 
     if (lockAcquired) {
@@ -262,7 +262,7 @@ const LastMinutePanelPredictedQuestions = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 120 }
+      { nx: true, ex: 120 }
     );
 
     if (lockAcquired) {
@@ -362,7 +362,7 @@ const LastMinutePanelMCQs = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 120 } 
+      { nx: true, ex: 120 } 
     );
 
     if (lockAcquired) {
@@ -461,7 +461,7 @@ const LastMinutePanelMemoryBooster = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 150 } 
+      { nx: true, ex: 150 } 
     );
 
     if (lockAcquired) {
@@ -562,7 +562,7 @@ const LastMinutePanelAICoach = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 150 } 
+      { nx: true, ex: 150 } 
     );
 
     if (lockAcquired) {

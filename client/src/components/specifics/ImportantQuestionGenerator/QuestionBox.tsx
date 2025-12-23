@@ -13,7 +13,8 @@ import {
   Copy,
   ChevronDown,
   ChevronUp,
-  Sparkles
+  Sparkles,
+  RefreshCw
 } from 'lucide-react';
 
 import { useState } from 'react';
@@ -39,8 +40,11 @@ const QuestionBox = ({ response, selectedClass, selectedSubject, selectedChapter
   const pollTopperStyleAnswer = async (params, key) => {
     const interval = setInterval(async () => {
       try {
+           // Remove regenerate flag from polling - only first call should have it
+           const { regenerate, ...pollingParams } = params;
+
            window.__LMP_POLLING__ = true;
-           const res = await getAnswer("Fetching answer...", params);
+           const res = await getAnswer("Fetching answer...", pollingParams);
            window.__LMP_POLLING__ = false;
   
         if (res?.data?.statusCode === 200) {
@@ -68,12 +72,18 @@ const QuestionBox = ({ response, selectedClass, selectedSubject, selectedChapter
     setShowAnswers(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const generateAIAnswer = async (question, key) => {
+  const generateAIAnswer = async (question, key, regenerate = false) => {
     setLoading(prev => ({ ...prev, [key]: true }));
     try {
       const res = await getAnswer(
-        "Generating topper-style answer...",
-        { user_question: question, selectedClass, selectedSubject, selectedChapter }
+        regenerate ? "Regenerating topper-style answer..." : "Generating topper-style answer...",
+        { 
+          user_question: question, 
+          selectedClass, 
+          selectedSubject, 
+          selectedChapter,
+          regenerate 
+        }
       );
 
       if (res?.data?.statusCode === 200) {
@@ -83,7 +93,13 @@ const QuestionBox = ({ response, selectedClass, selectedSubject, selectedChapter
         setLoading(prev => ({ ...prev, [key]: false }));
       } else if (res?.data?.statusCode === 202) {
         toast.message("Fetching Answer...");
-        pollTopperStyleAnswer({ user_question: question, selectedClass, selectedSubject, selectedChapter }, key);
+        pollTopperStyleAnswer({ 
+          user_question: question, 
+          selectedClass, 
+          selectedSubject, 
+          selectedChapter,
+          regenerate 
+        }, key);
       } else {
         setLoading(prev => ({ ...prev, [key]: false }));
       }
@@ -254,22 +270,42 @@ const QuestionBox = ({ response, selectedClass, selectedSubject, selectedChapter
                             </button>
                           ) : (
                             <div className="space-y-3">
-                              <button
-                                onClick={() => toggleAnswer(key)}
-                                className={`w-full sm:w-auto inline-flex items-center justify-center gap-2  sm:px-5 py-2.5 sm:py-2 bg-gradient-to-r ${section.gradient} text-white rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity shadow-sm`}
-                              >
-                                {showAnswers[key] ? (
-                                  <>
-                                    <ChevronUp className="h-4 w-4" />
-                                    <span>Hide Answer</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <ChevronDown className="h-4 w-4" />
-                                    <span>Show Answer</span>
-                                  </>
-                                )}
-                              </button>
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  onClick={() => toggleAnswer(key)}
+                                  className={`flex-1 sm:flex-initial sm:w-auto inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-2 bg-gradient-to-r ${section.gradient} text-white rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity shadow-sm`}
+                                >
+                                  {showAnswers[key] ? (
+                                    <>
+                                      <ChevronUp className="h-4 w-4" />
+                                      <span>Hide Answer</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ChevronDown className="h-4 w-4" />
+                                      <span>Show Answer</span>
+                                    </>
+                                  )}
+                                </button>
+
+                                <button
+                                  onClick={() => generateAIAnswer(q.question, key, true)}
+                                  disabled={loading[key]}
+                                  className="flex-1 sm:flex-initial sm:w-auto inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                                >
+                                  {loading[key] ? (
+                                    <>
+                                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                      <span>Regenerating...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <RefreshCw className="h-4 w-4" />
+                                      <span>Regenerate</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
 
                               {showAnswers[key] && (
                                 <div className="p-4 sm:p-6 bg-card rounded-lg sm:rounded-xl border border-border shadow-lg">

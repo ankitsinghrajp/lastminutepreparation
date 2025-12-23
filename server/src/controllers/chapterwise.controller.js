@@ -74,7 +74,7 @@ const smartChapterSummary = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 60 } // 2 min lock (matches your original EX time)
+      { nx: true, ex: 60 } // 2 min lock (matches your original EX time)
     );
 
     if (lockAcquired) {
@@ -161,7 +161,7 @@ const chapterWiseShortNotes = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 150 } // 3 min lock (matches your original EX time)
+      { nx: true, ex: 150 } // 3 min lock (matches your original EX time)
     );
 
     if (lockAcquired) {
@@ -254,7 +254,7 @@ const chapterWiseMindMap = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 120 } // 3 min lock (matches your original EX time)
+      { nx: true, ex: 120 } // 3 min lock (matches your original EX time)
     );
 
     if (lockAcquired) {
@@ -349,7 +349,7 @@ const chapterWiseStudyQuestions = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 150 } // 3 min lock (matches your original EX time)
+      { nx: true, ex: 150 } // 3 min lock (matches your original EX time)
     );
 
     if (lockAcquired) {

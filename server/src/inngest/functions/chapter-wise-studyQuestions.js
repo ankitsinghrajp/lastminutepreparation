@@ -66,7 +66,7 @@ export const chapterWiseStudyQuestionsFn = inngest.createFunction(
 
       if (dbData) {
         await redis.set(cacheKey, JSON.stringify(dbData.content), {
-          EX: 60 * 60 * 24 * 2,
+          ex: 60 * 60 * 24 * 2,
         });
         await redis.del(pendingKey);
         return { source: "database" };
@@ -451,7 +451,7 @@ No explanations.
       // 7️⃣ SAVE REDIS
       // -------------------------------------------------------------------
       await redis.set(cacheKey, JSON.stringify(safeParsed), {
-        EX: 60 * 60 * 24 * 2,
+        ex: 60 * 60 * 24 * 2,
       });
 
       await redis.del(pendingKey);

@@ -467,7 +467,7 @@ Output MUST be fully compatible with a Markdown+KaTeX renderer.
       await redis.set(
         cacheKey,
         { answer },
-        { EX: 60 * 60 * 24 } // ✅ 24 hours TTL
+        { ex: 60 * 60 * 24 } // ✅ 24 hours TTL
       );
 
       await redis.del(pendingKey);

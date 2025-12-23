@@ -80,7 +80,7 @@ export const importantQuestionGeneratorFn = inngest.createFunction(
         const safeData = JSON.parse(JSON.stringify(dbCache.content));
 
         await redis.set(cacheKey, JSON.stringify(safeData), {
-          EX: 60 * 60 * 24 * 2,
+          ex: 60 * 60 * 24 * 2,
         });
 
         await redis.del(pendingKey);
@@ -673,7 +673,7 @@ try {
       // 7️⃣ SAVE REDIS
       // -------------------------------------------------------------------
       await redis.set(cacheKey, JSON.stringify(finalQuestions), {
-        EX: 60 * 60 * 24 * 2,
+        ex: 60 * 60 * 24 * 2,
       });
 
       await redis.del(pendingKey);

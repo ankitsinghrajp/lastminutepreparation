@@ -51,7 +51,7 @@ export const uploadPdfAndProcess = asyncHandler(async (req, res) => {
       const lockAcquired = await redis.set(
         pendingKey,
         "1",
-        { NX: true, EX: 120 }
+        { nx: true, ex: 120 }
       );
 
       if (lockAcquired) {

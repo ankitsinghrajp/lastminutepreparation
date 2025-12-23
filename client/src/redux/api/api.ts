@@ -174,11 +174,11 @@ const api = createApi({
 
         //Topper style answer api
         topperStyle: builder.mutation({
-          query:({user_question, selectedClass, selectedSubject, selectedChapter})=>({
+          query:({user_question, selectedClass, selectedSubject, selectedChapter, regenerate})=>({
             url:"ai/topper-style-answer",
             method:"post",
             credentials:"include",
-            body:{user_question, selectedClass, selectedSubject, selectedChapter}
+            body:{user_question, selectedClass, selectedSubject, selectedChapter, regenerate}
           })  
         }),
 

@@ -410,7 +410,7 @@ Only the topper-style answer. Nothing else.
         await redis.set(
           cacheKey,
           { summary: ai.output_text },
-          { EX: 60 * 60 * 24 }
+          { ex: 60 * 60 * 24 }
         );
       });
 

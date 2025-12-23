@@ -186,7 +186,7 @@ OUTPUT: Only the topper-style diagram explanation. Nothing else.
             labels,
             extractedText,
           },
-          { EX: 60 * 60 * 24 }
+          { ex: 60 * 60 * 24 }
         );
       });
 

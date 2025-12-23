@@ -66,7 +66,7 @@ export const lastNightAICoachFn = inngest.createFunction(
 
       if (dbCache) {
         await redis.set(cacheKey, JSON.stringify(dbCache.content), {
-          EX: 60 * 60 * 24 * 2,
+          ex: 60 * 60 * 24 * 2,
         });
         await redis.del(pendingKey);
         return { steps: dbCache.content.steps, source: "database" };
@@ -688,7 +688,7 @@ OUTPUT: Return the corrected JSON only, no explanation.
       // 7️⃣ SAVE REDIS
       // -------------------------------------------------------------------
       await redis.set(cacheKey, JSON.stringify(safeParsed), {
-        EX: 60 * 60 * 24 * 2,
+        ex: 60 * 60 * 24 * 2,
       });
 
       await redis.del(pendingKey);

@@ -77,7 +77,7 @@ export const lastNightImportantTopicsFn = inngest.createFunction(
 
       if (dbCache) {
         await redis.set(cacheKey, JSON.stringify(dbCache.content), {
-          EX: 60 * 60 * 24 * 2,
+          ex: 60 * 60 * 24 * 2,
         });
         await redis.del(pendingKey);
         return { topics: dbCache.content.topics, source: "database" };
@@ -421,7 +421,7 @@ NO extra text.
       // 7️⃣ SAVE REDIS
       // -------------------------------------------------------------------
       await redis.set(cacheKey, JSON.stringify(safeParsed), {
-        EX: 60 * 60 * 24 * 2,
+        ex: 60 * 60 * 24 * 2,
       });
 
       await redis.del(pendingKey);

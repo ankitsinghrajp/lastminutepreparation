@@ -36,7 +36,7 @@ export const lastNightSummaryFn = inngest.createFunction(
         const safeDBContent = JSON.parse(JSON.stringify(dbCache.content));
         // ensure Redis has it
         await step.run("Save cached to Redis", async () => {
-          await redis.set(cacheKey, JSON.stringify(safeDBContent), { EX: 60 * 60 * 24 * 2 });
+          await redis.set(cacheKey, JSON.stringify(safeDBContent), { ex: 60 * 60 * 24 * 2 });
         });
         return { summary: safeDBContent, source: "database" };
       }
@@ -230,7 +230,7 @@ Return ONLY the JSON object now.
 
       // 7️⃣ SAVE REDIS (so future requests are fast)
       await step.run("Save Redis", async () => {
-        await redis.set(cacheKey, JSON.stringify(safeParsed), { EX: 60 * 60 * 24 * 2 });
+        await redis.set(cacheKey, JSON.stringify(safeParsed), { ex: 60 * 60 * 24 * 2 });
       });
 
       await redis.del(`lmp:summary:pending:${className}:${mainSubject}:${chapter}`);

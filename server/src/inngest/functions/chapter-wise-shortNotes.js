@@ -32,7 +32,7 @@ export const chapterWiseShortNotesFn = inngest.createFunction(
 
       if (dbNotes) {
         await redis.set(cacheKey, dbNotes.content, {
-          EX: 60 * 60 * 24 * 2,
+          ex: 60 * 60 * 24 * 2,
         });
         await redis.del(pendingKey);
         return { source: "database" };
@@ -479,7 +479,7 @@ IMPORTANT OUTPUT RULE:
       // 6️⃣ SAVE REDIS
       // -------------------------------------------------------------------
       await redis.set(cacheKey, finalOutput, {
-        EX: 60 * 60 * 24 * 2,
+        ex: 60 * 60 * 24 * 2,
       });
 
       await redis.del(pendingKey);

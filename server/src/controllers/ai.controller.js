@@ -101,7 +101,7 @@ const summarizer = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 60 } // 2 min lock (matches your original EX time)
+      { nx: true, ex: 60 } // 2 min lock (matches your original EX time)
     );
 
     if (lockAcquired) {
@@ -135,7 +135,7 @@ const summarizer = asyncHandler(async (req, res) => {
 });
 
 const topperStyleAnswer = asyncHandler(async (req, res) => {
-  const { user_question, selectedClass, selectedSubject, selectedChapter } = req.body;
+  const { user_question, selectedClass, selectedSubject, selectedChapter, regenerate } = req.body;
   
   if (!user_question || !selectedClass || !selectedSubject || !selectedChapter) {
     return res.status(400).json(
@@ -157,6 +157,61 @@ const topperStyleAnswer = asyncHandler(async (req, res) => {
 
   const cacheKey = `lmp:topper:${jobId}`;
   const pendingKey = `lmp:topper:pending:${jobId}`;
+
+  // -------------------------------------------------------------------
+  // 🔄 HANDLE REGENERATE: DELETE CACHE AND FORCE NEW GENERATION
+  // -------------------------------------------------------------------
+  if (regenerate === true) {
+    try {
+      // Check if regeneration is already in progress
+      const isPending = await redis.get(pendingKey);
+      
+      if (isPending) {
+        // Regeneration already queued, don't trigger again
+        return res.status(202).json(
+          new ApiResponse(202, { jobId }, "Regeneration already in progress")
+        );
+      }
+
+      // Delete cache (but NOT pendingKey yet - we'll set it next)
+      await redis.del(cacheKey);
+      console.log(`Cache cleared for regeneration: ${jobId}`);
+
+      // Acquire lock for regeneration
+      const lockAcquired = await redis.set(
+        pendingKey,
+        "1",
+        { nx: true, ex: 60 }
+      );
+
+      if (lockAcquired) {
+        await inngest.send({
+          name: "lmp/generate.topperAnswer",
+          data: {
+            jobId,
+            user_question,
+            selectedClass,
+            selectedSubject,
+            selectedChapter,
+          },
+        });
+
+        return res.status(202).json(
+          new ApiResponse(202, { jobId }, "Regenerating answer")
+        );
+      } else {
+        // Lock was just acquired by another request
+        return res.status(202).json(
+          new ApiResponse(202, { jobId }, "Regeneration already in progress")
+        );
+      }
+    } catch (err) {
+      console.error("Redis error during regenerate:", err);
+      return res.status(500).json(
+        new ApiResponse(500, null, "Failed to queue answer regeneration")
+      );
+    }
+  }
 
   // -------------------------------------------------------------------
   // 1️⃣ CHECK REDIS (FASTEST PATH)
@@ -210,7 +265,7 @@ const topperStyleAnswer = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 60 }
+      { nx: true, ex: 60 }
     );
 
     if (lockAcquired) {
@@ -314,7 +369,7 @@ const importantQuestionGenerator = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 150 }
+      { nx: true, ex: 150 }
     );
 
     if (lockAcquired) {
@@ -416,7 +471,7 @@ const quizMcqFillupTrueFalse = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 150 } 
+      { nx: true, ex: 150 } 
     );
 
     if (lockAcquired) {
@@ -549,7 +604,7 @@ const askAnyQuestion = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 60 } 
+      { nx: true, ex: 60 } 
     );
 
     if (lockAcquired) {
@@ -654,7 +709,7 @@ const generatePYQs = asyncHandler(async (req, res) => {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { NX: true, EX: 150 } 
+      { nx: true, ex: 150 } 
     );
 
     if (lockAcquired) {

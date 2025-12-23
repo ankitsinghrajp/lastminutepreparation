@@ -85,7 +85,7 @@ export const pdfProcessingFn = inngest.createFunction(
         await redis.set(
           cacheKey,
           { pdfId: pdfDoc._id },
-          { EX: 60 * 60 * 24 } // 24 hours
+          { ex: 60 * 60 * 24 } // 24 hours
         );
       });
 

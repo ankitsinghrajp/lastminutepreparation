@@ -70,7 +70,7 @@ export const generatePYQsFn = inngest.createFunction(
         const safeDB = JSON.parse(JSON.stringify(dbCache.content));
 
         await redis.set(cacheKey, JSON.stringify(safeDB), {
-          EX: 60 * 60 * 24 * 2,
+          ex: 60 * 60 * 24 * 2,
         });
 
         await redis.del(pendingKey);
@@ -681,7 +681,7 @@ No explanation.
       // 7️⃣ SAVE REDIS
       // -------------------------------------------------------------------
       await redis.set(cacheKey, JSON.stringify(finalJson), {
-        EX: 60 * 60 * 24 * 2,
+        ex: 60 * 60 * 24 * 2,
       });
 
       await redis.del(pendingKey);

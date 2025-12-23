@@ -72,7 +72,7 @@ export const quizMcqFillupTrueFalseFn = inngest.createFunction(
         const safeDBData = JSON.parse(JSON.stringify(dbCache.content));
 
         await redis.set(cacheKey, JSON.stringify(safeDBData), {
-          EX: 60 * 60 * 24 * 2,
+          ex: 60 * 60 * 24 * 2,
         });
 
         await redis.del(pendingKey);
@@ -645,7 +645,7 @@ No explanation.
       // 7️⃣ SAVE REDIS
       // -------------------------------------------------------------------
       await redis.set(cacheKey, JSON.stringify(finalQuestions), {
-        EX: 60 * 60 * 24 * 2,
+        ex: 60 * 60 * 24 * 2,
       });
 
       await redis.del(pendingKey);
