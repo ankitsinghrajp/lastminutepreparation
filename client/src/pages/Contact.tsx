@@ -108,7 +108,7 @@ export default function ContactPage() {
             </p>
             <div className="flex flex-col gap-2">
               <a 
-                href="https://www.instagram.com/lastminutepreparation_2025" 
+                href="https://www.instagram.com/lastminutepreparationai" 
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-pink-500 hover:text-pink-600 font-medium"
