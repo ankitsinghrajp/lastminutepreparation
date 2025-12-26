@@ -32,7 +32,7 @@ interface Question {
 export default function PreviousYearQuestions() {
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
-  const POLL_INTERVAL_MS = 10 * 1000; // 10 seconds
+  const POLL_INTERVAL_MS = 1000; // 10 seconds
 const POLL_TIMEOUT_MS = 90 * 1000;  // 90 seconds
 
   

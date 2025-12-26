@@ -289,7 +289,7 @@ export default function DiagramAnalysis() {
   const [analysis, setAnalysis] = useState("");
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const POLL_INTERVAL_MS = 5 * 1000; // 5 seconds
+  const POLL_INTERVAL_MS = 1000; // 5 seconds
 const POLL_TIMEOUT_MS = 40 * 1000; // 40 seconds
 
 

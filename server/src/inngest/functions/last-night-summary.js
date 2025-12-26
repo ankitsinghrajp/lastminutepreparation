@@ -207,7 +207,7 @@ Return ONLY the JSON object now.
 
       // 3️⃣ CALL OPENAI
       const aiRaw = await step.run("Call OpenAI" ,async () => {
-        return await askOpenAI(prompt,"gpt-5-mini");
+        return await askOpenAI(prompt,"gpt-4o-mini");
       });
 
       // 4️⃣ EXTRACT JSON (your extractor)

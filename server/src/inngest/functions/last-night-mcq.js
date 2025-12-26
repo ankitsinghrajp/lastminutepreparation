@@ -510,10 +510,6 @@ Return ONLY the corrected JSON.
           throw new Error(`Invalid MCQ structure at index ${idx}`);
         }
 
-        if (!Array.isArray(mcq.options) || mcq.options.length !== 4) {
-          throw new Error(`MCQ ${idx} must contain exactly 4 options`);
-        }
-
         if (!mcq.options.includes(mcq.correct)) {
           throw new Error(`Correct option mismatch at MCQ ${idx}`);
         }

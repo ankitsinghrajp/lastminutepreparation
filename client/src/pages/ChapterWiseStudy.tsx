@@ -22,10 +22,10 @@ import AnimatedLoader from "@/components/AnimatedLoader";
 const classes = ["9th", "10th", "11th", "12th"];
 
 const GENERATION_STEPS = [
-  { key: "summary", label: "Chapter Summary", pollInterval: 2000 },
-  { key: "shortNotes", label: "Short Notes", pollInterval: 6000 },
-  { key: "mindMap", label: "Mind Map", pollInterval: 8000 },
-  { key: "importantQuestions", label: "Important Questions", pollInterval: 10000 },
+  { key: "summary", label: "Chapter Summary", pollInterval: 1000 },
+  { key: "shortNotes", label: "Short Notes", pollInterval: 1000 },
+  { key: "mindMap", label: "Mind Map", pollInterval: 1000 },
+  { key: "importantQuestions", label: "Important Questions", pollInterval: 1000 },
 ];
 
 export default function ChapterWiseStudy() {
@@ -72,7 +72,7 @@ export default function ChapterWiseStudy() {
   const [showHistory, setShowHistory] = useState(false);
 
   // ✅ POLLING CONFIG (NEW)
-const POLL_INTERVAL_MS = 5000; // 5 seconds
+const POLL_INTERVAL_MS = 1000;
 const POLL_TIMEOUT_MS = 150 * 1000; // 150 seconds
 
 const pollTimeoutRefs = useRef({}); // ✅ NEW
@@ -354,7 +354,7 @@ const pollData = async (
         setTimeout(() => generateStep(stepIndex + 1, params), 500);
       } else if (res?.data?.statusCode === 202) {
   // Data being generated - start polling
-  const pollInterval = step.key === "summary" ? 2000 : POLL_INTERVAL_MS;
+  const pollInterval = step.key === "summary" ? 1000 : POLL_INTERVAL_MS;
 
   pollData(step.key, fetcher, setter, dataKey, params, pollInterval);
 
@@ -700,7 +700,7 @@ const pollData = async (
     }
   };
 
-  const hasContent = summary || shortNotes.length > 0 || Object.keys(mindMap).length > 0 || Object.keys(importantQuestions).length > 0;
+ const hasContent = summary || shortNotes.length > 0 || (mindMap && typeof mindMap === 'object' && Object.keys(mindMap).length > 0) || (importantQuestions && typeof importantQuestions === 'object' && Object.keys(importantQuestions).length > 0);
 
   const isGenerating = currentStep >= 0;
 

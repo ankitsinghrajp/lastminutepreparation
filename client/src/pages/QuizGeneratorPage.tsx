@@ -21,7 +21,7 @@ const classes = ["9th", "10th", "11th", "12th"];
 export default function QuizGenerator() {
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
-  const POLL_INTERVAL_MS = 10 * 1000; // 10 seconds
+  const POLL_INTERVAL_MS = 1000; // 10 seconds
 const POLL_TIMEOUT_MS = 90 * 1000;  // 1 min 30 sec
 
   const [selectedClass, setSelectedClass] = useState(() => {

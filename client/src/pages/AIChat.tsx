@@ -24,12 +24,12 @@ import AnimatedLoader from "@/components/AnimatedLoader";
 const classes = ["9th", "10th", "11th", "12th"];
 
 const GENERATION_STEPS = [
-  { key: "summary", label: "Chapter Summary", pollInterval: 2000 },
-  { key: "importantTopics", label: "Important Topics", pollInterval: 3000 },
-  { key: "predictedQuestion", label: "Predicted Questions", pollInterval: 6000 },
-  { key: "mcqs", label: "Practice MCQs", pollInterval: 3000 },
-  { key: "memoryBooster", label: "Memory Boosters", pollInterval: 3000 },
-  { key: "aiCoach", label: "AI Study Coach", pollInterval: 3000 },
+  { key: "summary", label: "Chapter Summary", pollInterval: 1000 },
+  { key: "importantTopics", label: "Important Topics", pollInterval: 1000 },
+  { key: "predictedQuestion", label: "Predicted Questions", pollInterval: 1000 },
+  { key: "mcqs", label: "Practice MCQs", pollInterval: 1000 },
+  { key: "memoryBooster", label: "Memory Boosters", pollInterval: 1000 },
+  { key: "aiCoach", label: "AI Study Coach", pollInterval: 1000 },
 ];
 
 export default function LastNightBeforeExam() {
@@ -110,7 +110,7 @@ export default function LastNightBeforeExam() {
   const [getAiCoach] = useAsyncMutation(useGetLastNightAiCoachMutation);
 
   // ✅ POLLING CONFIG (NEW)
-const POLL_INTERVAL_MS = 5000; // 5 seconds
+const POLL_INTERVAL_MS = 1000; 
 const POLL_TIMEOUT_MS = 90 * 1000; // 1 min 30 sec
 
 
