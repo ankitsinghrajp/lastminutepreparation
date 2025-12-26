@@ -43,7 +43,7 @@ const ChapterWiseImportantQuestionSection = ({
         setLoadingStates(prev => ({ ...prev, [idx]: false }));
         toast.error("Error fetching Answer...");
       }
-    }, 10000);
+    }, 1000);
   };
 
   const generateAnswer = async (question, idx, regenerate = false) => {

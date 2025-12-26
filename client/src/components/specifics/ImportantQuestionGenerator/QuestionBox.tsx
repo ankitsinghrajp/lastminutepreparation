@@ -61,7 +61,7 @@ const QuestionBox = ({ response, selectedClass, selectedSubject, selectedChapter
         setLoading(prev => ({ ...prev, [key]: false }));
         toast.error("Error fetching Answer...");
       }
-    }, 10000);
+    }, 1000);
   };
 
   const toggleSection = (section) => {

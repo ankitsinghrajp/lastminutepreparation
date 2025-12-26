@@ -49,7 +49,7 @@ const PyqsComponent = ({ pyqsData, selectedClass, selectedSubject, selectedChapt
         setLoading(prev => ({ ...prev, [key]: false }));
         toast.error("Error fetching Answer...");
       }
-    }, 10000);
+    }, 1000);
   };
 
   const toggleAnswer = (key) => {
