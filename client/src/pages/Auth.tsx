@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Sparkles } from "lucide-react";
+import { Sparkles, MoreVertical, ExternalLink } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDispatch } from "react-redux";
@@ -13,10 +13,12 @@ import { useAsyncMutation } from "@/hooks/hook";
 import { useForm, SubmitHandler } from 'react-hook-form';
 import LoginForm from '@/components/specifics/LoginForm';
 import logo from "../assets/logo.png";
+import { useState, useEffect } from "react";
 
 export default function Auth() {
 
   const [isRegister, isRegisterLoading] = useAsyncMutation(useRegisterMutation);
+  const [isInstagram, setIsInstagram] = useState(false);
  
   type RegisterInputs = {
       name:string,
@@ -30,7 +32,11 @@ export default function Auth() {
     formState: { errors },
   } = useForm<RegisterInputs>()
 
-
+  useEffect(() => {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const isInstagramBrowser = userAgent.includes('Instagram');
+    setIsInstagram(isInstagramBrowser);
+  }, []);
 
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -81,6 +87,31 @@ export default function Auth() {
             <h1 className="text-3xl font-bold mb-2">Welcome Back</h1>
             <p className="text-muted-foreground">Sign in to continue your learning journey</p>
           </div>
+
+          {/* Instagram Browser Alert */}
+          {isInstagram && (
+            <div className="mb-6 rounded-lg border border-orange-500/30 bg-gradient-to-r from-orange-500/10 via-orange-500/5 to-orange-500/10 backdrop-blur-sm p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-orange-600">
+                  <ExternalLink className="h-4 w-4 text-white" />
+                </div>
+                <div className="flex-1 space-y-2">
+                  <h3 className="font-semibold text-orange-100 text-sm">For better sign-in experience</h3>
+                  <div className="text-xs text-orange-200/90 space-y-1">
+                    <p className="flex items-center gap-1.5">
+                      <span className="font-medium">1.</span> Tap the <MoreVertical className="h-3 w-3 inline mx-0.5" /> menu icon (top right)
+                    </p>
+                    <p className="flex items-center gap-1.5">
+                      <span className="font-medium">2.</span> Select <span className="font-semibold text-orange-100">"Open in Chrome"</span>
+                    </p>
+                    <p className="flex items-center gap-1.5">
+                      <span className="font-medium">3.</span> Sign in with Google seamlessly
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <Card className="p-8 bg-card/50 border-border/50 backdrop-blur-sm">
             <Tabs defaultValue="login" className="w-full">

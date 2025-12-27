@@ -13,16 +13,24 @@ import {
 import { useAsyncMutation } from "@/hooks/hook";
 import { useLazyResendEmailQuery, useLogoutMutation } from "@/redux/api/api";
 import { userNotExists } from "@/redux/reducers/auth";
-import { Loader, LogOut, Mail } from "lucide-react";
+import { Loader, LogOut, Mail, ExternalLink, MoreVertical } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { useState, useEffect } from "react";
 
 export const Navbar = () => {
   const {user} = useSelector((state)=>state.auth);
   const [logout, isLogoutLoading] = useAsyncMutation(useLogoutMutation);
   const dispatch = useDispatch();
   const [trigger, {isLoading}] = useLazyResendEmailQuery();
+  const [isInstagram, setIsInstagram] = useState(false);
+
+  useEffect(() => {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const isInstagramBrowser = userAgent.includes('Instagram');
+    setIsInstagram(isInstagramBrowser);
+  }, []);
 
   const handleLogout = async ()=>{
     await logout();
@@ -89,6 +97,29 @@ export const Navbar = () => {
           </div>
         </div>
       </div>
+
+      {/* Instagram Browser Banner */}
+      {isInstagram && (
+        <div className="border-b border-orange-500/20 bg-gradient-to-r from-orange-500/10 via-orange-500/10 to-orange-500/10 backdrop-blur-lg">
+          <div className="container mx-auto px-4">
+            <div className="flex h-10 items-center justify-between gap-2 text-xs sm:text-sm">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-orange-600">
+                  <ExternalLink className="h-3 w-3 text-white" />
+                </div>
+                <span className="font-medium text-orange-100 truncate">
+                  <span className="hidden sm:inline">For better experience, tap </span>
+                  <span className="sm:hidden">Tap </span>
+                  <span className="inline-flex items-center gap-1">
+                    <MoreVertical className="h-3 w-3 inline" />
+                    <span className="text-orange-200/80">from right corner and open in Chrome</span>
+                  </span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Verification Banner - Compact Single Line */}
       {user && !user.isVerified && (
