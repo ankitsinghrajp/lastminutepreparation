@@ -1,58 +1,31 @@
-import vision from "@google-cloud/vision";
-import sharp from "sharp";
-import path from "path";
-import { fileURLToPath } from "url";
 import { inngest } from "../../libs/inngest.js";
 import { redis } from "../../libs/redis.js";
 import { openai } from "../../utils/OpenAI.js";
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const client = new vision.ImageAnnotatorClient({
-  keyFilename: path.join(__dirname, "../../../ocr-key.json"),
-});
 
 export const summarizerFn = inngest.createFunction(
   {
     id: "summarizer-job",
     name: "Generate Topic Summary",
-    retries:0,
+    retries: 2, // ✅ allow retry in prod
   },
   { event: "lmp/generate.summarizer" },
   async ({ event, step }) => {
-    const { jobId, topic, level, imageBuffer } = event.data;
+    const {
+      jobId,
+      topic,
+      level,
+      extractedText,
+      labels,
+      mode,
+    } = event.data;
 
     const cacheKey = `lmp:summarizer:${jobId}`;
     const pendingKey = `lmp:summarizer:pending:${jobId}`;
 
     try {
-      let extractedText = "";
-      let labels = [];
-      let mode = "no_image";
-
-      // 🖼️ IMAGE PROCESSING (optional)
-      if (imageBuffer) {
-        const buffer = Buffer.from(imageBuffer, "base64");
-        const pngBuffer = await sharp(buffer).png().toBuffer();
-
-        const [textResult] = await step.run("OCR", async () =>
-          client.textDetection({ image: { content: pngBuffer } })
-        );
-        extractedText = textResult.fullTextAnnotation?.text || "";
-
-        const [labelResult] = await step.run("LABELS", async () =>
-          client.labelDetection({ image: { content: pngBuffer } })
-        );
-        labels = (labelResult.labelAnnotations || [])
-          .map((l) => l.description)
-          .slice(0, 5);
-
-        if (extractedText.trim()) mode = "text";
-        else if (labels.length) mode = "label_only";
-        else mode = "fallback";
-      }
-
-      // 🧠 PROMPT (UNCHANGED LOGIC)
+      // -------------------------------------------------------------------
+      // 🧠 PROMPT (IMAGE DATA ALREADY EXTRACTED IN CONTROLLER)
+      // -------------------------------------------------------------------
 const prompt = `
 You are a CBSE Board exam expert. Think internally first, but DO NOT show your thinking. Your ONLY task is to write full-mark answers exactly the way toppers write in their exam notebooks — clean, simple, direct, and only what is required to score full marks.
 
@@ -394,28 +367,42 @@ OUTPUT
 Only the topper-style answer. Nothing else.
 `;
 
-
-      const safePrompt = prompt.replace(/\\/g, "\\\\");
-
-      const ai = await step.run("OpenAI", async () =>
+      // -------------------------------------------------------------------
+      // 🤖 OPENAI CALL
+      // -------------------------------------------------------------------
+      const aiResponse = await step.run("OpenAI", async () =>
         openai.responses.create({
           model: "gpt-4o-mini",
-          input: safePrompt,
+          input: prompt,
           max_output_tokens: 800,
         })
       );
 
-  
+      const summary = aiResponse.output_text;
+
+      if (!summary || typeof summary !== "string") {
+        throw new Error("Empty AI response");
+      }
+
+      // -------------------------------------------------------------------
+      // 💾 SAVE RESULT
+      // -------------------------------------------------------------------
       await step.run("Save Redis", async () => {
         await redis.set(
           cacheKey,
-          { summary: ai.output_text },
-          { ex: 60 * 60 * 24 }
+          { summary },
+          { ex: 60 * 60 * 24 } // ✅ 24 hours
         );
       });
 
+      // -------------------------------------------------------------------
+      // 🧹 CLEAR PENDING LOCK
+      // -------------------------------------------------------------------
+      await redis.del(pendingKey);
+
       return { success: true };
     } catch (err) {
+      // ensure pending key is cleared on failure
       await redis.del(pendingKey);
       throw err;
     }

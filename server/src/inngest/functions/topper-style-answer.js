@@ -591,7 +591,7 @@ Now output the corrected answer:`;
       // 5️⃣ SAVE CACHE (30 DAYS)
       // -------------------------------------------------------------------
       await redis.set(cacheKey, finalAnswer, {
-        ex: 60 * 60 * 24 * 30,
+        ex: 60 * 60 * 24 * 60,
       });
 
       await redis.del(pendingKey);

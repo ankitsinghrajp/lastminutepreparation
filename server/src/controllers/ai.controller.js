@@ -25,69 +25,88 @@ const client = new vision.ImageAnnotatorClient({
 });
 
 
-const summarizer = asyncHandler(async (req, res) => {
-  const { topic, level } = req.body;
 
-  if (
-    (!topic || !topic.trim()) &&
-    (!req.files || !req.files.image)
-  ) {
+const summarizer = asyncHandler(async (req, res) => {
+  const { topic = "", level = "Medium" } = req.body;
+
+  const hasImage = !!req.files?.image;
+
+  if (!topic.trim() && !hasImage) {
     throw new ApiError(400, "Either topic or image is required!");
   }
 
-  let imageBuffer = null;
+  // -------------------------------------------------------------------
+  // 🖼️ IMAGE PROCESSING (SAME PATTERN AS askAnyQuestion)
+  // -------------------------------------------------------------------
+  let extractedText = "";
+  let labels = [];
+  let mode = "no_image";
+  let imageHash = "";
 
-  if (req.files?.image) {
-    imageBuffer = req.files.image[0].buffer;
+  if (hasImage) {
+    let buffer = req.files.image[0].buffer;
+
+    // Normalize image
+    buffer = await sharp(buffer).png().toBuffer();
+
+    // Stable image hash
+    imageHash = crypto.createHash("sha256").update(buffer).digest("hex");
+
+    // OCR
+    const [textResult] = await client.textDetection({
+      image: { content: buffer },
+    });
+    extractedText = textResult.fullTextAnnotation?.text || "";
+
+    // Labels
+    const [labelResult] = await client.labelDetection({
+      image: { content: buffer },
+    });
+    labels = (labelResult.labelAnnotations || [])
+      .map((l) => l.description)
+      .slice(0, 5);
+
+    if (extractedText.trim()) mode = "text";
+    else if (labels.length) mode = "label_only";
+    else mode = "fallback";
   }
 
-  // 🔐 DETERMINISTIC JOB ID
+  // -------------------------------------------------------------------
+  // 🔐 STABLE JOB ID (NO BUFFERS)
+  // -------------------------------------------------------------------
   const jobId = crypto
     .createHash("sha256")
-    .update((topic || "") + (level || "") + (imageBuffer || ""))
+    .update(topic.trim() + level + imageHash)
     .digest("hex");
 
   const cacheKey = `lmp:summarizer:${jobId}`;
   const pendingKey = `lmp:summarizer:pending:${jobId}`;
 
   // -------------------------------------------------------------------
-  // 1️⃣ CHECK REDIS (FASTEST PATH)
+  // 1️⃣ CHECK REDIS CACHE
   // -------------------------------------------------------------------
   try {
     const cached = await redis.get(cacheKey);
     if (cached) {
-      let finalData;
+      let finalData =
+        typeof cached === "object" ? cached : JSON.parse(cached);
 
-      if (typeof cached === "object") {
-        finalData = cached;
-      } else {
-        try {
-          finalData = JSON.parse(cached);
-        } catch (err) {
-          await redis.del(cacheKey); // corrupted → delete
-        }
-      }
-
-      if (finalData) {
-        return res.status(200).json(
-          new ApiResponse(200, finalData, "Summary ready")
-        );
-      }
+      return res.status(200).json(
+        new ApiResponse(200, finalData, "Summary ready")
+      );
     }
   } catch (err) {
     console.error("Redis GET error:", err);
   }
 
   // -------------------------------------------------------------------
-  // 2️⃣ CHECK IF ALREADY PENDING (BEFORE ACQUIRING LOCK)
+  // 2️⃣ CHECK IF ALREADY PENDING
   // -------------------------------------------------------------------
   try {
     const isPending = await redis.get(pendingKey);
-    
     if (isPending) {
-      // Job already queued by another request
       return res.status(202).json(
-        new ApiResponse(202, { jobId }, "Summary generation already in progress")
+        new ApiResponse(202, { jobId }, "Summary generation in progress")
       );
     }
   } catch (err) {
@@ -95,13 +114,13 @@ const summarizer = asyncHandler(async (req, res) => {
   }
 
   // -------------------------------------------------------------------
-  // 3️⃣ ACQUIRE LOCK AND TRIGGER JOB
+  // 3️⃣ ACQUIRE LOCK & TRIGGER INNGEST
   // -------------------------------------------------------------------
   try {
     const lockAcquired = await redis.set(
       pendingKey,
       "1",
-      { nx: true, ex: 60 } // 2 min lock (matches your original EX time)
+      { nx: true, ex: 120 } // 2 min lock
     );
 
     if (lockAcquired) {
@@ -109,23 +128,22 @@ const summarizer = asyncHandler(async (req, res) => {
         name: "lmp/generate.summarizer",
         data: {
           jobId,
-          topic,
+          topic: topic.trim() || "From Image",
           level,
-          imageBuffer: imageBuffer
-            ? imageBuffer.toString("base64")
-            : null,
+          extractedText,
+          labels,
+          mode,
         },
       });
 
       return res.status(202).json(
         new ApiResponse(202, { jobId }, "Summary queued")
       );
-    } else {
-      // Lock was acquired by another request in the microseconds between check and set
-      return res.status(202).json(
-        new ApiResponse(202, { jobId }, "Summary generation already in progress")
-      );
     }
+
+    return res.status(202).json(
+      new ApiResponse(202, { jobId }, "Summary generation in progress")
+    );
   } catch (err) {
     console.error("Redis lock error:", err);
     return res.status(500).json(
