@@ -55,6 +55,7 @@ export const quizMcqFillupTrueFalseFn = inngest.createFunction(
 
     const cacheKey = `lmp:quiz:${className}:${mainSubject}:${chapter}:${topics}`;
     const pendingKey = `lmp:quiz:pending:${className}:${mainSubject}:${chapter}:${topics}`;
+    const fixedCacheKey = `lmp:quiz:fixed:${className}:${mainSubject}:${chapter}:${topics}`;
 
     try {
       // -------------------------------------------------------------------
@@ -82,7 +83,7 @@ export const quizMcqFillupTrueFalseFn = inngest.createFunction(
       // -------------------------------------------------------------------
       // 2️⃣ PRIMARY PROMPT (UNCHANGED)
       // -------------------------------------------------------------------
-       const prompt = `
+      const prompt = `
 You are an API that returns ONLY valid JSON. No extra text, no explanation outside JSON.
 
 Class: ${className}
@@ -542,6 +543,7 @@ OUTPUT
 Return ONLY valid JSON. NOTHING ELSE.
 Output MUST be fully compatible with a Markdown+KaTeX renderer.
 `;
+
       // -------------------------------------------------------------------
       // 3️⃣ FIRST AI CALL (PRIMARY GENERATION)
       // -------------------------------------------------------------------
@@ -552,8 +554,97 @@ Output MUST be fully compatible with a Markdown+KaTeX renderer.
       });
 
       // -------------------------------------------------------------------
-      // 4️⃣ SECOND AI CALL (JSON + LaTeX FIXER ONLY)
+      // 4️⃣ PARSE PRIMARY RESPONSE & CACHE IMMEDIATELY
       // -------------------------------------------------------------------
+      let primaryQuestions;
+      try {
+        const extracted = extractJSON(primaryRaw);
+        primaryQuestions = JSON.parse(JSON.stringify(extracted));
+
+        if (
+          !Array.isArray(primaryQuestions.questions) ||
+          primaryQuestions.questions.length !== 15
+        ) {
+          throw new Error("Invalid question count");
+        }
+
+        // 🚀 IMMEDIATELY CACHE PRIMARY RESPONSE
+        await redis.set(cacheKey, JSON.stringify(primaryQuestions), {
+          ex: 60 * 60 * 24 * 2, // 2 days
+        });
+
+        // Store status in separate key
+        await redis.set(`${cacheKey}:status`, JSON.stringify({
+          version: "primary",
+          generatedAt: new Date().toISOString(),
+          isFixed: false
+        }), {
+          ex: 60 * 60 * 24 * 2,
+        });
+
+        await redis.del(pendingKey);
+      } catch (err) {
+        throw new Error("Failed to parse primary AI response: " + err.message);
+      }
+
+      // -------------------------------------------------------------------
+      // 5️⃣ TRIGGER BACKGROUND FIXER (NON-BLOCKING)
+      // -------------------------------------------------------------------
+      let fixerRunId = null;
+      try {
+        const fixerEvent = await step.sendEvent("trigger-fixer", {
+          name: "lmp/fix.quiz",
+          data: {
+            className,
+            subject: mainSubject,
+            chapter,
+            primaryRaw,
+            cacheKey,
+            fixedCacheKey,
+          },
+        });
+        
+        // Capture the fixer run ID
+        if (fixerEvent && fixerEvent.ids && fixerEvent.ids.length > 0) {
+          fixerRunId = fixerEvent.ids[0];
+        }
+      } catch (err) {
+        console.error("Failed to trigger fixer:", err.message);
+        // Don't throw - we already have primary response cached
+      }
+
+      // -------------------------------------------------------------------
+      // 6️⃣ RETURN IMMEDIATELY WITH PRIMARY RESPONSE
+      // -------------------------------------------------------------------
+      return { 
+        source: "generated",
+        status: "primary",
+        fixerRunId: fixerRunId,
+        cacheKey: cacheKey,
+        message: "Primary response cached, fixing in background"
+      };
+
+    } catch (err) {
+      await redis.del(pendingKey);
+      throw new Error(`quizMcqFillupTrueFalse error: ${err.message}`);
+    }
+  }
+);
+
+// -------------------------------------------------------------------
+// BACKGROUND FIXER FUNCTION FOR QUIZ
+// -------------------------------------------------------------------
+export const quizFixerFn = inngest.createFunction(
+  {
+    name: "Fix Quiz LaTeX",
+    id: "quiz-fixer",
+    retries: 1,
+  },
+  { event: "lmp/fix.quiz" },
+  async ({ event, step }) => {
+    const { className, subject, chapter, primaryRaw, cacheKey, fixedCacheKey } = event.data;
+
+    try {
       const fixerPrompt = `
 You are a STRICT JSON + LaTeX ESCAPING FIXER for CBSE QUIZ QUESTIONS.
 
@@ -563,26 +654,58 @@ DO NOT rewrite questions, options, or answers.
 DO NOT change wording, order, or structure.
 
 ==============================
-ALLOWED FIXES
+ABSOLUTE RULES (MATCH FIRST PROMPT)
 ==============================
-- Fix invalid JSON syntax
-- Fix broken quotes or commas
-- Fix LaTeX escaping for JSON strings
-- Preserve $...$ and $$...$$ exactly
-- Preserve \\n newlines
+
+- Inline math $...$ is ALLOWED
+- Display math $$...$$ is ALLOWED and MUST be preserved
+- Markdown formatting and REAL line breaks MUST be preserved
+- LaTeX commands MUST remain inside existing math delimiters
+
+❌ Do NOT remove $$...$$
+❌ Do NOT convert display math to inline
+❌ Do NOT introduce \\( \\) or \\[ \\]
+❌ Do NOT move math across fields
 
 ==============================
-FORBIDDEN
+WHAT YOU ARE ALLOWED TO FIX
 ==============================
-- ❌ Regeneration
-- ❌ Content rewrite
-- ❌ Changing question count
-- ❌ Adding/removing fields
-- ❌ Changing math mode
+
+1. JSON SYNTAX ONLY:
+   - Fix missing or incorrect double quotes
+   - Remove trailing commas
+   - Fix broken arrays or objects
+   - Ensure valid JSON structure
+   - Ensure JSON.parse() succeeds
+
+2. LaTeX ESCAPING (JSON-LEVEL ONLY):
+   - Ensure backslashes are correctly escaped for JSON strings
+   - Preserve the SAME LaTeX commands
+   - Preserve the SAME math mode ($ or $$)
+   - Do NOT alter mathematical meaning
+
+3. NEWLINES & FORMATTING:
+   - Preserve REAL line breaks inside strings
+   - Do NOT replace real line breaks with \\n
+   - Do NOT collapse spacing or formatting
 
 ==============================
-INPUT JSON
+STRICTLY FORBIDDEN
 ==============================
+
+- ❌ Regenerating content
+- ❌ Rewriting questions, options, or answers
+- ❌ Changing math mode ($ ↔ $$)
+- ❌ Moving LaTeX outside math delimiters
+- ❌ Adding or removing questions
+- ❌ Changing question type, id, or answer fields
+- ❌ Reordering arrays or fields
+- ❌ Adding explanations, comments, or metadata
+
+==============================
+INPUT JSON TO FIX
+==============================
+
 <<<
 ${primaryRaw}
 >>>
@@ -590,69 +713,102 @@ ${primaryRaw}
 ==============================
 OUTPUT
 ==============================
-Return ONLY corrected JSON.
-No explanation.
+
+Return ONLY the corrected JSON.
+NO explanation.
+NO markdown.
+NO extra text.
 `.trim();
 
-        const subjectHardness = ["physics","chemistry","mathematics","applied mathematics", "accountancy", "bio technology"];
+      const subjectHardness = [
+        "physics",
+        "chemistry",
+        "mathematics",
+        "applied mathematics",
+        "accountancy",
+        "bio technology",
+      ];
 
       let secondPassModel;
-      if(subjectHardness.includes(mainSubject)){
+      if (subjectHardness.includes(subject.toLowerCase())) {
         secondPassModel = "gpt-4o";
-      }
-      else{
-        secondPassModel = "gpt-4o-mini"
+      } else {
+        secondPassModel = "gpt-4o-mini";
       }
 
-
+      // Call fixer AI
       const fixedRaw = await step.run("Call OpenAI (Fixer)", async () => {
-        return await askOpenAI(fixerPrompt, secondPassModel,{
+        return await askOpenAI(fixerPrompt, secondPassModel, {
           response_format: { type: "json_object" },
         });
       });
 
-      // -------------------------------------------------------------------
-      // 5️⃣ PARSE + VALIDATE (STRICT)
-      // -------------------------------------------------------------------
-      let finalQuestions;
+      // Parse fixed response
+      let fixedQuestions;
       try {
         const extracted = extractJSON(fixedRaw);
-        finalQuestions = JSON.parse(JSON.stringify(extracted));
+        fixedQuestions = JSON.parse(JSON.stringify(extracted));
 
         if (
-          !Array.isArray(finalQuestions.questions) ||
-          finalQuestions.questions.length !== 15
+          !Array.isArray(fixedQuestions.questions) ||
+          fixedQuestions.questions.length !== 15
         ) {
-          throw new Error("Invalid question count");
+          throw new Error("Invalid question count in fixed version");
         }
       } catch (err) {
-        throw new Error("Failed to parse AI response: " + err.message);
+        // If fixer fails, keep the primary version
+        console.error("Fixer failed, keeping primary version:", err.message);
+        return { status: "fixer_failed", kept: "primary" };
       }
 
-      // -------------------------------------------------------------------
-      // 6️⃣ SAVE DB
-      // -------------------------------------------------------------------
-      await step.run("Save DB", async () => {
-        await McqModel.create({
-          className,
-          subject: mainSubject,
-          chapter,
-          content: finalQuestions,
-        });
+      // Save fixed version to DB
+      await step.run("Save Fixed to DB", async () => {
+        await McqModel.findOneAndUpdate(
+          {
+            className,
+            subject,
+            chapter,
+          },
+          {
+            content: fixedQuestions,
+          },
+          {
+            upsert: true,
+          }
+        );
       });
 
-      // -------------------------------------------------------------------
-      // 7️⃣ SAVE REDIS
-      // -------------------------------------------------------------------
-      await redis.set(cacheKey, JSON.stringify(finalQuestions), {
+      // Update Redis cache with fixed version
+      await redis.set(cacheKey, JSON.stringify(fixedQuestions), {
+        ex: 60 * 60 * 24 * 2, // 2 days
+      });
+
+      // Update status marker
+      await redis.set(`${cacheKey}:status`, JSON.stringify({
+        version: "fixed",
+        fixedAt: new Date().toISOString(),
+        isFixed: true
+      }), {
         ex: 60 * 60 * 24 * 2,
       });
 
-      await redis.del(pendingKey);
-      return { source: "generated" };
+      // Also store in fixed cache key for reference
+      await redis.set(fixedCacheKey, JSON.stringify(fixedQuestions), {
+        ex: 60 * 60 * 24 * 2,
+      });
+
+      return { 
+        status: "fixed",
+        message: "LaTeX fixed and cached"
+      };
+
     } catch (err) {
-      await redis.del(pendingKey);
-      throw new Error(`quizMcqFillupTrueFalse error: ${err.message}`);
+      console.error(`Quiz fixer error: ${err.message}`);
+      return { 
+        status: "error",
+        error: err.message,
+        kept: "primary"
+      };
     }
   }
 );

@@ -52,6 +52,7 @@ export const generatePYQsFn = inngest.createFunction(
 
     const cacheKey = `lmp:pyq:${className}:${mainSubject}:${chapter}:${year}`;
     const pendingKey = `lmp:pyq:pending:${className}:${mainSubject}:${chapter}:${year}`;
+    const fixedCacheKey = `lmp:pyq:fixed:${className}:${mainSubject}:${chapter}:${year}`;
 
     try {
       // -------------------------------------------------------------------
@@ -80,7 +81,7 @@ export const generatePYQsFn = inngest.createFunction(
       // -------------------------------------------------------------------
       // 2️⃣ PRIMARY PROMPT (UNCHANGED)
       // -------------------------------------------------------------------
-       const prompt = `
+      const prompt = `
 You are a CBSE PYQ Expert. Your ONLY task is to generate synthetic but EXTREMELY ACCURATE
 CBSE-style Previous Year Questions for ONE specific year provided by the user.
 
@@ -581,6 +582,7 @@ OUTPUT
 Return STRICT JSON ONLY. NOTHING ELSE.
 Output MUST be fully compatible with a Markdown+KaTeX renderer.
 `;
+
       // -------------------------------------------------------------------
       // 3️⃣ FIRST AI CALL (PRIMARY GENERATION)
       // -------------------------------------------------------------------
@@ -591,8 +593,96 @@ Output MUST be fully compatible with a Markdown+KaTeX renderer.
       });
 
       // -------------------------------------------------------------------
-      // 4️⃣ SECOND AI CALL (STRICT JSON + LaTeX FIXER)
+      // 4️⃣ PARSE PRIMARY RESPONSE & CACHE IMMEDIATELY
       // -------------------------------------------------------------------
+      let primaryPYQs;
+      try {
+        const extracted = extractJSON(primaryRaw);
+        primaryPYQs = JSON.parse(JSON.stringify(extracted));
+
+        // Validate structure
+        if (!primaryPYQs.pyqs || !Array.isArray(primaryPYQs.pyqs)) {
+          throw new Error("Invalid PYQ structure");
+        }
+
+        // 🚀 IMMEDIATELY CACHE PRIMARY RESPONSE
+        await redis.set(cacheKey, JSON.stringify(primaryPYQs), {
+          ex: 60 * 60 * 24 * 2, // 2 days
+        });
+
+        // Store status in separate key
+        await redis.set(`${cacheKey}:status`, JSON.stringify({
+          version: "primary",
+          generatedAt: new Date().toISOString(),
+          isFixed: false
+        }), {
+          ex: 60 * 60 * 24 * 2,
+        });
+
+        await redis.del(pendingKey);
+      } catch (err) {
+        throw new Error("Failed to parse primary AI response: " + err.message);
+      }
+
+      // -------------------------------------------------------------------
+      // 5️⃣ TRIGGER BACKGROUND FIXER (NON-BLOCKING)
+      // -------------------------------------------------------------------
+      let fixerRunId = null;
+      try {
+        const fixerEvent = await step.sendEvent("trigger-fixer", {
+          name: "lmp/fix.pyqs",
+          data: {
+            className,
+            subject: mainSubject,
+            chapter,
+            year,
+            primaryRaw,
+            cacheKey,
+            fixedCacheKey,
+          },
+        });
+        
+        // Capture the fixer run ID
+        if (fixerEvent && fixerEvent.ids && fixerEvent.ids.length > 0) {
+          fixerRunId = fixerEvent.ids[0];
+        }
+      } catch (err) {
+        console.error("Failed to trigger fixer:", err.message);
+        // Don't throw - we already have primary response cached
+      }
+
+      // -------------------------------------------------------------------
+      // 6️⃣ RETURN IMMEDIATELY WITH PRIMARY RESPONSE
+      // -------------------------------------------------------------------
+      return { 
+        source: "generated",
+        status: "primary",
+        fixerRunId: fixerRunId,
+        cacheKey: cacheKey,
+        message: "Primary response cached, fixing in background"
+      };
+
+    } catch (err) {
+      await redis.del(pendingKey);
+      throw new Error(`generatePYQs error: ${err.message}`);
+    }
+  }
+);
+
+// -------------------------------------------------------------------
+// BACKGROUND FIXER FUNCTION FOR PYQs
+// -------------------------------------------------------------------
+export const pyqFixerFn = inngest.createFunction(
+  {
+    name: "Fix PYQs LaTeX",
+    id: "pyq-fixer",
+    retries: 1,
+  },
+  { event: "lmp/fix.pyqs" },
+  async ({ event, step }) => {
+    const { className, subject, chapter, year, primaryRaw, cacheKey, fixedCacheKey } = event.data;
+
+    try {
       const fixerPrompt = `
 You are a STRICT JSON + LaTeX ESCAPING FIXER for CBSE PREVIOUS YEAR QUESTIONS.
 
@@ -602,26 +692,58 @@ DO NOT rewrite questions.
 DO NOT change year, marks, wording, order, or structure.
 
 ==============================
-ALLOWED FIXES
+ABSOLUTE RULES (MATCH FIRST PROMPT)
 ==============================
-- Fix invalid JSON syntax
-- Fix broken quotes or commas
-- Fix LaTeX escaping for JSON strings
-- Preserve $...$ and $$...$$ exactly
-- Preserve \\n newlines
+
+- Inline math $...$ is ALLOWED
+- Display math $$...$$ is ALLOWED and MUST be preserved
+- Markdown formatting and REAL line breaks MUST be preserved
+- LaTeX commands MUST remain inside existing math delimiters
+
+❌ Do NOT remove $$...$$
+❌ Do NOT convert display math to inline
+❌ Do NOT introduce \\( \\) or \\[ \\]
+❌ Do NOT move math across fields
+
+==============================
+WHAT YOU ARE ALLOWED TO FIX
+==============================
+
+1. JSON SYNTAX ONLY:
+   - Fix missing or incorrect double quotes
+   - Remove trailing commas
+   - Fix broken arrays or objects
+   - Ensure valid JSON structure
+   - Ensure JSON.parse() succeeds
+
+2. LaTeX ESCAPING (JSON-LEVEL ONLY):
+   - Ensure backslashes are correctly escaped for JSON strings
+   - Preserve the SAME LaTeX commands
+   - Preserve the SAME math mode ($ or $$)
+   - Do NOT alter mathematical meaning
+
+3. NEWLINES & FORMATTING:
+   - Preserve REAL line breaks inside strings
+   - Do NOT replace real line breaks with \\n
+   - Do NOT collapse spacing or formatting
 
 ==============================
 STRICTLY FORBIDDEN
 ==============================
-- ❌ Regeneration
-- ❌ Rewriting content
+
+- ❌ Regenerating content
+- ❌ Rewriting questions
+- ❌ Changing math mode ($ ↔ $$)
+- ❌ Moving LaTeX outside math delimiters
 - ❌ Adding or removing questions
-- ❌ Changing marks or year
-- ❌ Changing math mode
+- ❌ Changing year, marks, or id fields
+- ❌ Reordering arrays or fields
+- ❌ Adding explanations, comments, or metadata
 
 ==============================
-INPUT JSON
+INPUT JSON TO FIX
 ==============================
+
 <<<
 ${primaryRaw}
 >>>
@@ -629,66 +751,100 @@ ${primaryRaw}
 ==============================
 OUTPUT
 ==============================
-Return ONLY corrected JSON.
-No explanation.
+
+Return ONLY the corrected JSON.
+NO explanation.
+NO markdown.
+NO extra text.
 `.trim();
 
-    const subjectHardness = ["physics","chemistry","mathematics","applied mathematics", "accountancy", "bio technology"];
+      const subjectHardness = [
+        "physics",
+        "chemistry",
+        "mathematics",
+        "applied mathematics",
+        "accountancy",
+        "bio technology",
+      ];
 
       let secondPassModel;
-      if(subjectHardness.includes(mainSubject)){
+      if (subjectHardness.includes(subject.toLowerCase())) {
         secondPassModel = "gpt-4o";
-      }
-      else{
-        secondPassModel = "gpt-4o-mini"
+      } else {
+        secondPassModel = "gpt-4o-mini";
       }
 
-
+      // Call fixer AI
       const fixedRaw = await step.run("Call OpenAI (Fixer)", async () => {
-        return await askOpenAI(fixerPrompt, secondPassModel,{
+        return await askOpenAI(fixerPrompt, secondPassModel, {
           response_format: { type: "json_object" },
         });
       });
 
-      // -------------------------------------------------------------------
-      // 5️⃣ PARSE + VALIDATE (STRICT)
-      // -------------------------------------------------------------------
-      let finalJson;
+      // Parse fixed response
+      let fixedPYQs;
       try {
         const extracted = extractJSON(fixedRaw);
-        finalJson = JSON.parse(JSON.stringify(extracted));
+        fixedPYQs = JSON.parse(JSON.stringify(extracted));
 
-
-
+        if (!fixedPYQs.pyqs || !Array.isArray(fixedPYQs.pyqs)) {
+          throw new Error("Invalid PYQ structure in fixed version");
+        }
       } catch (err) {
-        throw new Error("Failed to parse AI response: " + err.message);
+        // If fixer fails, keep the primary version
+        console.error("Fixer failed, keeping primary version:", err.message);
+        return { status: "fixer_failed", kept: "primary" };
       }
 
-      // -------------------------------------------------------------------
-      // 6️⃣ SAVE DB
-      // -------------------------------------------------------------------
-      await step.run("Save DB", async () => {
-        await PyqModel.create({
-          className,
-          subject: mainSubject,
-          chapter,
-          year,
-          content: finalJson,
-        });
+      // Save fixed version to DB
+      await step.run("Save Fixed to DB", async () => {
+        await PyqModel.findOneAndUpdate(
+          {
+            className,
+            subject,
+            chapter,
+            year,
+          },
+          {
+            content: fixedPYQs,
+          },
+          {
+            upsert: true,
+          }
+        );
       });
 
-      // -------------------------------------------------------------------
-      // 7️⃣ SAVE REDIS
-      // -------------------------------------------------------------------
-      await redis.set(cacheKey, JSON.stringify(finalJson), {
+      // Update Redis cache with fixed version
+      await redis.set(cacheKey, JSON.stringify(fixedPYQs), {
+        ex: 60 * 60 * 24 * 2, // 2 days
+      });
+
+      // Update status marker
+      await redis.set(`${cacheKey}:status`, JSON.stringify({
+        version: "fixed",
+        fixedAt: new Date().toISOString(),
+        isFixed: true
+      }), {
         ex: 60 * 60 * 24 * 2,
       });
 
-      await redis.del(pendingKey);
-      return { source: "generated" };
+      // Also store in fixed cache key for reference
+      await redis.set(fixedCacheKey, JSON.stringify(fixedPYQs), {
+        ex: 60 * 60 * 24 * 2,
+      });
+
+      return { 
+        status: "fixed",
+        message: "LaTeX fixed and cached"
+      };
+
     } catch (err) {
-      await redis.del(pendingKey);
-      throw new Error(`generatePYQs error: ${err.message}`);
+      console.error(`PYQ fixer error: ${err.message}`);
+      return { 
+        status: "error",
+        error: err.message,
+        kept: "primary"
+      };
     }
   }
 );
