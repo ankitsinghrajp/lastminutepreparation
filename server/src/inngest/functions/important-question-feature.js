@@ -619,6 +619,8 @@ Output MUST be fully compatible with a Markdown+KaTeX renderer.
     } catch (err) {
       await redis.del(pendingKey);
       throw new Error(`importantQuestionGenerator error: ${err.message}`);
+    }finally{
+      await redis.del(pendingKey);
     }
   }
 );
@@ -805,5 +807,6 @@ NO extra text.
         kept: "primary"
       };
     }
+  
   }
 );

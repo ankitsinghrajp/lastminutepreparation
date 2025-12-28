@@ -431,5 +431,8 @@ NO extra text.
       await redis.del(pendingKey);
       throw new Error(`generateImportantTopics error: ${err.message}`);
     }
+    finally{
+      await redis.del(pendingKey);
+    }
   }
 );

@@ -6,6 +6,7 @@ import { Testimonials } from "@/components/Testimonials";
 import { Footer } from "@/components/Footer";
 import FeaturesSection from "@/components/Sections/FeaturesSection";
 import { Helmet } from "react-helmet-async";
+import SamplesSection from "@/components/Sections/SamplesSection";
 
 const Index = () => {
   return (
@@ -118,6 +119,7 @@ const Index = () => {
       </Helmet>
       <Navbar />
       <Hero />
+      <SamplesSection/>
       <FeaturesSection />
       <Features />
       <Pricing />

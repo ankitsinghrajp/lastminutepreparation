@@ -298,6 +298,7 @@ const topperStyleAnswer = asyncHandler(async (req, res) => {
     );
   }
 });
+
 const importantQuestionGenerator = asyncHandler(async (req, res) => {
   const { className, subject, chapter, index } = req.body;
 
@@ -316,25 +317,18 @@ const importantQuestionGenerator = asyncHandler(async (req, res) => {
   const pendingKey = `lmp:impQ:pending:${className}:${mainSubject}:${chapter}:${topics}`;
 
   // -------------------------------------------------------------------
-  // 1️⃣ CHECK REDIS (FASTEST PATH)
+  // 1️⃣ CHECK REDIS CACHE (FAST PATH)
   // -------------------------------------------------------------------
   try {
     const redisCached = await redis.get(cacheKey);
 
     if (redisCached) {
-      let finalData;
+      try {
+        const finalData =
+          typeof redisCached === "object"
+            ? redisCached
+            : JSON.parse(redisCached);
 
-      if (typeof redisCached === "object") {
-        finalData = redisCached;
-      } else {
-        try {
-          finalData = JSON.parse(redisCached);
-        } catch (err) {
-          await redis.del(cacheKey); // corrupted → delete
-        }
-      }
-
-      if (finalData) {
         return res.status(200).json(
           new ApiResponse(
             200,
@@ -342,6 +336,8 @@ const importantQuestionGenerator = asyncHandler(async (req, res) => {
             "Important Questions Ready (Redis)"
           )
         );
+      } catch {
+        await redis.del(cacheKey); // 🆕 corrupted cache cleanup
       }
     }
   } catch (err) {
@@ -349,55 +345,84 @@ const importantQuestionGenerator = asyncHandler(async (req, res) => {
   }
 
   // -------------------------------------------------------------------
-  // 2️⃣ CHECK IF ALREADY PENDING (BEFORE ACQUIRING LOCK)
+  // 2️⃣ STALE PENDING LOCK CHECK (🆕 CRITICAL FIX)
   // -------------------------------------------------------------------
   try {
-    const isPending = await redis.get(pendingKey);
-    
-    if (isPending) {
-      // Job already queued by another request
-      return res
-        .status(202)
-        .json(new ApiResponse(202, null, "Important questions generation already in progress"));
+    const pendingAt = await redis.get(pendingKey);
+
+    if (pendingAt) {
+      const age = Date.now() - Number(pendingAt);
+
+      // 🆕 break deadlock if older than 6 minutes
+      if (age < 6 * 60 * 1000) {
+        return res.status(202).json(
+          new ApiResponse(
+            202,
+            null,
+            "Important questions generation already in progress"
+          )
+        );
+      }
+
+      await redis.del(pendingKey); // 🆕 stale lock cleanup
     }
   } catch (err) {
     console.error("Redis pending check error:", err);
   }
 
   // -------------------------------------------------------------------
-  // 3️⃣ ACQUIRE LOCK AND TRIGGER JOB
+  // 3️⃣ ACQUIRE LOCK + QUEUE INNGEST SAFELY
   // -------------------------------------------------------------------
   try {
+    // 🆕 store timestamp instead of "1"
     const lockAcquired = await redis.set(
       pendingKey,
-      "1",
-      { nx: true, ex: 150 }
+      Date.now().toString(),
+      { nx: true, ex: 420 } // 🆕 ~7 min TTL
     );
 
-    if (lockAcquired) {
-      await inngest.send({
-        name: "lmp/generate.importantQuestions",
-        data: { className, subject, chapter, index },
-      });
-
-      return res
-        .status(202)
-        .json(
-          new ApiResponse(202, null, "Important questions generation queued")
-        );
-    } else {
-      // Lock was acquired by another request in the microseconds between check and set
-      return res
-        .status(202)
-        .json(new ApiResponse(202, null, "Important questions generation already in progress"));
+    if (!lockAcquired) {
+      return res.status(202).json(
+        new ApiResponse(
+          202,
+          null,
+          "Important questions generation already in progress"
+        )
+      );
     }
+
+    try {
+      // 🆕 protect against inngest network hang
+      await Promise.race([
+        inngest.send({
+          name: "lmp/generate.importantQuestions",
+          data: { className, subject, chapter, index },
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Inngest timeout")), 8000)
+        ),
+      ]);
+    } catch (err) {
+      // 🆕 rollback lock if queue fails
+      await redis.del(pendingKey);
+      throw err;
+    }
+
+    return res.status(202).json(
+      new ApiResponse(
+        202,
+        null,
+        "Important questions generation queued"
+      )
+    );
   } catch (err) {
-    console.error("Redis lock error:", err);
+    console.error("Queue error:", err);
     return res
       .status(500)
       .json(new ApiResponse(500, null, "Failed to queue generation"));
   }
 });
+
 
 
 const quizMcqFillupTrueFalse = asyncHandler(async (req, res) => {
@@ -660,28 +685,25 @@ const generatePYQs = asyncHandler(async (req, res) => {
   const pendingKey = `lmp:pyq:pending:${className}:${mainSubject}:${chapter}:${year}`;
 
   // -------------------------------------------------------------------
-  // 1️⃣ CHECK REDIS (FASTEST PATH)
+  // 1️⃣ CHECK REDIS CACHE (FAST PATH)
   // -------------------------------------------------------------------
   try {
     const redisCached = await redis.get(cacheKey);
 
     if (redisCached) {
-      let finalData;
+      try {
+        const finalData =
+          typeof redisCached === "object"
+            ? redisCached
+            : JSON.parse(redisCached);
 
-      if (typeof redisCached === "object") {
-        finalData = redisCached;
-      } else {
-        try {
-          finalData = JSON.parse(redisCached);
-        } catch (err) {
-          await redis.del(cacheKey); // corrupted → delete
-        }
-      }
-
-      if (finalData) {
         return res
           .status(200)
-          .json(new ApiResponse(200, { data: finalData }, "PYQs Ready (Redis)"));
+          .json(
+            new ApiResponse(200, { data: finalData }, "PYQs Ready (Redis)")
+          );
+      } catch {
+        await redis.del(cacheKey); // 🆕 corrupted cache cleanup
       }
     }
   } catch (err) {
@@ -689,52 +711,83 @@ const generatePYQs = asyncHandler(async (req, res) => {
   }
 
   // -------------------------------------------------------------------
-  // 2️⃣ CHECK IF ALREADY PENDING (BEFORE ACQUIRING LOCK)
+  // 2️⃣ STALE PENDING LOCK CHECK (🆕 CRITICAL FIX)
   // -------------------------------------------------------------------
   try {
-    const isPending = await redis.get(pendingKey);
-    
-    if (isPending) {
-      // Job already queued by another request
-      return res
-        .status(202)
-        .json(new ApiResponse(202, null, "PYQs generation already in progress"));
+    const pendingAt = await redis.get(pendingKey);
+
+    if (pendingAt) {
+      const age = Date.now() - Number(pendingAt);
+
+      // 🆕 break deadlock if older than 6 minutes
+      if (age < 6 * 60 * 1000) {
+        return res
+          .status(202)
+          .json(
+            new ApiResponse(
+              202,
+              null,
+              "PYQs generation already in progress"
+            )
+          );
+      }
+
+      await redis.del(pendingKey); // 🆕 stale lock cleanup
     }
   } catch (err) {
     console.error("Redis pending check error:", err);
   }
 
   // -------------------------------------------------------------------
-  // 3️⃣ ACQUIRE LOCK AND TRIGGER JOB
+  // 3️⃣ ACQUIRE LOCK + QUEUE INNGEST SAFELY
   // -------------------------------------------------------------------
   try {
+    // 🆕 store timestamp instead of "1"
     const lockAcquired = await redis.set(
       pendingKey,
-      "1",
-      { nx: true, ex: 150 } 
+      Date.now().toString(),
+      { nx: true, ex: 420 } // 🆕 ~7 min TTL
     );
 
-    if (lockAcquired) {
-      await inngest.send({
-        name: "lmp/generate.pyqs",
-        data: { className, subject, chapter, year },
-      });
-
+    if (!lockAcquired) {
       return res
         .status(202)
-        .json(new ApiResponse(202, null, "PYQs generation queued"));
-    } else {
-      // Lock was acquired by another request in the microseconds between check and set
-      return res
-        .status(202)
-        .json(new ApiResponse(202, null, "PYQs generation already in progress"));
+        .json(
+          new ApiResponse(
+            202,
+            null,
+            "PYQs generation already in progress"
+          )
+        );
     }
+
+    try {
+      // 🆕 protect against inngest network hang
+      await Promise.race([
+        inngest.send({
+          name: "lmp/generate.pyqs",
+          data: { className, subject, chapter, year },
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Inngest timeout")), 8000)
+        ),
+      ]);
+    } catch (err) {
+      // 🆕 rollback lock if queue fails
+      await redis.del(pendingKey);
+      throw err;
+    }
+
+    return res
+      .status(202)
+      .json(new ApiResponse(202, null, "PYQs generation queued"));
   } catch (err) {
-    console.error("Redis lock error:", err);
+    console.error("Queue error:", err);
     return res
       .status(500)
       .json(new ApiResponse(500, null, "Failed to queue generation"));
   }
 });
+
 
 export { summarizer, topperStyleAnswer, importantQuestionGenerator, quizMcqFillupTrueFalse,askAnyQuestion, generatePYQs};

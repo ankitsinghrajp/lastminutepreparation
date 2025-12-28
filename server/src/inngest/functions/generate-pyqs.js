@@ -666,6 +666,9 @@ Output MUST be fully compatible with a Markdown+KaTeX renderer.
       await redis.del(pendingKey);
       throw new Error(`generatePYQs error: ${err.message}`);
     }
+    finally{
+      await redis.del(pendingKey);
+    }
   }
 );
 

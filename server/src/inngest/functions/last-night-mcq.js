@@ -544,5 +544,8 @@ Return ONLY the corrected JSON.
       await redis.del(pendingKey);
       throw new Error(`generateMCQs error: ${err.message}`);
     }
+    finally{
+      await redis.del(pendingKey);
+    }
   }
 );

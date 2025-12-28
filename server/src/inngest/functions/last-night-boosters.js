@@ -651,5 +651,8 @@ OUTPUT: Return the corrected JSON only, no explanation.
       await redis.del(pendingKey);
       throw new Error(`generateMemoryBooster error: ${err.message}`);
     }
+    finally{
+      await redis.del(pendingKey);
+    }
   }
 );
