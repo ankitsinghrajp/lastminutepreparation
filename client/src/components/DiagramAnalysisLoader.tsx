@@ -20,7 +20,7 @@ const DiagramAnalysisLoader = ({ stepLabel = "Loading...", showLoader = true }) 
     const interval = setInterval(() => {
       messageIndex = (messageIndex + 1) % LOADER_MESSAGES.length;
       setCurrentMessage(LOADER_MESSAGES[messageIndex]);
-    }, 3000);
+    }, 6000);
 
     return () => clearInterval(interval);
   }, [showLoader]);
