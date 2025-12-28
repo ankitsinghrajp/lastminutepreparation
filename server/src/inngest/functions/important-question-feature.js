@@ -43,7 +43,6 @@ export const extractJSON = (text) => {
   }
 };
 
-
 export const importantQuestionGeneratorFn = inngest.createFunction(
   {
     name: "Generate Important Question Set",
@@ -63,6 +62,7 @@ export const importantQuestionGeneratorFn = inngest.createFunction(
 
     const cacheKey = `lmp:impQ:${className}:${mainSubject}:${chapter}:${topics}`;
     const pendingKey = `lmp:impQ:pending:${className}:${mainSubject}:${chapter}:${topics}`;
+    const fixedCacheKey = `lmp:impQ:fixed:${className}:${mainSubject}:${chapter}:${topics}`;
 
     try {
       // -------------------------------------------------------------------
@@ -90,7 +90,7 @@ export const importantQuestionGeneratorFn = inngest.createFunction(
       // -------------------------------------------------------------------
       // 2️⃣ PRIMARY PROMPT (UNCHANGED)
       // -------------------------------------------------------------------
- const prompt = `
+      const prompt = `
 You are an API that returns ONLY valid JSON. No extra text, no explanation outside JSON.
 
 Class: ${className} | Subject: ${mainSubject} | Book: ${bookName}
@@ -539,9 +539,104 @@ Output MUST be fully compatible with a Markdown+KaTeX renderer.
       });
 
       // -------------------------------------------------------------------
-      // 4️⃣ SECOND AI CALL (LaTeX VALIDATION ONLY)
+      // 4️⃣ PARSE PRIMARY RESPONSE & CACHE IMMEDIATELY
       // -------------------------------------------------------------------
-  
+      let primaryQuestions;
+      try {
+        const extracted = extractJSON(primaryRaw);
+        primaryQuestions = JSON.parse(JSON.stringify(extracted));
+
+        const required = [
+          "chapter",
+          "importantQuestions",
+          "veryShortQuestions",
+          "longAnswerQuestions",
+          "examStrategy",
+        ];
+
+        const missing = required.filter((f) => !primaryQuestions[f]);
+        if (missing.length > 0) {
+          throw new Error("Missing required fields: " + missing.join(", "));
+        }
+
+        // 🚀 IMMEDIATELY CACHE PRIMARY RESPONSE WITH STATUS
+        // Store metadata separately to avoid interfering with content validation
+        await redis.set(cacheKey, JSON.stringify(primaryQuestions), {
+          ex: 60 * 60 * 24 * 2, // 2 days
+        });
+
+        // Store status in separate key
+        await redis.set(`${cacheKey}:status`, JSON.stringify({
+          version: "primary",
+          generatedAt: new Date().toISOString(),
+          isFixed: false
+        }), {
+          ex: 60 * 60 * 24 * 2,
+        });
+
+        await redis.del(pendingKey);
+      } catch (err) {
+        throw new Error("Failed to parse primary AI response: " + err.message);
+      }
+
+      // -------------------------------------------------------------------
+      // 5️⃣ TRIGGER BACKGROUND FIXER (NON-BLOCKING)
+      // -------------------------------------------------------------------
+      let fixerRunId = null;
+      try {
+        const fixerEvent = await step.sendEvent("trigger-fixer", {
+          name: "lmp/fix.importantQuestions",
+          data: {
+            className,
+            subject: mainSubject,
+            chapter,
+            primaryRaw,
+            cacheKey,
+            fixedCacheKey,
+          },
+        });
+        
+        // Capture the fixer run ID
+        if (fixerEvent && fixerEvent.ids && fixerEvent.ids.length > 0) {
+          fixerRunId = fixerEvent.ids[0];
+        }
+      } catch (err) {
+        console.error("Failed to trigger fixer:", err.message);
+        // Don't throw - we already have primary response cached
+      }
+
+      // -------------------------------------------------------------------
+      // 6️⃣ RETURN IMMEDIATELY WITH PRIMARY RESPONSE
+      // -------------------------------------------------------------------
+      return { 
+        source: "generated",
+        status: "primary",
+        fixerRunId: fixerRunId,
+        cacheKey: cacheKey,
+        message: "Primary response cached, fixing in background"
+      };
+
+    } catch (err) {
+      await redis.del(pendingKey);
+      throw new Error(`importantQuestionGenerator error: ${err.message}`);
+    }
+  }
+);
+
+// -------------------------------------------------------------------
+// BACKGROUND FIXER FUNCTION
+// -------------------------------------------------------------------
+export const importantQuestionFixerFn = inngest.createFunction(
+  {
+    name: "Fix Important Questions LaTeX",
+    id: "important-question-fixer",
+    retries: 1,
+  },
+  { event: "lmp/fix.importantQuestions" },
+  async ({ event, step }) => {
+    const { className, subject, chapter, primaryRaw, cacheKey, fixedCacheKey } = event.data;
+
+    try {
       const fixerPrompt = `
 You are a STRICT JSON + LaTeX ESCAPING FIXER for IMPORTANT CBSE QUESTIONS.
 
@@ -616,71 +711,99 @@ NO markdown.
 NO extra text.
 `.trim();
 
-    const subjectHardness = ["physics","chemistry","mathematics","applied mathematics", "accountancy", "bio technology"];
+      const subjectHardness = [
+        "physics",
+        "chemistry",
+        "mathematics",
+        "applied mathematics",
+        "accountancy",
+        "bio technology",
+      ];
 
       let secondPassModel;
-      if(subjectHardness.includes(mainSubject)){
+      if (subjectHardness.includes(subject.toLowerCase())) {
         secondPassModel = "gpt-4o";
+      } else {
+        secondPassModel = "gpt-4o-mini";
       }
-      else{
-        secondPassModel = "gpt-4o-mini"
-      }
 
-
-
+      // Call fixer AI
       const fixedRaw = await step.run("Call OpenAI (Fixer)", async () => {
         return await askOpenAI(fixerPrompt, secondPassModel);
       });
 
-      // -------------------------------------------------------------------
-      // 5️⃣ PARSE + VALIDATE (UNCHANGED)
-      // -------------------------------------------------------------------
-     let finalQuestions;
-try {
-  const extracted = extractJSON(fixedRaw);
-  finalQuestions = JSON.parse(JSON.stringify(extracted));
+      // Parse fixed response
+      let fixedQuestions;
+      try {
+        const extracted = extractJSON(fixedRaw);
+        fixedQuestions = JSON.parse(JSON.stringify(extracted));
 
-  const required = [
-    "chapter",
-    "importantQuestions",
-    "veryShortQuestions",
-    "longAnswerQuestions",
-    "examStrategy",
-  ];
+        const required = [
+          "chapter",
+          "importantQuestions",
+          "veryShortQuestions",
+          "longAnswerQuestions",
+          "examStrategy",
+        ];
 
-  const missing = required.filter((f) => !finalQuestions[f]);
-  if (missing.length > 0) {
-    throw new Error("Missing required fields: " + missing.join(", "));
-  }
-} catch (err) {
-  throw new Error("Failed to parse AI response: " + err.message);
-}
+        const missing = required.filter((f) => !fixedQuestions[f]);
+        if (missing.length > 0) {
+          throw new Error("Missing required fields in fixed version: " + missing.join(", "));
+        }
+      } catch (err) {
+        // If fixer fails, keep the primary version
+        console.error("Fixer failed, keeping primary version:", err.message);
+        return { status: "fixer_failed", kept: "primary" };
+      }
 
-
-      // -------------------------------------------------------------------
-      // 6️⃣ SAVE DB
-      // -------------------------------------------------------------------
-      await step.run("Save DB", async () => {
-        await ImpQuestionModel.create({
-          className,
-          subject: mainSubject,
-          chapter,
-          content: finalQuestions,
-        });
+      // Save fixed version to DB
+      await step.run("Save Fixed to DB", async () => {
+        await ImpQuestionModel.findOneAndUpdate(
+          {
+            className,
+            subject,
+            chapter,
+          },
+          {
+            content: fixedQuestions,
+          },
+          {
+            upsert: true,
+          }
+        );
       });
 
-      // -------------------------------------------------------------------
-      // 7️⃣ SAVE REDIS
-      // -------------------------------------------------------------------
-      await redis.set(cacheKey, JSON.stringify(finalQuestions), {
+      // Update Redis cache with fixed version
+      await redis.set(cacheKey, JSON.stringify(fixedQuestions), {
+        ex: 60 * 60 * 24 * 2, // 2 days
+      });
+
+      // Update status marker
+      await redis.set(`${cacheKey}:status`, JSON.stringify({
+        version: "fixed",
+        fixedAt: new Date().toISOString(),
+        isFixed: true
+      }), {
         ex: 60 * 60 * 24 * 2,
       });
 
-      await redis.del(pendingKey);
-      return { source: "generated" };
+      // Also store in fixed cache key for reference
+      await redis.set(fixedCacheKey, JSON.stringify(fixedQuestions), {
+        ex: 60 * 60 * 24 * 2,
+      });
+
+      return { 
+        status: "fixed",
+        message: "LaTeX fixed and cached"
+      };
+
     } catch (err) {
-      await redis.del(pendingKey);
-      throw new Error(`importantQuestionGenerator error: ${err.message}`);
+      console.error(`Background fixer error: ${err.message}`);
+      return { 
+        status: "error",
+        error: err.message,
+        kept: "primary"
+      };
     }
   }
 );

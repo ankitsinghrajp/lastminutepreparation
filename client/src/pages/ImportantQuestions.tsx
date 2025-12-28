@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
-import { HelpCircle, Loader2, Zap, ChevronDown } from "lucide-react";
+import { HelpCircle, Loader2, Zap, ChevronDown, Sparkles } from "lucide-react";
 import { Footer } from "@/components/Footer";
 import { toast } from "sonner";
 import {
@@ -21,9 +21,8 @@ const classes = ["9th", "10th", "11th", "12th"];
 export default function ImportantQuestions() {
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
-  const POLL_INTERVAL_MS = 1000; // 1 seconds
-const POLL_TIMEOUT_MS = 90 * 1000;  // 1 min 30 sec
-
+  const POLL_INTERVAL_MS = 5000; // 5 seconds for fixer check
+  const POLL_TIMEOUT_MS = 120 * 1000; // 2 minutes max for fixer
   
   const [selectedClass, setSelectedClass] = useState(() => {
     return sessionStorage.getItem("importantQuestions_selectedClass") || "12th";
@@ -42,7 +41,10 @@ const POLL_TIMEOUT_MS = 90 * 1000;  // 1 min 30 sec
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false); // New: track fixer status
+  const [questionVersion, setQuestionVersion] = useState("primary"); // New: track version
   const pollIntervalRef = useRef(null);
+  const fixerPollRef = useRef(null);
 
   const [importantQuestions] = useAsyncMutation(useImportantQuestionGeneratorMutation);
   
@@ -83,6 +85,9 @@ const POLL_TIMEOUT_MS = 90 * 1000;  // 1 min 30 sec
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
+      }
+      if (fixerPollRef.current) {
+        clearInterval(fixerPollRef.current);
       }
     };
   }, []);
@@ -227,51 +232,115 @@ const POLL_TIMEOUT_MS = 90 * 1000;  // 1 min 30 sec
     }
   }, [ChapterData, isChapterLoading]);
 
- const pollImportantQuestion = async (params) => {
-  // Clear any existing poll
-  if (pollIntervalRef.current) {
-    clearInterval(pollIntervalRef.current);
-    pollIntervalRef.current = null;
-  }
+  // Poll for fixed/optimized version
+  const pollForFixedVersion = async (params) => {
+    // Clear any existing fixer poll
+    if (fixerPollRef.current) {
+      clearInterval(fixerPollRef.current);
+      fixerPollRef.current = null;
+    }
 
-  const startTime = Date.now();
+    const startTime = Date.now();
+    let pollCount = 0;
 
-  pollIntervalRef.current = setInterval(async () => {
-    try {
-      // ⛔ STOP AFTER 1.30 MIN
-      if (Date.now() - startTime > POLL_TIMEOUT_MS) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-        setIsGenerating(false); // ✅ STOP LOADER
-        toast.error("Generation took too long. Please try again.");
-        return;
+    setIsOptimizing(true);
+
+    fixerPollRef.current = setInterval(async () => {
+      pollCount++;
+
+      try {
+        // Stop after timeout
+        if (Date.now() - startTime > POLL_TIMEOUT_MS) {
+          clearInterval(fixerPollRef.current);
+          fixerPollRef.current = null;
+          setIsOptimizing(false);
+          console.log("Fixer polling timeout - using primary version");
+          return;
+        }
+
+        window.__LMP_POLLING_FIXER__ = true;
+        const res = await importantQuestions(null, params);
+        window.__LMP_POLLING_FIXER__ = false;
+
+        if (res?.data?.statusCode === 200) {
+          const newData = res.data.data.data;
+          const status = res.data.data.meta; // Assuming backend sends meta info
+
+          // Check if this is the fixed version
+          if (status?.isFixed || status?.version === "fixed") {
+            setResponse(newData);
+            setQuestionVersion("fixed");
+            
+            clearInterval(fixerPollRef.current);
+            fixerPollRef.current = null;
+            setIsOptimizing(false);
+            
+            toast.success("✨ Questions optimized!", {
+              description: "LaTeX formatting has been enhanced"
+            });
+          }
+        }
+      } catch (error) {
+        window.__LMP_POLLING_FIXER__ = false;
+        console.error("Fixer polling error:", error);
+        
+        // Don't stop polling on error, might be temporary
+        if (pollCount > 24) { // Stop after 24 attempts (2 minutes at 5s interval)
+          clearInterval(fixerPollRef.current);
+          fixerPollRef.current = null;
+          setIsOptimizing(false);
+        }
       }
+    }, POLL_INTERVAL_MS);
+  };
 
-      window.__LMP_POLLING__ = true;
-      const res = await importantQuestions(null, params);
-      window.__LMP_POLLING__ = false;
-
-      if (res?.data?.statusCode === 200) {
-        setResponse(res.data.data.data);
-
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-
-        setIsGenerating(false); // ✅ STOP LOADER
-        toast.success("Questions Ready!");
-      }
-    } catch (error) {
-      window.__LMP_POLLING__ = false;
-
+  const pollImportantQuestion = async (params) => {
+    // Clear any existing poll
+    if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;
-
-      setIsGenerating(false); // ✅ STOP LOADER
-      toast.error("Error fetching questions...");
     }
-  }, POLL_INTERVAL_MS);
-};
 
+    const startTime = Date.now();
+    const GENERATION_TIMEOUT = 90 * 1000; // 1.5 minutes for generation
+
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        // Stop after timeout
+        if (Date.now() - startTime > GENERATION_TIMEOUT) {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+          setIsGenerating(false);
+          toast.error("Generation took too long. Please try again.");
+          return;
+        }
+
+        window.__LMP_POLLING__ = true;
+        const res = await importantQuestions(null, params);
+        window.__LMP_POLLING__ = false;
+
+        if (res?.data?.statusCode === 200) {
+          setResponse(res.data.data.data);
+          setQuestionVersion("primary");
+
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+          setIsGenerating(false);
+          
+          toast.success("Questions Ready!");
+          
+          // Start polling for fixed version in background
+          pollForFixedVersion(params);
+        }
+      } catch (error) {
+        window.__LMP_POLLING__ = false;
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+        setIsGenerating(false);
+        toast.error("Error fetching questions...");
+      }
+    }, 1000); // 1 second interval for generation polling
+  };
 
   const handleGenerate = async () => {
     if (!selectedClass || !selectedSubject || !selectedChapter) {
@@ -282,6 +351,8 @@ const POLL_TIMEOUT_MS = 90 * 1000;  // 1 min 30 sec
     // Clear previous response and set generating state
     setResponse([]);
     setIsGenerating(true);
+    setIsOptimizing(false);
+    setQuestionVersion("primary");
     
     const params = {
       className: selectedClass,
@@ -294,10 +365,26 @@ const POLL_TIMEOUT_MS = 90 * 1000;  // 1 min 30 sec
       const res = await importantQuestions("Generating...", params);
       
       if (res?.data?.statusCode === 200) {
-        // Questions ready instantly (from Redis)
+        // Questions ready instantly (from cache or immediate generation)
         setResponse(res.data.data.data);
         setIsGenerating(false);
-        toast.success("Questions Ready!");
+        
+        const meta = res.data.data.meta || {};
+        
+        // Check if this is primary or fixed version
+        if (meta.isFixed || meta.version === "fixed") {
+          setQuestionVersion("fixed");
+          toast.success("Questions Ready!");
+        } else {
+          setQuestionVersion("primary");
+          toast.success("Questions Ready!");
+          
+          // Start polling for optimized version in background
+          toast.message("✨ Optimizing formatting in background...", {
+            duration: 3000
+          });
+          pollForFixedVersion(params);
+        }
       } else if (res?.data?.statusCode === 202) {
         // Not ready → queued → start polling
         toast.message("Generating Questions...");
@@ -316,9 +403,15 @@ const POLL_TIMEOUT_MS = 90 * 1000;  // 1 min 30 sec
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;
     }
+    if (fixerPollRef.current) {
+      clearInterval(fixerPollRef.current);
+      fixerPollRef.current = null;
+    }
     setResponse([]);
     setSelectedIndex([]);
     setIsGenerating(false);
+    setIsOptimizing(false);
+    setQuestionVersion("primary");
     sessionStorage.removeItem("importantQuestions_response");
     toast.success("Questions cleared!");
   };
@@ -327,7 +420,6 @@ const POLL_TIMEOUT_MS = 90 * 1000;  // 1 min 30 sec
 
   return (
     <div className="min-h-screen bg-background">
-
       <Helmet>
         {/* Title */}
         <title>
@@ -555,6 +647,53 @@ const POLL_TIMEOUT_MS = 90 * 1000;  // 1 min 30 sec
                   Generating Important Questions...
                 </span>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Optimization Status - Shows when optimizing */}
+        {isOptimizing && response.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 border border-violet-200 dark:border-violet-800">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-violet-500 to-purple-500 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-white animate-pulse" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-violet-900 dark:text-violet-100">
+                  Optimizing formatting in background...
+                </p>
+                <p className="text-xs text-violet-700 dark:text-violet-300 mt-0.5">
+                  LaTeX equations and mathematical expressions are being enhanced for better readability
+                </p>
+              </div>
+              <div className="flex-shrink-0">
+                <Loader2 className="w-5 h-5 text-violet-500 animate-spin" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Version Badge - Shows current version */}
+        {response.length > 0 && (
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {questionVersion === "fixed" ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border border-green-200 dark:border-green-800">
+                  <Sparkles className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                  <span className="text-xs font-medium text-green-700 dark:text-green-300">
+                    Optimized Version
+                  </span>
+                </div>
+              ) : (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800">
+                  <div className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+                  <span className="text-xs font-medium text-violet-700 dark:text-violet-300">
+                    Standard Version
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         )}
