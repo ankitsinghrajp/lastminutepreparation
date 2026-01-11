@@ -573,6 +573,20 @@ Output MUST be fully compatible with a Markdown+KaTeX renderer.
           ex: 60 * 60 * 24 * 2, // 2 days
         });
 
+             await McqModel.findOneAndUpdate(
+          { className, subject: mainSubject, chapter },
+          {
+            $set: {
+              content: primaryQuestions,
+            },
+          },
+          {
+            upsert: true,
+            new:true,
+          }
+        );
+
+
         // Store status in separate key
         await redis.set(`${cacheKey}:status`, JSON.stringify({
           version: "primary",

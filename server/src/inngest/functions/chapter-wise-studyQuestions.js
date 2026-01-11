@@ -4,12 +4,14 @@ import { parseSubject, detectCategory } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
 
-/* -------------------- JSON EXTRACTOR (UNCHANGED) -------------------- */
+/* -------------------- ROBUST JSON EXTRACTOR -------------------- */
 export const extractJSON = (text) => {
   if (!text) throw new Error("Empty response received from AI.");
 
+  // Remove markdown fences if present
   text = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
+  // Extract JSON boundaries
   const first = text.indexOf("{");
   const last = text.lastIndexOf("}");
   if (first === -1 || last === -1) {
@@ -18,22 +20,33 @@ export const extractJSON = (text) => {
 
   let jsonString = text.substring(first, last + 1);
 
-  // Preserve ALL backslashes for LaTeX
-  jsonString = jsonString.replace(/[\u0000-\u001F]+/g, " ");
+  // Remove control characters EXCEPT newlines and tabs that are part of valid JSON strings
+  // Only remove characters that are definitely invalid in JSON
+  jsonString = jsonString.replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F]/g, "");
 
-  const parsed = JSON.parse(jsonString);
+  try {
+    const parsed = JSON.parse(jsonString);
 
-  if (!parsed.questions || !Array.isArray(parsed.questions)) {
-    throw new Error("Invalid structure: 'questions' array missing");
-  }
-
-  parsed.questions.forEach((q, idx) => {
-    if (!q.question || typeof q.question !== "string") {
-      throw new Error(`Invalid question at index ${idx}`);
+    if (!parsed.questions || !Array.isArray(parsed.questions)) {
+      throw new Error("Invalid structure: 'questions' array missing");
     }
-  });
 
-  return parsed;
+    parsed.questions.forEach((q, idx) => {
+      if (!q.question || typeof q.question !== "string") {
+        throw new Error(`Invalid question at index ${idx}`);
+      }
+    });
+
+    return parsed;
+  } catch (err) {
+    // If JSON.parse fails, try to provide more context
+    console.error("JSON Parse Error Details:", {
+      error: err.message,
+      position: err.message.match(/position (\d+)/)?.[1],
+      preview: jsonString.substring(0, 200) + "..."
+    });
+    throw new Error(`Failed to parse AI response: ${err.message}`);
+  }
 };
 
 /* -------------------- INNGEST FUNCTION -------------------- */
@@ -51,6 +64,14 @@ export const chapterWiseStudyQuestionsFn = inngest.createFunction(
 
     const cacheKey = `lmp:studyq:${className}:${mainSubject}:${chapter}`;
     const pendingKey = `lmp:studyq:pending:${className}:${mainSubject}:${chapter}`;
+    const fixedCacheKey = `lmp:studyq:fixed:${className}:${mainSubject}:${chapter}`;
+    let lockReleased = false;
+
+    const releaseLock = async () => {
+      if (lockReleased) return;
+      lockReleased = true;
+      await redis.del(pendingKey);
+    };
 
     try {
       // -------------------------------------------------------------------
@@ -68,11 +89,14 @@ export const chapterWiseStudyQuestionsFn = inngest.createFunction(
         await redis.set(cacheKey, JSON.stringify(dbData.content), {
           ex: 60 * 60 * 24 * 2,
         });
-        await redis.del(pendingKey);
+        await releaseLock();
         return { source: "database" };
       }
 
-   const prompt = `
+      // -------------------------------------------------------------------
+      // 2️⃣ PRIMARY PROMPT (UNCHANGED)
+      // -------------------------------------------------------------------
+      const prompt = `
 You are an API that returns ONLY valid JSON. No extra text, no explanation outside JSON.
 
 Class: ${className} | Subject: ${mainSubject} | Book: ${bookName}
@@ -184,6 +208,33 @@ LATEX COMMAND CONTAINMENT RULE (MANDATORY):
   $$
 
 ────────────────────────────────────────
+JSON ESCAPING RULES (CRITICAL)
+────────────────────────────────────────
+
+INSIDE JSON STRINGS YOU MUST PROPERLY ESCAPE:
+
+1) BACKSLASHES:
+   - Single backslash in LaTeX → DOUBLE backslash in JSON
+   - Example: \\frac → \\\\frac in JSON string
+   - Example: \\theta → \\\\theta in JSON string
+
+2) QUOTES:
+   - Double quotes inside strings → escape as \\"
+   - Example: "He said \\"hello\\"" 
+
+3) NEWLINES:
+   - Use \\n for line breaks in JSON strings
+   - NOT literal line breaks
+
+4) OTHER SPECIAL CHARS:
+   - Tab: \\t
+   - Carriage return: \\r
+   - Backspace: \\b
+   - Form feed: \\f
+
+CRITICAL: Every backslash in LaTeX MUST be doubled when inside JSON strings!
+
+────────────────────────────────────────
 CHEMICAL FORMULAS & EQUATIONS (Chemistry/Science)
 ────────────────────────────────────────
 
@@ -191,96 +242,49 @@ FOR ALL CHEMICAL CONTENT IN QUESTIONS:
 
 1) SIMPLE CHEMICAL FORMULAS (in question text):
    - Use INLINE math mode with subscripts/superscripts
-   - LaTeX backslashes MUST be DOUBLED in JSON strings: \\\\\\\\
-   - Examples in question text:
-     • Water: $H_2O$
-     • Sulfuric acid: $H_2SO_4$
-     • Potassium dichromate: $K_2Cr_2O_7$
-     • Permanganate ion: $MnO_4^-$
-     • Hydronium: $H_3O^+$
-     • Chromate: $CrO_4^{2-}$
+   - LaTeX backslashes MUST be DOUBLED in JSON strings: \\\\
+   - Examples in JSON:
+     • Water: "$H_2O$"
+     • Sulfuric acid: "$H_2SO_4$"
+     • Arrow in equation: "$$K_2Cr_2O_7 \\\\to products$$"
 
 2) CHEMICAL EQUATIONS IN QUESTIONS:
    - Use DISPLAY math mode for reactions: $$ ... $$
-   - LaTeX backslashes MUST be DOUBLED: \\\\\\\\
-   - Examples in question text:
-     • Simple reaction:
-       $$K_2Cr_2O_7 + H_2SO_4 \\\\\\\\to \\\\\\\\text{products}$$
-     • Equilibrium:
-       $$N_2 + 3H_2 \\\\\\\\rightleftharpoons 2NH_3$$
-     • With conditions:
-       $$\\\\ce{2KMnO_4 \\\\\\\\xrightarrow{\\\\\\\\Delta} K_2MnO_4 + MnO_2 + O_2}$$
+   - LaTeX backslashes MUST be DOUBLED: \\\\
+   - Examples in JSON:
+     • Simple reaction: "$$K_2Cr_2O_7 + H_2SO_4 \\\\to \\\\text{products}$$"
+     • Equilibrium: "$$N_2 + 3H_2 \\\\rightleftharpoons 2NH_3$$"
 
 3) FORBIDDEN IN CHEMISTRY:
    - NEVER write H2O, H2SO4, K2Cr2O7 as plain text without LaTeX
    - NEVER write subscripts/superscripts without math delimiters
-   - NEVER use single backslashes in JSON (must be \\\\\\\\)
+   - NEVER use single backslashes in JSON (must be \\\\)
    - NEVER use \\( or \\) delimiters
-
-4) CHEMISTRY VALIDATION CHECKLIST:
-   - ✓ All chemical formulas wrapped in $...$ or $$...$$
-   - ✓ All LaTeX backslashes are DOUBLED (\\\\\\\\)
-   - ✓ NO plain-text chemical formulas (H2O, CO2, etc.)
-   - ✓ Subscripts use _ and superscripts use ^
-   - ✓ Arrows use \\\\\\\\to, \\\\\\\\rightarrow, or \\\\\\\\rightleftharpoons
-   - ✓ Chemical reactions use display math: $$...$$
-   - If ANY chemistry validation fails → REGENERATE
 
 ────────────────────────────────────────
 LOGICAL & SYMBOLIC NOTATION RULE (MANDATORY)
 ────────────────────────────────────────
 
-This section applies to subjects like Mathematics, Logic, Discrete Math,
-Reasoning, Proofs, and Theoretical concepts.
-
-1) Logical symbols such as:
-   ¬  (negation)
-   ⇒  (implies)
-   ⇔  (if and only if)
-   ⊥  (contradiction)
-   ∀  (for all)
-   ∃  (there exists)
-   ∈, ∉, ⊆, ⊂
-
-   MUST ALWAYS be written in LaTeX form and MUST be wrapped in $...$ 
-   when they appear in the question text.
-
-2) NEVER write logical symbols as plain text.
-   ❌ Wrong: not p, egp, implies, contradiction
-   ✅ Correct: $\\neg p$, $p \\Rightarrow q$, $\\bot$
-
-3) Examples (CORRECT):
-   "Proof by contradiction assumes $\\neg p$ and derives $\\bot$."
-   "An implication $p \\Rightarrow q$ is false only when $p$ is true and $q$ is false."
-
-4) If logical symbols are required and not written in LaTeX → REGENERATE.
+1) Logical symbols MUST be in LaTeX with DOUBLED backslashes in JSON:
+   - "$\\\\neg p$" for negation
+   - "$p \\\\Rightarrow q$" for implication
+   - "$\\\\bot$" for contradiction
 
 ────────────────────────────────────────
 STATISTICS / TABLES RULE (MANDATORY)
 ────────────────────────────────────────
 
-1) If question involves statistics (mean, median, mode, variance, SD, frequency):
+1) If question involves statistics:
    → ALWAYS present data in a PROPER MARKDOWN TABLE.
-   → Each row MUST be on its own line.
-   → Tables MUST use markdown pipe syntax: | Header1 | Header2 |
+   
+2) Example in JSON string:
+   "| Marks | Students |\\n|-------|----------|\\n| 0-10  | 5 |\\n| 10-20 | 12 |"
 
-2) Example of correct markdown table:
-   | Marks | Number of Students |
-   |-------|-------------------|
-   | 0-10  | 5 |
-   | 10-20 | 12 |
-   | 20-30 | 18 |
-
-3) After every table, include exactly one blank line before following text.
-
-4) If statistics data is ungrouped, FIRST convert to a frequency table.
-
-5) If table is needed but not provided → REGENERATE.
+3) After every table, include \\n\\n (blank line) before following text.
 
 MARKDOWN RULE:
 - Use markdown formatting ONLY for: line breaks, sub-parts, and tables.
-- Each sub-part (a),(b),(c) MUST begin on its own line.
-- Do NOT use markdown code blocks (\`\`\`), headings (#), or blockquotes (>).
+- Each sub-part (a),(b),(c) MUST begin on its own line using \\n.
 - Mathematical content MUST be in LaTeX ($...$ or $$...$$), not markdown.
 
 JSON FORMATTING RULE:
@@ -288,6 +292,7 @@ JSON FORMATTING RULE:
 - Do NOT use literal line breaks within JSON string values.
 - All strings MUST use double quotes, not single quotes.
 - No trailing commas in JSON arrays/objects.
+- ALL backslashes in LaTeX MUST be doubled.
 
 FINAL SELF-VALIDATION (MANDATORY):
 
@@ -295,13 +300,14 @@ Before returning the JSON, scan ENTIRE output for:
 1. ✓ Exactly 10 questions
 2. ✓ Language matches subject exactly
 3. ✓ All math/chemical expressions in LaTeX ($...$ or $$...$$)
-4. ✓ No \\(, \\), \\[, or \\] delimiters
-5. ✓ All LaTeX commands inside math delimiters
-6. ✓ No plain-text math/chemical tokens
-7. ✓ Statistics data in proper markdown tables if applicable
-8. ✓ Each sub-part on new line
-9. ✓ Valid JSON structure (double quotes, no trailing commas)
-10. ✓ No markdown code blocks/headings/blockquotes
+4. ✓ All backslashes in LaTeX are DOUBLED (\\\\frac, \\\\theta, etc.)
+5. ✓ No \\(, \\), \\[, or \\] delimiters
+6. ✓ All LaTeX commands inside math delimiters
+7. ✓ No plain-text math/chemical tokens
+8. ✓ Statistics data in proper markdown tables if applicable
+9. ✓ Each sub-part on new line (using \\n)
+10. ✓ Valid JSON structure (double quotes, no trailing commas)
+11. ✓ Proper JSON escaping for all special characters
 
 If ANY violation → REGENERATE COMPLETELY.
 
@@ -327,7 +333,9 @@ CRITICAL:
 - If ANY rule is violated, regenerate the ENTIRE output.
 - NO extra fields, NO stray punctuation.
 - Output MUST be valid JSON and compatible with Markdown+KaTeX renderer.
+- Remember: ALL backslashes in LaTeX must be DOUBLED in JSON strings!
 `;
+
       // -------------------------------------------------------------------
       // 3️⃣ FIRST AI CALL (PRIMARY GENERATION)
       // -------------------------------------------------------------------
@@ -338,8 +346,118 @@ CRITICAL:
       });
 
       // -------------------------------------------------------------------
-      // 🔁 4️⃣ SECOND AI CALL (FIX ONLY — NO CONFLICT)
+      // 4️⃣ PARSE PRIMARY RESPONSE & CACHE IMMEDIATELY
       // -------------------------------------------------------------------
+      let primaryQuestions;
+      try {
+        const extracted = extractJSON(primaryRaw);
+        primaryQuestions = JSON.parse(JSON.stringify(extracted));
+
+        // Validate structure
+        if (!primaryQuestions.questions || !Array.isArray(primaryQuestions.questions)) {
+          throw new Error("Missing required 'questions' array");
+        }
+
+        if (primaryQuestions.questions.length !== 10) {
+          console.warn(`Expected 10 questions, got ${primaryQuestions.questions.length}. Proceeding anyway.`);
+        }
+
+        // 🚀 IMMEDIATELY CACHE PRIMARY RESPONSE
+        await redis.set(cacheKey, JSON.stringify(primaryQuestions), {
+          ex: 60 * 60 * 24 * 2, // 2 days
+        });
+
+        // Save to DB
+        await ChapterWiseImportantQuestionModel.findOneAndUpdate(
+          { className, subject: mainSubject, chapter },
+          {
+            $set: {
+              content: primaryQuestions,
+            },
+          },
+          {
+            upsert: true,
+            new: true,
+          }
+        );
+
+        // Store status in separate key
+        await redis.set(`${cacheKey}:status`, JSON.stringify({
+          version: "primary",
+          generatedAt: new Date().toISOString(),
+          isFixed: false
+        }), {
+          ex: 60 * 60 * 24 * 2,
+        });
+
+        await releaseLock();
+      } catch (err) {
+        // Log the raw response for debugging
+        console.error("Primary Response Parse Error:", {
+          error: err.message,
+          rawPreview: primaryRaw?.substring(0, 500)
+        });
+        throw new Error("Failed to parse primary AI response: " + err.message);
+      }
+
+      // -------------------------------------------------------------------
+      // 5️⃣ TRIGGER BACKGROUND FIXER (NON-BLOCKING)
+      // -------------------------------------------------------------------
+      let fixerRunId = null;
+      try {
+        const fixerEvent = await step.sendEvent("trigger-fixer", {
+          name: "lmp/fix.chapterWiseStudyQuestions",
+          data: {
+            className,
+            subject: mainSubject,
+            chapter,
+            primaryRaw,
+            cacheKey,
+            fixedCacheKey,
+          },
+        });
+        
+        // Capture the fixer run ID
+        if (fixerEvent && fixerEvent.ids && fixerEvent.ids.length > 0) {
+          fixerRunId = fixerEvent.ids[0];
+        }
+      } catch (err) {
+        console.error("Failed to trigger fixer:", err.message);
+        // Don't throw - we already have primary response cached
+      }
+
+      // -------------------------------------------------------------------
+      // 6️⃣ RETURN IMMEDIATELY WITH PRIMARY RESPONSE
+      // -------------------------------------------------------------------
+      return { 
+        source: "generated",
+        status: "primary",
+        fixerRunId: fixerRunId,
+        cacheKey: cacheKey,
+        message: "Primary response cached, fixing in background"
+      };
+
+    } catch (err) {
+      await releaseLock();
+      throw new Error(`chapterWiseStudyQuestions error: ${err.message}`);
+    }
+  }
+);
+
+// -------------------------------------------------------------------
+// BACKGROUND FIXER FUNCTION
+// -------------------------------------------------------------------
+export const chapterWiseStudyQuestionsFixerFn = inngest.createFunction(
+  {
+    name: "Fix Chapter Wise Study Questions LaTeX",
+    id: "chapter-wise-study-questions-fixer",
+    retries: 1,
+  },
+  { event: "lmp/fix.chapterWiseStudyQuestions" },
+  async ({ event, step }) => {
+    const { className, subject, chapter, primaryRaw, cacheKey, fixedCacheKey } = event.data;
+
+    try {
       const fixerPrompt = `
 You are a STRICT JSON + MARKDOWN + LaTeX FIXER
 for CBSE CHAPTER-WISE IMPORTANT QUESTIONS.
@@ -348,6 +466,18 @@ The input JSON is MOSTLY CORRECT.
 DO NOT regenerate questions.
 DO NOT rewrite wording.
 DO NOT change order, language, or meaning.
+
+==============================
+CRITICAL JSON ESCAPING RULE
+==============================
+
+ALL backslashes in LaTeX MUST be DOUBLED in JSON strings:
+- \\frac → \\\\frac
+- \\theta → \\\\theta  
+- \\to → \\\\to
+- \\Rightarrow → \\\\Rightarrow
+
+This is NON-NEGOTIABLE for valid JSON.
 
 ==============================
 ABSOLUTE ALIGNMENT RULES
@@ -362,16 +492,18 @@ ABSOLUTE ALIGNMENT RULES
 ❌ NEVER remove existing $$ blocks
 ❌ NEVER convert $$ to $
 ❌ NEVER add or remove questions
+❌ NEVER use single backslashes in JSON (must be doubled)
 
 ==============================
 ALLOWED FIXES ONLY
 ==============================
 
-✔ Fix JSON syntax errors (quotes, commas)
-✔ Fix LaTeX backslash escaping inside JSON strings
+✔ Fix JSON syntax errors (quotes, commas, escaping)
+✔ Fix LaTeX backslash escaping (single → double)
 ✔ Ensure LaTeX commands stay INSIDE $...$ or $$...$$
 ✔ Fix broken $$ blocks
-✔ Normalize LaTeX symbols (Phi → \\Phi, theta → \\theta, etc.)
+✔ Normalize LaTeX symbols (Phi → \\\\Phi, theta → \\\\theta, etc.)
+✔ Fix improperly escaped special characters
 
 ==============================
 STRICTLY FORBIDDEN
@@ -382,13 +514,14 @@ STRICTLY FORBIDDEN
 ❌ Language changes
 ❌ Adding explanations
 ❌ Removing sub-parts or tables
+❌ Changing mathematical meaning
 
 ==============================
 CHEMISTRY RULES
 ==============================
 
 ✔ Chemical equations MUST remain inside $$...$$
-✔ Proper arrows only: \\to, \\rightarrow, \\rightleftharpoons
+✔ Proper arrows with DOUBLED backslashes: \\\\to, \\\\rightarrow, \\\\rightleftharpoons
 ✔ NO plain-text formulas (H2O, CO2)
 
 ==============================
@@ -399,7 +532,9 @@ FINAL VALIDATION
 ✓ Markdown tables preserved
 ✓ No LaTeX outside math delimiters
 ✓ No forbidden delimiters
+✓ ALL backslashes in LaTeX are DOUBLED
 ✓ JSON.parse() must succeed
+✓ Proper JSON escaping throughout
 
 ==============================
 INPUT JSON
@@ -411,56 +546,100 @@ ${primaryRaw}
 
 Return ONLY the corrected JSON.
 No explanations.
+No markdown code blocks.
 `.trim();
-      
-       const subjectHardness = ["physics","chemistry","mathematics","applied mathematics", "accountancy", "bio technology"];
+
+      const subjectHardness = [
+        "physics",
+        "chemistry",
+        "mathematics",
+        "applied mathematics",
+        "accountancy",
+        "bio technology"
+      ];
 
       let secondPassModel;
-      if(subjectHardness.includes(mainSubject)){
+      if (subjectHardness.includes(subject.toLowerCase())) {
         secondPassModel = "gpt-4o";
-      }
-      else{
-        secondPassModel = "gpt-4o-mini"
+      } else {
+        secondPassModel = "gpt-4o-mini";
       }
 
-      const finalRaw = await step.run("Fix JSON + LaTeX", async () => {
+      // Call fixer AI
+      const fixedRaw = await step.run("Fix JSON + LaTeX", async () => {
         return await askOpenAI(fixerPrompt, secondPassModel, {
           response_format: { type: "json_object" },
         });
       });
 
-      // -------------------------------------------------------------------
-      // 5️⃣ PARSE FINAL OUTPUT (ONCE)
-      // -------------------------------------------------------------------
-      const parsed = extractJSON(finalRaw);
-      const safeParsed = JSON.parse(JSON.stringify(parsed));
-     
-      // -------------------------------------------------------------------
-      // 6️⃣ SAVE DB
-      // -------------------------------------------------------------------
-      await step.run("Save DB", async () => {
-        await ChapterWiseImportantQuestionModel.create({
-          className,
-          subject: mainSubject,
-          chapter,
-          content: safeParsed,
-        });
+      // Parse fixed response
+      let fixedQuestions;
+      try {
+        const extracted = extractJSON(fixedRaw);
+        fixedQuestions = JSON.parse(JSON.stringify(extracted));
+
+        // Validate structure
+        if (!fixedQuestions.questions || !Array.isArray(fixedQuestions.questions)) {
+          throw new Error("Missing required 'questions' array in fixed version");
+        }
+
+        if (fixedQuestions.questions.length !== 10) {
+          console.warn(`Expected 10 questions in fixed version, got ${fixedQuestions.questions.length}`);
+        }
+      } catch (err) {
+        // If fixer fails, keep the primary version
+        console.error("Fixer failed, keeping primary version:", err.message);
+        return { status: "fixer_failed", kept: "primary" };
+      }
+
+      // Save fixed version to DB
+      await step.run("Save Fixed to DB", async () => {
+        await ChapterWiseImportantQuestionModel.findOneAndUpdate(
+          {
+            className,
+            subject,
+            chapter,
+          },
+          {
+            content: fixedQuestions,
+          },
+          {
+            upsert: true,
+          }
+        );
       });
 
-      // -------------------------------------------------------------------
-      // 7️⃣ SAVE REDIS
-      // -------------------------------------------------------------------
-      await redis.set(cacheKey, JSON.stringify(safeParsed), {
+      // Update Redis cache with fixed version
+      await redis.set(cacheKey, JSON.stringify(fixedQuestions), {
+        ex: 60 * 60 * 24 * 2, // 2 days
+      });
+
+      // Update status marker
+      await redis.set(`${cacheKey}:status`, JSON.stringify({
+        version: "fixed",
+        fixedAt: new Date().toISOString(),
+        isFixed: true
+      }), {
         ex: 60 * 60 * 24 * 2,
       });
 
-      await redis.del(pendingKey);
+      // Also store in fixed cache key for reference
+      await redis.set(fixedCacheKey, JSON.stringify(fixedQuestions), {
+        ex: 60 * 60 * 24 * 2,
+      });
 
-      return { source: "generated" };
+      return { 
+        status: "fixed",
+        message: "LaTeX fixed and cached"
+      };
 
     } catch (err) {
-      await redis.del(pendingKey);
-      throw new Error(`chapterWiseStudyQuestions error: ${err.message}`);
+      console.error(`Background fixer error: ${err.message}`);
+      return { 
+        status: "error",
+        error: err.message,
+        kept: "primary"
+      };
     }
   }
 );

@@ -17,6 +17,14 @@ export const chapterWiseShortNotesFn = inngest.createFunction(
 
     const cacheKey = `lmp:shortnotes:${className}:${mainSubject}:${chapter}`;
     const pendingKey = `lmp:shortnotes:pending:${className}:${mainSubject}:${chapter}`;
+    const fixedCacheKey = `lmp:shortnotes:fixed:${className}:${mainSubject}:${chapter}`;
+    let lockReleased = false;
+
+    const releaseLock = async () => {
+      if (lockReleased) return;
+      lockReleased = true;
+      await redis.del(pendingKey);
+    };
 
     try {
       // -------------------------------------------------------------------
@@ -34,11 +42,14 @@ export const chapterWiseShortNotesFn = inngest.createFunction(
         await redis.set(cacheKey, dbNotes.content, {
           ex: 60 * 60 * 24 * 2,
         });
-        await redis.del(pendingKey);
+        await releaseLock();
         return { source: "database" };
       }
 
-   const prompt = `
+      // -------------------------------------------------------------------
+      // 2️⃣ PRIMARY PROMPT (UNCHANGED)
+      // -------------------------------------------------------------------
+      const prompt = `
 You are an API that returns ONLY valid Markdown.
 No explanations, no meta text, no thinking output.
 
@@ -333,15 +344,111 @@ OUTPUT ONLY THE MARKDOWN CONTENT.
       // -------------------------------------------------------------------
       // 3️⃣ FIRST AI CALL (PRIMARY GENERATION)
       // -------------------------------------------------------------------
-      const aiOutput = await step.run("Call OpenAI (Primary)", async () => {
-     
+      const primaryOutput = await step.run("Call OpenAI (Primary)", async () => {
         return await askOpenAI(prompt, "gpt-5.1");
       });
 
       // -------------------------------------------------------------------
-      // 🔁 4️⃣ SECOND AI CALL (FIX ONLY — NO CONFLICT)
+      // 4️⃣ CACHE PRIMARY RESPONSE IMMEDIATELY
       // -------------------------------------------------------------------
-const fixerPrompt = `
+      try {
+        // Validate that we got some content
+        if (!primaryOutput || primaryOutput.trim().length < 50) {
+          throw new Error("Primary AI response too short or empty");
+        }
+
+        // 🚀 IMMEDIATELY CACHE PRIMARY RESPONSE
+        await redis.set(cacheKey, primaryOutput, {
+          ex: 60 * 60 * 24 * 2, // 2 days
+        });
+
+        // Save to DB
+        await ChapterWiseShortNotesModel.findOneAndUpdate(
+          { className, subject: mainSubject, chapter },
+          {
+            $set: {
+              content: primaryOutput,
+            },
+          },
+          {
+            upsert: true,
+            new: true,
+          }
+        );
+
+        // Store status in separate key
+        await redis.set(`${cacheKey}:status`, JSON.stringify({
+          version: "primary",
+          generatedAt: new Date().toISOString(),
+          isFixed: false
+        }), {
+          ex: 60 * 60 * 24 * 2,
+        });
+
+        await releaseLock();
+      } catch (err) {
+        throw new Error("Failed to process primary AI response: " + err.message);
+      }
+
+      // -------------------------------------------------------------------
+      // 5️⃣ TRIGGER BACKGROUND FIXER (NON-BLOCKING)
+      // -------------------------------------------------------------------
+      let fixerRunId = null;
+      try {
+        const fixerEvent = await step.sendEvent("trigger-fixer", {
+          name: "lmp/fix.chapterWiseShortNotes",
+          data: {
+            className,
+            subject: mainSubject,
+            chapter,
+            primaryOutput,
+            cacheKey,
+            fixedCacheKey,
+          },
+        });
+        
+        // Capture the fixer run ID
+        if (fixerEvent && fixerEvent.ids && fixerEvent.ids.length > 0) {
+          fixerRunId = fixerEvent.ids[0];
+        }
+      } catch (err) {
+        console.error("Failed to trigger fixer:", err.message);
+        // Don't throw - we already have primary response cached
+      }
+
+      // -------------------------------------------------------------------
+      // 6️⃣ RETURN IMMEDIATELY WITH PRIMARY RESPONSE
+      // -------------------------------------------------------------------
+      return { 
+        source: "generated",
+        status: "primary",
+        fixerRunId: fixerRunId,
+        cacheKey: cacheKey,
+        message: "Primary response cached, fixing in background"
+      };
+
+    } catch (err) {
+      await releaseLock();
+      throw new Error(`chapterWiseShortNotes error: ${err.message}`);
+    }
+  }
+);
+
+// -------------------------------------------------------------------
+// BACKGROUND FIXER FUNCTION
+// -------------------------------------------------------------------
+export const chapterWiseShortNotesFixerFn = inngest.createFunction(
+  {
+    name: "Fix Chapter Wise Short Notes LaTeX",
+    id: "chapter-wise-short-notes-fixer",
+    retries: 1,
+  },
+  { event: "lmp/fix.chapterWiseShortNotes" },
+  async ({ event, step }) => {
+    const { className, subject, chapter, primaryOutput, cacheKey, fixedCacheKey } = event.data;
+
+    try {
+      const fixerPrompt = `
 You are a STRICT LaTeX FORMULA VALIDATION FIXER
 for CBSE Chapter-Wise Short Notes.
 
@@ -438,57 +545,92 @@ INPUT STRING
 ====================================================
 
 <<<
-${aiOutput}
+${primaryOutput}
 >>>
 
 IMPORTANT OUTPUT RULE:
 - Return ONLY the corrected STRING
-- Do NOT say “Markdown”
+- Do NOT say "Markdown"
 - Do NOT add explanations
 - Do NOT add commentary
 - Do NOT add formatting
 `.trim();
 
-  const subjectHardness = ["physics","chemistry","mathematics","applied mathematics", "accountancy", "bio technology"];
+      const subjectHardness = [
+        "physics",
+        "chemistry",
+        "mathematics",
+        "applied mathematics",
+        "accountancy",
+        "bio technology"
+      ];
 
       let secondPassModel;
-      if(subjectHardness.includes(mainSubject)){
+      if (subjectHardness.includes(subject.toLowerCase())) {
         secondPassModel = "gpt-4o";
-      }
-      else{
-        secondPassModel = "gpt-4o-mini"
+      } else {
+        secondPassModel = "gpt-4o-mini";
       }
 
-      const finalOutput = await step.run("Fix Markdown + LaTeX", async () => {
+      // Call fixer AI
+      const fixedOutput = await step.run("Fix Markdown + LaTeX", async () => {
         return await askOpenAI(fixerPrompt, secondPassModel);
       });
 
-      // -------------------------------------------------------------------
-      // 5️⃣ SAVE DB
-      // -------------------------------------------------------------------
-      await step.run("Save DB", async () => {
-        await ChapterWiseShortNotesModel.create({
-          className,
-          subject: mainSubject,
-          chapter,
-          content: finalOutput,
-        });
+      // Validate fixed output
+      if (!fixedOutput || fixedOutput.trim().length < 50) {
+        console.error("Fixer returned invalid output, keeping primary version");
+        return { status: "fixer_failed", kept: "primary" };
+      }
+
+      // Save fixed version to DB
+      await step.run("Save Fixed to DB", async () => {
+        await ChapterWiseShortNotesModel.findOneAndUpdate(
+          {
+            className,
+            subject,
+            chapter,
+          },
+          {
+            content: fixedOutput,
+          },
+          {
+            upsert: true,
+          }
+        );
       });
 
-      // -------------------------------------------------------------------
-      // 6️⃣ SAVE REDIS
-      // -------------------------------------------------------------------
-      await redis.set(cacheKey, finalOutput, {
+      // Update Redis cache with fixed version
+      await redis.set(cacheKey, fixedOutput, {
+        ex: 60 * 60 * 24 * 2, // 2 days
+      });
+
+      // Update status marker
+      await redis.set(`${cacheKey}:status`, JSON.stringify({
+        version: "fixed",
+        fixedAt: new Date().toISOString(),
+        isFixed: true
+      }), {
         ex: 60 * 60 * 24 * 2,
       });
 
-      await redis.del(pendingKey);
+      // Also store in fixed cache key for reference
+      await redis.set(fixedCacheKey, fixedOutput, {
+        ex: 60 * 60 * 24 * 2,
+      });
 
-      return { source: "generated" };
+      return { 
+        status: "fixed",
+        message: "LaTeX fixed and cached"
+      };
 
     } catch (err) {
-      await redis.del(pendingKey);
-      throw new Error(`chapterWiseShortNotes error: ${err.message}`);
+      console.error(`Background fixer error: ${err.message}`);
+      return { 
+        status: "error",
+        error: err.message,
+        kept: "primary"
+      };
     }
   }
 );
