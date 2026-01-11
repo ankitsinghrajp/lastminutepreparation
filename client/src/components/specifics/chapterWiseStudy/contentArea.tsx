@@ -91,7 +91,7 @@ const ContentArea = ({
 
   return (
     <div className="bg-background overflow-y-auto h-full">
-      <div className="space-y-2 px-0">
+      <div className="space-y-4 px-0">
         {/* Summary Section */}
         {visibleSections.summary && (
           <CollapsibleSection

@@ -239,11 +239,9 @@ Return ONLY the JSON object now.
       return { summary: safeParsed, source: "generated" };
 
     } catch (err) {
-     await redis.del(pendingKey);
+      await redis.del(pendingKey);
       throw new Error(`generateSummary error: ${err.message}`);
     }
-    finally{
-     await  redis.del(pendingKey);
-    }
+  
   }
 );

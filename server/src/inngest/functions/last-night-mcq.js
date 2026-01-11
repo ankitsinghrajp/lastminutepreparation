@@ -1,5 +1,3 @@
-
-
 import { inngest } from "../../libs/inngest.js";
 import { LastMinuteMCQModel } from "../../models/LastMinuteBeforeExam/lastMinuteMcq.model.js";
 import { parseSubject, detectCategory } from "../../utils/helper.js";
@@ -24,7 +22,7 @@ const extractJSON = (text) => {
   return JSON.parse(jsonString);
 };
 
-/* -------------------- INNGEST FUNCTION -------------------- */
+/* -------------------- PRIMARY INNGEST FUNCTION -------------------- */
 export const lastNightMCQsFn = inngest.createFunction(
   {
     id: "lmp-mcqs",
@@ -39,6 +37,7 @@ export const lastNightMCQsFn = inngest.createFunction(
 
     const cacheKey = `lmp:mcqs:${className}:${mainSubject}:${chapter}`;
     const pendingKey = `lmp:mcqs:pending:${className}:${mainSubject}:${chapter}`;
+    const fixedCacheKey = `lmp:mcqs:fixed:${className}:${mainSubject}:${chapter}`;
 
     try {
       // -------------------------------------------------------------------
@@ -56,14 +55,17 @@ export const lastNightMCQsFn = inngest.createFunction(
         const safeDBContent = JSON.parse(JSON.stringify(dbCache.content));
 
         await redis.set(cacheKey, JSON.stringify(safeDBContent), {
-          ex: 60 * 60 * 24 * 2,
+          ex: 60 * 60 * 24 * 30,
         });
 
         await redis.del(pendingKey);
         return { mcqs: safeDBContent.mcqs, source: "database" };
       }
 
-       const prompt = `
+      // -------------------------------------------------------------------
+      // 2️⃣ BUILD PROMPT (UNCHANGED)
+      // -------------------------------------------------------------------
+      const prompt = `
 You are an API that returns ONLY valid JSON.
 No extra text, no explanation outside JSON.
 
@@ -209,8 +211,6 @@ INEQUALITIES & SYSTEMS
   3x + y \\geq 5
   $$
 
-// REPLACE THE CHEMICAL FORMULAS & EQUATIONS SECTION WITH THIS:
-
 ──────────────────────────────────────────
 CHEMICAL FORMULAS & EQUATIONS (Chemistry/Science)
 ──────────────────────────────────────────
@@ -283,14 +283,6 @@ EXAMPLE WITH OXIDATION:
   "formula": "R-CH_2OH \\xrightarrow{PCC} R-CHO"
 }
 
-
-// Key changes:
-// 1. Removed ALL \ce{} notation
-// 2. Added explicit instructions to NOT use \ce{}
-// 3. Showed correct format: $$Zn + 2HCl \to ZnCl_2 + H_2$$
-// 4. Added proper examples without \ce
-// 5. Kept subscripts and arrows in standard LaTeX
-
 ────────────────────────────────────────
 LOGICAL & SYMBOLIC NOTATION RULE (MANDATORY)
 ────────────────────────────────────────
@@ -311,7 +303,7 @@ Reasoning, Proofs, and Theoretical concepts.
    when they appear in the explanation field.
 
 2) NEVER write logical symbols as plain text.
-   ❌ Wrong: not p, egp, implies, contradiction
+   ❌ Wrong: not p, negp, implies, contradiction
    ✅ Correct: $\\neg p$, $p \\Rightarrow q$, $\\bot$
 
 3) If a topic involves logic or proofs:
@@ -330,12 +322,11 @@ Reasoning, Proofs, and Theoretical concepts.
 
 5) Examples (WRONG):
 
-   "Assume egp and derive contradiction"
+   "Assume negp and derive contradiction"
    "p implies q"
    "not p leads to bottom"
 
 If logical symbols are required and not written in LaTeX → REGENERATE.
-
 
 ────────────────────────────────────────
 STATISTICS / DATA MCQs
@@ -353,7 +344,6 @@ NEWLINES & ESCAPED CHARACTERS
 - NEVER use escaped newlines like \\n.
 - Use real line breaks only.
 - NEVER include escaped math delimiters.
-
 
 FINAL SELF-VALIDATION (MANDATORY):
 
@@ -391,9 +381,6 @@ FORMULA FIELD CLARIFICATION:
 - If no single primary formula applies, use empty string "".
 - This does NOT violate the LaTeX mandate—it's a special metadata field.
 
-
-
-
 ────────────────────────────────────────
 CRITICAL (NON-NEGOTIABLE)
 ────────────────────────────────────────
@@ -407,16 +394,125 @@ CRITICAL (NON-NEGOTIABLE)
 - Subject-based language compliance has HIGHEST priority
 - Output MUST be fully compatible with Markdown + KaTeX renderer
 `;
+
       // -------------------------------------------------------------------
-      // 3️⃣ FIRST AI CALL (PRIMARY)
+      // 3️⃣ FIRST AI CALL (PRIMARY GENERATION)
       // -------------------------------------------------------------------
       const primaryRaw = await step.run("Call OpenAI (Primary)", async () => {
         return await askOpenAI(prompt);
       });
 
       // -------------------------------------------------------------------
-      // 🔁 4️⃣ SECOND AI CALL (FIX ONLY — SAFE)
+      // 4️⃣ PARSE PRIMARY RESPONSE & CACHE IMMEDIATELY
       // -------------------------------------------------------------------
+      let primaryMCQs;
+      try {
+        const extracted = extractJSON(primaryRaw);
+
+        // Validate MCQ structure
+        extracted.mcqs.forEach((mcq, idx) => {
+          if (!mcq.question || !mcq.correct || !mcq.options) {
+            throw new Error(`Invalid MCQ structure at index ${idx}`);
+          }
+
+          if (!mcq.options.includes(mcq.correct)) {
+            throw new Error(`Correct option mismatch at MCQ ${idx}`);
+          }
+        });
+
+        primaryMCQs = JSON.parse(JSON.stringify(extracted));
+
+        // 🚀 IMMEDIATELY CACHE PRIMARY RESPONSE
+        await redis.set(cacheKey, JSON.stringify(primaryMCQs), {
+          ex: 60 * 60 * 24 * 30, // 2 days
+        });
+
+    await LastMinuteMCQModel.findOneAndUpdate(
+    { className, subject:mainSubject, chapter },
+    {
+      $set: {
+        content: primaryMCQs,
+      },
+    },
+    {
+      upsert: true,
+      new: true,
+    }
+  );
+
+        // Store status in separate key
+        await redis.set(`${cacheKey}:status`, JSON.stringify({
+          version: "primary",
+          generatedAt: new Date().toISOString(),
+          isFixed: false
+        }), {
+          ex: 60 * 60 * 24 * 30,
+        });
+
+        await redis.del(pendingKey);
+      } catch (err) {
+        throw new Error("Failed to parse primary AI response: " + err.message);
+      }
+
+      // -------------------------------------------------------------------
+      // 5️⃣ TRIGGER BACKGROUND FIXER (NON-BLOCKING)
+      // -------------------------------------------------------------------
+      let fixerRunId = null;
+      try {
+        const fixerEvent = await step.sendEvent("trigger-fixer", {
+          name: "lmp/fix.mcqs",
+          data: {
+            className,
+            subject: mainSubject,
+            chapter,
+            primaryRaw,
+            cacheKey,
+            fixedCacheKey,
+          },
+        });
+        
+        // Capture the fixer run ID
+        if (fixerEvent && fixerEvent.ids && fixerEvent.ids.length > 0) {
+          fixerRunId = fixerEvent.ids[0];
+        }
+      } catch (err) {
+        console.error("Failed to trigger fixer:", err.message);
+        // Don't throw - we already have primary response cached
+      }
+
+      // -------------------------------------------------------------------
+      // 6️⃣ RETURN IMMEDIATELY WITH PRIMARY RESPONSE
+      // -------------------------------------------------------------------
+      return { 
+        mcqs: primaryMCQs.mcqs,
+        source: "generated",
+        status: "primary",
+        fixerRunId: fixerRunId,
+        cacheKey: cacheKey,
+        message: "Primary response cached, fixing in background"
+      };
+
+    } catch (err) {
+      await redis.del(pendingKey);
+      throw new Error(`generateMCQs error: ${err.message}`);
+    } finally {
+      await redis.del(pendingKey);
+    }
+  }
+);
+
+/* -------------------- BACKGROUND FIXER FUNCTION -------------------- */
+export const mcqsFixerFn = inngest.createFunction(
+  {
+    name: "Fix MCQs LaTeX",
+    id: "mcqs-fixer",
+    retries: 1,
+  },
+  { event: "lmp/fix.mcqs" },
+  async ({ event, step }) => {
+    const { className, subject, chapter, primaryRaw, cacheKey, fixedCacheKey } = event.data;
+
+    try {
       const fixerPrompt = `
 You are a STRICT JSON + LaTeX ESCAPING FIXER for CBSE MCQs.
 
@@ -483,69 +579,100 @@ ${primaryRaw}
 Return ONLY the corrected JSON.
 `.trim();
 
-    const subjectHardness = ["physics","chemistry","mathematics","applied mathematics", "accountancy", "bio technology"];
+      const subjectHardness = [
+        "physics",
+        "chemistry",
+        "mathematics",
+        "applied mathematics",
+        "accountancy",
+        "bio technology"
+      ];
 
       let secondPassModel;
-      if(subjectHardness.includes(mainSubject)){
+      if (subjectHardness.includes(subject.toLowerCase())) {
         secondPassModel = "gpt-4o";
-      }
-      else{
-        secondPassModel = "gpt-4o-mini"
+      } else {
+        secondPassModel = "gpt-4o-mini";
       }
 
-
-      const finalRaw = await step.run("Fix JSON + LaTeX", async () => {
+      // Call fixer AI
+      const fixedRaw = await step.run("Fix JSON + LaTeX", async () => {
         return await askOpenAI(fixerPrompt, secondPassModel, {
           response_format: { type: "json_object" },
         });
       });
 
-      // -------------------------------------------------------------------
-      // 5️⃣ PARSE FINAL OUTPUT (ONCE)
-      // -------------------------------------------------------------------
-      const parsed = extractJSON(finalRaw);
+      // Parse fixed response
+      let fixedMCQs;
+      try {
+        const extracted = extractJSON(fixedRaw);
 
-      parsed.mcqs.forEach((mcq, idx) => {
-        if (!mcq.question || !mcq.correct || !mcq.options) {
-          throw new Error(`Invalid MCQ structure at index ${idx}`);
-        }
+        // Validate MCQ structure
+        extracted.mcqs.forEach((mcq, idx) => {
+          if (!mcq.question || !mcq.correct || !mcq.options) {
+            throw new Error(`Invalid MCQ structure at index ${idx}`);
+          }
 
-        if (!mcq.options.includes(mcq.correct)) {
-          throw new Error(`Correct option mismatch at MCQ ${idx}`);
-        }
-      });
-
-      const safeParsed = JSON.parse(JSON.stringify(parsed));
-
-      // -------------------------------------------------------------------
-      // 6️⃣ SAVE DB
-      // -------------------------------------------------------------------
-      await step.run("Save DB", async () => {
-        await LastMinuteMCQModel.create({
-          className,
-          subject: mainSubject,
-          chapter,
-          content: safeParsed,
+          if (!mcq.options.includes(mcq.correct)) {
+            throw new Error(`Correct option mismatch at MCQ ${idx}`);
+          }
         });
+
+        fixedMCQs = JSON.parse(JSON.stringify(extracted));
+      } catch (err) {
+        // If fixer fails, keep the primary version
+        console.error("Fixer failed, keeping primary version:", err.message);
+        return { status: "fixer_failed", kept: "primary" };
+      }
+
+      // Save fixed version to DB
+      await step.run("Save Fixed to DB", async () => {
+        await LastMinuteMCQModel.findOneAndUpdate(
+          {
+            className,
+            subject,
+            chapter,
+          },
+          {
+            content: fixedMCQs,
+          },
+          {
+            upsert: true,
+          }
+        );
       });
 
-      // -------------------------------------------------------------------
-      // 7️⃣ SAVE REDIS
-      // -------------------------------------------------------------------
-      await redis.set(cacheKey, JSON.stringify(safeParsed), {
-        ex: 60 * 60 * 24 * 2,
+      // Update Redis cache with fixed version
+      await redis.set(cacheKey, JSON.stringify(fixedMCQs), {
+        ex: 60 * 60 * 24 * 30, // 2 days
       });
 
-      await redis.del(pendingKey);
+      // Update status marker
+      await redis.set(`${cacheKey}:status`, JSON.stringify({
+        version: "fixed",
+        fixedAt: new Date().toISOString(),
+        isFixed: true
+      }), {
+        ex: 60 * 60 * 24 * 30,
+      });
 
-      return { mcqs: safeParsed.mcqs, source: "generated" };
+      // Also store in fixed cache key for reference
+      await redis.set(fixedCacheKey, JSON.stringify(fixedMCQs), {
+        ex: 60 * 60 * 24 * 30,
+      });
+
+      return { 
+        status: "fixed",
+        message: "LaTeX fixed and cached"
+      };
 
     } catch (err) {
-      await redis.del(pendingKey);
-      throw new Error(`generateMCQs error: ${err.message}`);
-    }
-    finally{
-      await redis.del(pendingKey);
+      console.error(`Background fixer error: ${err.message}`);
+      return { 
+        status: "error",
+        error: err.message,
+        kept: "primary"
+      };
     }
   }
 );

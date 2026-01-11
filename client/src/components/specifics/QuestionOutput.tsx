@@ -17,7 +17,6 @@ const normalizeContent = (content) => {
     .trim();
 };
 
-
 const QuestionOutput = ({ content }) => {
   const normalized = normalizeContent(content);
 
@@ -32,6 +31,42 @@ const QuestionOutput = ({ content }) => {
           max-width: 100%;
           display: inline-block;
           text-align: left;
+        }
+
+        /* Table wrapper for horizontal scroll */
+        .question-output-wrapper .table-wrapper {
+          overflow-x: auto;
+          margin: 1.5rem 0;
+          width: 100%;
+          max-width: 100%;
+        }
+
+        .question-output-wrapper .table-wrapper::-webkit-scrollbar {
+          height: 6px;
+        }
+
+        .question-output-wrapper .table-wrapper::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .question-output-wrapper .table-wrapper::-webkit-scrollbar-thumb {
+          background: #64748b;
+          border-radius: 3px;
+        }
+
+        .question-output-wrapper .table-wrapper::-webkit-scrollbar-thumb:hover {
+          background: #475569;
+        }
+
+        .question-output-wrapper table {
+          margin: 0 !important;
+          min-width: 100%;
+          width: max-content;
+        }
+
+        .question-output-wrapper {
+          overflow-x: hidden;
+          width: 100%;
         }
 
         @media (max-width: 640px) {
@@ -88,6 +123,13 @@ const QuestionOutput = ({ content }) => {
           children={normalized}
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
+          components={{
+            table: ({ node, ...props }) => (
+              <div className="table-wrapper">
+                <table {...props} />
+              </div>
+            ),
+          }}
         />
       </div>
     </>

@@ -125,10 +125,10 @@ export default function SamplesSection() {
   const currentSample = samples[currentIndex];
 
   return (
-    <div className="min-h-screen bg-background pt-16 pb-4 px-2">
+    <div className="bg-background pt-16 pb-4 px-2">
       <div className="">
         {/* Header */}
-        <div className="text-center mb-12 space-y-4">
+        <div className="text-center mb-8 space-y-4">
           <h2 className="text-4xl md:text-5xl font-bold">
             See It{" "}
             <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
@@ -206,51 +206,6 @@ export default function SamplesSection() {
           ))}
         </div>
 
-        {/* Thumbnail Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
-          {samples.map((sample, index) => (
-            <button
-              key={sample.id}
-              onClick={() => goToSlide(index)}
-              className={`group relative overflow-hidden rounded-xl transition-all duration-300 ${
-                index === currentIndex
-                  ? "ring-2 ring-primary shadow-lg shadow-primary/20 scale-105"
-                  : "hover:scale-105 hover:shadow-md"
-              }`}
-            >
-              <Card className="overflow-hidden border-0">
-                <div className="relative aspect-video overflow-hidden bg-muted">
-                  <img
-                    src={sample.image}
-                    alt={sample.title}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/20 to-transparent" />
-                  
-                  {/* Icon */}
-                  <div className={`absolute bottom-2 left-2 w-8 h-8 rounded-lg bg-gradient-to-br ${sample.color} flex items-center justify-center`}>
-                    <sample.icon className="w-4 h-4 text-white" />
-                  </div>
-                </div>
-                
-                {/* Title - Hidden on mobile for space */}
-                <div className="p-2 hidden md:block">
-                  <p className="text-xs font-medium truncate">{sample.title}</p>
-                </div>
-              </Card>
-            </button>
-          ))}
-        </div>
-
-        {/* Bottom CTA */}
-        <div className="text-center mt-12">
-          <p className="text-muted-foreground mb-4">
-            Ready to experience the difference?
-          </p>
-          <button className="px-6 py-3 bg-gradient-to-r from-primary to-accent text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-primary/30 transition-all duration-300 hover:scale-105">
-            Try It Now - It's Free
-          </button>
-        </div>
       </div>
     </div>
   );

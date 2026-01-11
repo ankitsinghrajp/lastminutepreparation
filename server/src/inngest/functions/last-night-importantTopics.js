@@ -1,4 +1,3 @@
-
 import { inngest } from "../../libs/inngest.js";
 import { ImpTopicsModel } from "../../models/LastMinuteBeforeExam/impTopics.model.js";
 import { parseSubject, detectCategory } from "../../utils/helper.js";
@@ -49,7 +48,7 @@ export const extractJSON = (text) => {
   }
 };
 
-/* -------------------- INNGEST FUNCTION -------------------- */
+/* -------------------- PRIMARY INNGEST FUNCTION -------------------- */
 export const lastNightImportantTopicsFn = inngest.createFunction(
   {
     name: "Generate LMP Important Topics",
@@ -57,37 +56,41 @@ export const lastNightImportantTopicsFn = inngest.createFunction(
     retries: 0,
   },
   { event: "lmp/generate.importantTopics" },
-  async ({ event }) => {
+  async ({ event, step }) => {
     const { className, subject, chapter } = event.data;
     const { mainSubject, bookName } = parseSubject(subject);
     const category = detectCategory(mainSubject);
 
     const cacheKey = `lmp:imptopics:${className}:${mainSubject}:${chapter}`;
     const pendingKey = `lmp:imptopics:pending:${className}:${mainSubject}:${chapter}`;
+    const fixedCacheKey = `lmp:imptopics:fixed:${className}:${mainSubject}:${chapter}`;
 
     try {
       // -------------------------------------------------------------------
       // 1️⃣ DB CHECK
       // -------------------------------------------------------------------
-      const dbCache = await ImpTopicsModel.findOne({
-        className,
-        subject: mainSubject,
-        chapter,
+      const dbCache = await step.run("DB Check", async () => {
+        return await ImpTopicsModel.findOne({
+          className,
+          subject: mainSubject,
+          chapter,
+        });
       });
 
       if (dbCache) {
-        await redis.set(cacheKey, JSON.stringify(dbCache.content), {
-          ex: 60 * 60 * 24 * 2,
+        const safeData = JSON.parse(JSON.stringify(dbCache.content));
+
+        await redis.set(cacheKey, JSON.stringify(safeData), {
+          ex: 60 * 60 * 24 * 30,
         });
         await redis.del(pendingKey);
-        return { topics: dbCache.content.topics, source: "database" };
+        return { topics: safeData.topics, source: "database" };
       }
 
       // -------------------------------------------------------------------
       // 2️⃣ BUILD PROMPT (UNCHANGED)
-      // ---------------------------------------------------------
-
-      const prompt =`
+      // -------------------------------------------------------------------
+      const prompt = `
 You are an API that returns ONLY valid JSON.
 No extra text, no explanation outside JSON.
 
@@ -194,8 +197,6 @@ FORMULA SEPARATION RULE (STRICT)
 - Avoid writing full formulas in the explanation field.
 - Simple variables or symbols in explanation are allowed if wrapped in $...$.
 
-
-
 ────────────────────────────────────────
 FORMULA FIELD RULE (VERY IMPORTANT)
 ────────────────────────────────────────
@@ -230,14 +231,12 @@ FORMULA HARD CONSTRAINT (ABSOLUTE):
 - If a topic has multiple cases, choose ONLY the MOST STANDARD CBSE formula.
 - If violated → REGENERATE.
 
-
 KATEX COMPATIBILITY RULE (ABSOLUTE):
 
 - Formula MUST use ONLY standard, widely supported LaTeX commands.
 - Allowed examples: \\lim, \\frac, \\sin, \\cos, \\tan, \\to, \\cdot, \\vec, ^, _, =, +, -
 - FORBIDDEN: any invented or uncommon commands such as \\uim, \\ulim, \\ltext, \\eqn, etc.
 - If any non-standard command appears → REGENERATE.
-
 
 ────────────────────────────────────────
 FINAL SELF-VALIDATION (MANDATORY)
@@ -278,19 +277,119 @@ CRITICAL
 - Explanation field: use $...$ for any math symbols
 - Formula field: raw LaTeX code without delimiters
 - Must render correctly in Markdown + KaTeX
-`;906
+`;
 
       // -------------------------------------------------------------------
-      // 3️⃣ FIRST AI CALL (PRIMARY)
+      // 3️⃣ FIRST AI CALL (PRIMARY GENERATION)
       // -------------------------------------------------------------------
-      const primaryRaw = await askOpenAI(prompt, "gpt-5.1", {
-        response_format: { type: "json_object" },
+      const primaryRaw = await step.run("Call OpenAI (Primary)", async () => {
+        return await askOpenAI(prompt, "gpt-5.1", {
+          response_format: { type: "json_object" },
+        });
       });
 
       // -------------------------------------------------------------------
-      // 🔁 4️⃣ SECOND AI CALL (FIX ONLY — SAME AS AI COACH)
+      // 4️⃣ PARSE PRIMARY RESPONSE & CACHE IMMEDIATELY
       // -------------------------------------------------------------------
-    const fixerPrompt = `
+      let primaryTopics;
+      try {
+        const extracted = extractJSON(primaryRaw);
+        primaryTopics = JSON.parse(JSON.stringify(extracted));
+
+        // 🚀 IMMEDIATELY CACHE PRIMARY RESPONSE
+        await redis.set(cacheKey, JSON.stringify(primaryTopics), {
+          ex: 60 * 60 * 24 * 30, // 2 days
+        });
+
+        
+      await ImpTopicsModel.findOneAndUpdate(
+    { className, subject:mainSubject, chapter },
+    {
+      $set: {
+        content: primaryTopics,
+      },
+    },
+    {
+      upsert: true,
+      new: true,
+    }
+  );
+
+
+        // Store status in separate key
+        await redis.set(`${cacheKey}:status`, JSON.stringify({
+          version: "primary",
+          generatedAt: new Date().toISOString(),
+          isFixed: false
+        }), {
+          ex: 60 * 60 * 24 * 30,
+        });
+
+        await redis.del(pendingKey);
+      } catch (err) {
+        throw new Error("Failed to parse primary AI response: " + err.message);
+      }
+
+      // -------------------------------------------------------------------
+      // 5️⃣ TRIGGER BACKGROUND FIXER (NON-BLOCKING)
+      // -------------------------------------------------------------------
+      let fixerRunId = null;
+      try {
+        const fixerEvent = await step.sendEvent("trigger-fixer", {
+          name: "lmp/fix.importantTopics",
+          data: {
+            className,
+            subject: mainSubject,
+            chapter,
+            primaryRaw,
+            cacheKey,
+            fixedCacheKey,
+          },
+        });
+        
+        // Capture the fixer run ID
+        if (fixerEvent && fixerEvent.ids && fixerEvent.ids.length > 0) {
+          fixerRunId = fixerEvent.ids[0];
+        }
+      } catch (err) {
+        console.error("Failed to trigger fixer:", err.message);
+        // Don't throw - we already have primary response cached
+      }
+
+      // -------------------------------------------------------------------
+      // 6️⃣ RETURN IMMEDIATELY WITH PRIMARY RESPONSE
+      // -------------------------------------------------------------------
+      return { 
+        topics: primaryTopics.topics,
+        source: "generated",
+        status: "primary",
+        fixerRunId: fixerRunId,
+        cacheKey: cacheKey,
+        message: "Primary response cached, fixing in background"
+      };
+
+    } catch (err) {
+      await redis.del(pendingKey);
+      throw new Error(`generateImportantTopics error: ${err.message}`);
+    } finally {
+      await redis.del(pendingKey);
+    }
+  }
+);
+
+/* -------------------- BACKGROUND FIXER FUNCTION -------------------- */
+export const importantTopicsFixerFn = inngest.createFunction(
+  {
+    name: "Fix Important Topics LaTeX",
+    id: "important-topics-fixer",
+    retries: 1,
+  },
+  { event: "lmp/fix.importantTopics" },
+  async ({ event, step }) => {
+    const { className, subject, chapter, primaryRaw, cacheKey, fixedCacheKey } = event.data;
+
+    try {
+      const fixerPrompt = `
 You are a STRICT JSON + LaTeX ESCAPING FIXER for IMPORTANT TOPICS.
 
 The input JSON is MOSTLY CORRECT.
@@ -385,54 +484,89 @@ NO explanation.
 NO markdown.
 NO extra text.
 `.trim();
- 
-    const subjectHardness = ["physics","chemistry","mathematics","applied mathematics", "accountancy", "bio technology"];
+
+      const subjectHardness = [
+        "physics",
+        "chemistry",
+        "mathematics",
+        "applied mathematics",
+        "accountancy",
+        "bio technology"
+      ];
 
       let secondPassModel;
-      if(subjectHardness.includes(mainSubject)){
+      if (subjectHardness.includes(subject.toLowerCase())) {
         secondPassModel = "gpt-4o";
+      } else {
+        secondPassModel = "gpt-4o-mini";
       }
-      else{
-        secondPassModel = "gpt-4o-mini"
+
+      // Call fixer AI
+      const fixedRaw = await step.run("Call OpenAI (Fixer)", async () => {
+        return await askOpenAI(fixerPrompt, secondPassModel, {
+          response_format: { type: "json_object" },
+        });
+      });
+
+      // Parse fixed response
+      let fixedTopics;
+      try {
+        const extracted = extractJSON(fixedRaw);
+        fixedTopics = JSON.parse(JSON.stringify(extracted));
+      } catch (err) {
+        // If fixer fails, keep the primary version
+        console.error("Fixer failed, keeping primary version:", err.message);
+        return { status: "fixer_failed", kept: "primary" };
       }
 
-
-      const finalRaw = await askOpenAI(fixerPrompt, secondPassModel, {
-        response_format: { type: "json_object" },
+      // Save fixed version to DB
+      await step.run("Save Fixed to DB", async () => {
+        await ImpTopicsModel.findOneAndUpdate(
+          {
+            className,
+            subject,
+            chapter,
+          },
+          {
+            content: fixedTopics,
+          },
+          {
+            upsert: true,
+          }
+        );
       });
 
-      // -------------------------------------------------------------------
-      // 5️⃣ PARSE ONLY ONCE (FINAL OUTPUT)
-      // -------------------------------------------------------------------
-      const parsed = extractJSON(finalRaw);
-      const safeParsed = JSON.parse(JSON.stringify(parsed));
-
-      // -------------------------------------------------------------------
-      // 6️⃣ SAVE DB
-      // -------------------------------------------------------------------
-      await ImpTopicsModel.create({
-        className,
-        subject: mainSubject,
-        chapter,
-        content: safeParsed,
+      // Update Redis cache with fixed version
+      await redis.set(cacheKey, JSON.stringify(fixedTopics), {
+        ex: 60 * 60 * 24 * 30, // 2 days
       });
 
-      // -------------------------------------------------------------------
-      // 7️⃣ SAVE REDIS
-      // -------------------------------------------------------------------
-      await redis.set(cacheKey, JSON.stringify(safeParsed), {
-        ex: 60 * 60 * 24 * 2,
+      // Update status marker
+      await redis.set(`${cacheKey}:status`, JSON.stringify({
+        version: "fixed",
+        fixedAt: new Date().toISOString(),
+        isFixed: true
+      }), {
+        ex: 60 * 60 * 24 * 30,
       });
 
-      await redis.del(pendingKey);
+      // Also store in fixed cache key for reference
+      await redis.set(fixedCacheKey, JSON.stringify(fixedTopics), {
+        ex: 60 * 60 * 24 * 30,
+      });
 
-      return { topics: safeParsed.topics, source: "generated" };
+      return { 
+        status: "fixed",
+        message: "LaTeX fixed and cached"
+      };
+
     } catch (err) {
-      await redis.del(pendingKey);
-      throw new Error(`generateImportantTopics error: ${err.message}`);
-    }
-    finally{
-      await redis.del(pendingKey);
+      console.error(`Background fixer error: ${err.message}`);
+      return { 
+        status: "error",
+        error: err.message,
+        kept: "primary"
+      };
     }
   }
 );

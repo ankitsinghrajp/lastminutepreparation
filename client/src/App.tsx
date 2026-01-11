@@ -8,6 +8,7 @@ import "highlight.js/styles/github.css";
 import { GoogleOAuthProvider } from "@react-oauth/google"; // ✅ import this
 import { lazy, Suspense } from "react";
 import Index from "./pages/Index";
+import StartFree from "./pages/StartFree";
 import LayoutLoader from "./components/layoutLoader";
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect } from "react";
@@ -43,6 +44,13 @@ const App = () => {
   const dispatch = useDispatch();
   const [mutate] = useRefreshTokenMutation();
   const [planExpiryMutate] = useCheckExpiryMutation();
+
+
+  useEffect(() => {
+  if (window.fbq) {
+    window.fbq("track", "PageView");
+  }
+}, []);
 
   useEffect(()=>{
       const checkAuth = async ()=>{
@@ -94,6 +102,7 @@ const App = () => {
 
 
             <Route path="/" element={<Index />} />
+            <Route path="/start-free" element={<StartFree />} />
             <Route path="/verify-email" element={<VerifyEmail/>}/>
             <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
             <Route path="/terms-of-service" element={<TermsOfServicePage />} />

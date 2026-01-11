@@ -3,7 +3,6 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { inngestHandler } from "./src/inngest/route.js";
 import helmet from "helmet";
-import "./src/cron/deleteUploads.js";
 const corsOptions = {
     origin:["http://localhost:5173",
         process.env.FRONTEND_URL
@@ -19,7 +18,6 @@ app.use(helmet());
 app.use(express.urlencoded({extended:true}));
 app.use(express.static("public"))
 app.use(cookieParser());
-
 // Import routes 
 import userRoutes from "./src/routes/user.route.js";
 import authRoutes from "./src/routes/auth.route.js";
@@ -34,5 +32,10 @@ app.use("/api/v1/ai",aiRoutes);
 app.use("/api/v1/info",classRoutes);
 app.use("/api/v1/payment",paymentRoutes);
 app.use("/api/v1/inngest",inngestHandler);
+
+app.get("/", (req, res) => {
+  return res.status(200).send("OK");
+});
+
 
 export {app};

@@ -1,17 +1,25 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card'
-import { Copy, Check, Sparkles, ArrowRight } from 'lucide-react';
+import { Copy, Check, Sparkles, ArrowRight, LogOut, Loader } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import logo from "../assets/logo.png";
 import { useState } from 'react';
+import { useAsyncMutation } from "@/hooks/hook";
+import { useLogoutMutation } from "@/redux/api/api";
+import { userNotExists } from "@/redux/reducers/auth";
+import { useDispatch } from "react-redux";
 
 const PaymentSuccess = () => {
   const searchQuery = useSearchParams()[0];
   const reference = searchQuery.get("reference");
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
+  const [logout, isLogoutLoading] = useAsyncMutation(useLogoutMutation);
+  const dispatch = useDispatch();
 
-  const handleNavigate = () => {
+  const handleLogoutAndContinue = async () => {
+    await logout();
+    dispatch(userNotExists());
     navigate("/");
   };
 
@@ -60,6 +68,23 @@ const PaymentSuccess = () => {
           </p>
         </div>
 
+        {/* Important Notice */}
+        <div className="bg-amber-500/10 border-2 border-amber-500/50 rounded-lg p-6 mb-6">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 mt-1">
+              <Sparkles className="h-6 w-6 text-amber-500" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-amber-500 mb-2">
+                Important: Logout & Login Required!
+              </h3>
+              <p className="text-base leading-relaxed">
+                To access your premium features, please <strong>logout and login again</strong>. This will activate your subscription and unlock all premium content.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Reference ID */}
         <div className="bg-primary/5 border border-primary/20 rounded-lg p-6 mb-8">
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -93,11 +118,22 @@ const PaymentSuccess = () => {
 
         {/* CTA Button */}
         <Button
-          onClick={handleNavigate}
+          onClick={handleLogoutAndContinue}
+          disabled={isLogoutLoading}
           className="w-full h-12 gradient-primary border-0 text-lg font-semibold group"
         >
-          Continue to App
-          <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+          {isLogoutLoading ? (
+            <>
+              <Loader className="mr-2 h-5 w-5 animate-spin" />
+              Logging out...
+            </>
+          ) : (
+            <>
+              <LogOut className="mr-2 h-5 w-5" />
+              Logout & Continue
+              <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+            </>
+          )}
         </Button>
 
       </Card>

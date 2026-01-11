@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 import { inngest } from "../../libs/inngest.js";
 import { redis } from "../../libs/redis.js";
 import { PdfModel } from "../../models/Pdf.model.js";
-import {User} from "../../models/User.model.js";
+import {User} from "../../models/user.model.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

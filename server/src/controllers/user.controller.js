@@ -74,6 +74,51 @@ const registerUser = asyncHandler(async (req,res)=>{
     
 })
 
+const earlyUserRegister = asyncHandler(async (req,res)=>{
+    const {email} = req.body;
+    if(!email) throw new ApiError(500,"Email is required!");
+
+    const existingUser = await User.findOne({
+        email
+    });
+
+    if(existingUser) throw new ApiError(500,"This email is already registered with us. Click on upper 3 dots and open in chrome then login with google!");
+    
+    const user = await User.create({
+        name:email,
+        email,
+        password:email
+    });
+    
+    const createdUser = await User.findById(user._id).select("-password -refreshToken");
+
+      
+    if(!createdUser){
+        throw new ApiError(500,"Server is busy while registering user. Try Again!");
+    }
+
+    const {accessToken, refreshToken} = await generateAccessAndRefreshToken(createdUser._id);
+
+          try {
+         return res
+         .status(201)
+         .cookie("accessToken", accessToken, cookieOptions)
+         .cookie("refreshToken", refreshToken, cookieOptions)
+         .json(
+         new ApiResponse(200,createdUser,"User Registration Successfull!")
+         )
+
+     } catch (error) {
+        await User.findByIdAndUpdate(createdUser._id,{
+            $set:{
+                emailVerificationTokenHash:undefined,
+                emailVerificationExpire: undefined,
+            }
+        })
+     }
+    
+})
+
 const loginUser = asyncHandler(async (req, res)=>{
      const {email, password} = req.body;
    
@@ -228,4 +273,4 @@ const checkPlanExpiry = asyncHandler (async (req,res) => {
 });
 
 
-export {registerUser, loginUser, logoutUser, refreshAccessToken, verifyEmailController, resendEmail, checkPlanExpiry};
+export {registerUser, loginUser, logoutUser, refreshAccessToken, verifyEmailController, resendEmail, checkPlanExpiry, earlyUserRegister};

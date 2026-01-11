@@ -4,6 +4,8 @@ import { detectCategory, parseSubject } from "../../utils/helper.js";
 import { askOpenAI } from "../../utils/OpenAI.js";
 import { redis } from "../../libs/redis.js";
 
+
+
 export const extractJSON = (text) => {
   if (!text) throw new Error("Empty response received from AI.");
 
@@ -63,7 +65,13 @@ export const importantQuestionGeneratorFn = inngest.createFunction(
     const cacheKey = `lmp:impQ:${className}:${mainSubject}:${chapter}:${topics}`;
     const pendingKey = `lmp:impQ:pending:${className}:${mainSubject}:${chapter}:${topics}`;
     const fixedCacheKey = `lmp:impQ:fixed:${className}:${mainSubject}:${chapter}:${topics}`;
+    let lockReleased = false;
 
+const releaseLock = async () => {
+  if (lockReleased) return;
+  lockReleased = true;
+  await redis.del(pendingKey);
+};
     try {
       // -------------------------------------------------------------------
       // 1️⃣ DB CHECK
@@ -83,14 +91,14 @@ export const importantQuestionGeneratorFn = inngest.createFunction(
           ex: 60 * 60 * 24 * 2,
         });
 
-        await redis.del(pendingKey);
+        await releaseLock();
         return { source: "database" };
       }
 
       // -------------------------------------------------------------------
       // 2️⃣ PRIMARY PROMPT (UNCHANGED)
       // -------------------------------------------------------------------
-      const prompt = `
+    const prompt = `
 You are an API that returns ONLY valid JSON. No extra text, no explanation outside JSON.
 
 Class: ${className} | Subject: ${mainSubject} | Book: ${bookName}
@@ -565,6 +573,20 @@ Output MUST be fully compatible with a Markdown+KaTeX renderer.
           ex: 60 * 60 * 24 * 2, // 2 days
         });
 
+
+      await ImpQuestionModel.findOneAndUpdate(
+    { className, subject:mainSubject, chapter },
+    {
+      $set: {
+        content: primaryQuestions,
+      },
+    },
+    {
+      upsert: true,
+      new: true,
+    }
+  );
+
         // Store status in separate key
         await redis.set(`${cacheKey}:status`, JSON.stringify({
           version: "primary",
@@ -574,7 +596,7 @@ Output MUST be fully compatible with a Markdown+KaTeX renderer.
           ex: 60 * 60 * 24 * 2,
         });
 
-        await redis.del(pendingKey);
+        await releaseLock();
       } catch (err) {
         throw new Error("Failed to parse primary AI response: " + err.message);
       }
@@ -617,10 +639,8 @@ Output MUST be fully compatible with a Markdown+KaTeX renderer.
       };
 
     } catch (err) {
-      await redis.del(pendingKey);
+      await releaseLock();
       throw new Error(`importantQuestionGenerator error: ${err.message}`);
-    }finally{
-      await redis.del(pendingKey);
     }
   }
 );
@@ -807,6 +827,5 @@ NO extra text.
         kept: "primary"
       };
     }
-  
   }
 );

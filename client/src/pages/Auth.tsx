@@ -63,6 +63,9 @@ export default function Auth() {
     const data = await res.json();
     if(data) navigate('/');
     dispatch(userExists(data.user));
+    if (window.fbq) {
+  window.fbq("track", "CompleteRegistration");
+}
   };
 
   return (

@@ -1,4 +1,3 @@
-
 import { inngest } from "../../libs/inngest.js";
 import { PredictedQuestionModel } from "../../models/LastMinuteBeforeExam/predictedQuestion.model.js";
 import { parseSubject, detectCategory } from "../../utils/helper.js";
@@ -43,7 +42,7 @@ export const extractJSON = (text) => {
   }
 };
 
-/* -------------------- INNGEST FUNCTION -------------------- */
+/* -------------------- PRIMARY INNGEST FUNCTION -------------------- */
 export const lastNightPredictedQuestionsFn = inngest.createFunction(
   {
     id: "lmp-predicted-questions",
@@ -51,36 +50,41 @@ export const lastNightPredictedQuestionsFn = inngest.createFunction(
     retries: 0,
   },
   { event: "lmp/generate.predictedQuestions" },
-  async ({ event }) => {
+  async ({ event, step }) => {
     const { className, subject, chapter } = event.data;
     const { mainSubject, bookName } = parseSubject(subject);
     const category = detectCategory(mainSubject);
 
     const cacheKey = `lmp:predicted:${className}:${mainSubject}:${chapter}`;
     const pendingKey = `lmp:predicted:pending:${className}:${mainSubject}:${chapter}`;
+    const fixedCacheKey = `lmp:predicted:fixed:${className}:${mainSubject}:${chapter}`;
 
     try {
       // -------------------------------------------------------------------
       // 1️⃣ DB CHECK
       // -------------------------------------------------------------------
-      const dbCache = await PredictedQuestionModel.findOne({
-        className,
-        subject: mainSubject,
-        chapter,
+      const dbCache = await step.run("DB Check", async () => {
+        return await PredictedQuestionModel.findOne({
+          className,
+          subject: mainSubject,
+          chapter,
+        });
       });
 
       if (dbCache) {
-        await redis.set(cacheKey, JSON.stringify(dbCache.content), {
-          ex: 60 * 60 * 24 * 2,
+        const safeData = JSON.parse(JSON.stringify(dbCache.content));
+
+        await redis.set(cacheKey, JSON.stringify(safeData), {
+          ex: 60 * 60 * 24 * 30,
         });
         await redis.del(pendingKey);
-        return { questions: dbCache.content.questions, source: "database" };
+        return { questions: safeData.questions, source: "database" };
       }
 
       // -------------------------------------------------------------------
       // 2️⃣ BUILD PROMPT (UNCHANGED)
       // -------------------------------------------------------------------
-     const prompt = `
+      const prompt = `
 You are an API that returns ONLY valid JSON. No extra text, no explanation outside JSON.
 
 Class: ${className} | Subject: ${mainSubject} | Book: ${bookName}
@@ -129,8 +133,6 @@ AUTO-REGENERATION RULE (MANDATORY):
   violates the subject-language rule,
   → IMMEDIATELY discard and regenerate the entire output.
 
-
-
 CHAPTER–TOPIC ISOLATION:
 - Questions MUST belong strictly to the given chapter and its syllabus.
 - Do NOT introduce topics or question types from other chapters or classes.
@@ -153,7 +155,6 @@ UNIVERSAL FORMULA & MATH RULES (APPLY ALWAYS)
     • Display math → $$ ... $$
 - NEVER output mathematical tokens or operators as plain text (examples below).
 
-
 LATEX DELIMITER RESTRICTION (MANDATORY):
 
 - NEVER use escaped LaTeX delimiters \\( ... \\) or \\[ ... \\].
@@ -161,7 +162,6 @@ LATEX DELIMITER RESTRICTION (MANDATORY):
 - Display mathematics MUST be written ONLY using: $$ ... $$
 - Any occurrence of \\(, \\), \\[, or \\] is STRICTLY FORBIDDEN.
 - If such delimiters appear, regenerate the output.
-
 
 LATEX COMMAND CONTAINMENT RULE (MANDATORY):
 
@@ -178,7 +178,6 @@ LATEX COMMAND CONTAINMENT RULE (MANDATORY):
   • \\Rightarrow
 - ALL such commands MUST appear ONLY inside $...$ or $$...$$.
 - If any backslash-command appears outside math delimiters, regenerate the output.
-
 
 2) PLAIN-TEXT MATH TOKEN BAN:
 - The following tokens are STRICTLY FORBIDDEN outside LaTeX math delimiters:
@@ -204,7 +203,7 @@ FOR ALL CHEMICAL CONTENT IN QUESTIONS:
 
 1) SIMPLE CHEMICAL FORMULAS (in question text):
    - Use INLINE math mode with subscripts/superscripts
-   - LaTeX backslashes MUST be DOUBLED in JSON strings: \\\\\\\\
+   - LaTeX backslashes MUST be DOUBLED in JSON strings: \\\\
    - Examples in question text:
      • Water: $H_2O$
      • Sulfuric acid: $H_2SO_4$
@@ -215,43 +214,43 @@ FOR ALL CHEMICAL CONTENT IN QUESTIONS:
 
 2) CHEMICAL EQUATIONS IN QUESTIONS:
    - Use DISPLAY math mode for reactions: $$ ... $$
-   - LaTeX backslashes MUST be DOUBLED: \\\\\\\\
+   - LaTeX backslashes MUST be DOUBLED: \\\\
    - Examples in question text:
      • Simple reaction:
-       $$K_2Cr_2O_7 + H_2SO_4 \\\\\\\\to \\\\\\\\text{products}$$
+       $$K_2Cr_2O_7 + H_2SO_4 \\\\to \\\\text{products}$$
      • Equilibrium:
-       $$N_2 + 3H_2 \\\\\\\\rightleftharpoons 2NH_3$$
+       $$N_2 + 3H_2 \\\\rightleftharpoons 2NH_3$$
      • With conditions:
-       $$\\\\ce{2KMnO_4 \\\\\\\\xrightarrow{\\\\\\\\Delta} K_2MnO_4 + MnO_2 + O_2}$$
+       $$\\ce{2KMnO_4 \\\\xrightarrow{\\\\Delta} K_2MnO_4 + MnO_2 + O_2}$$
 
 3) FORBIDDEN IN CHEMISTRY:
    - NEVER write H2O, H2SO4, K2Cr2O7 as plain text without LaTeX
    - NEVER write subscripts/superscripts without math delimiters
-   - NEVER use single backslashes in JSON (must be \\\\\\\\)
+   - NEVER use single backslashes in JSON (must be \\\\)
    - NEVER use \\( or \\) delimiters
 
 4) CHEMISTRY QUESTION EXAMPLES:
 
 Example - Chemical equation question:
-"Balance the following chemical equation and identify the type of reaction:\\n\\n$$Fe + H_2O \\\\\\\\to Fe_3O_4 + H_2$$"
+"Balance the following chemical equation and identify the type of reaction:\\n\\n$$Fe + H_2O \\\\to Fe_3O_4 + H_2$$"
 
 Example - Stoichiometry question:
-"If 5.6 g of iron reacts with steam according to the equation:\\n\\n$$3Fe + 4H_2O \\\\\\\\to Fe_3O_4 + 4H_2$$\\n\\nCalculate the volume of hydrogen gas produced at STP."
+"If 5.6 g of iron reacts with steam according to the equation:\\n\\n$$3Fe + 4H_2O \\\\to Fe_3O_4 + 4H_2$$\\n\\nCalculate the volume of hydrogen gas produced at STP."
 
 Example - Chemical formula question:
 "Write the chemical formula for: (a) Sodium carbonate (b) Calcium phosphate (c) Potassium permanganate"
 
 5) JSON ESCAPING FOR CHEMISTRY:
    - All chemical formulas with subscripts: $H_2O$, $K_2Cr_2O_7$
-   - Arrow commands in equations: \\\\\\\\to, \\\\\\\\rightarrow, \\\\\\\\rightleftharpoons
-   - Special chemistry: \\\\ce{}, \\\\\\\\xrightarrow{}, \\\\\\\\Delta
-   - Text in equations: \\\\\\\\text{PCC}, \\\\\\\\text{products}
+   - Arrow commands in equations: \\\\to, \\\\rightarrow, \\\\rightleftharpoons
+   - Special chemistry: \\ce{}, \\\\xrightarrow{}, \\\\Delta
+   - Text in equations: \\\\text{PCC}, \\\\text{products}
 
 PATTERN IN ALL EXAMPLES:
 - Chemical formulas always wrapped in $...$ or $$...$$
 - Subscripts use _
 - Superscripts use ^
-- LaTeX commands always have doubled backslashes: \\\\\\\\
+- LaTeX commands always have doubled backslashes: \\\\
 - Reactions use display math: $$...$$
 
 ────────────────────────────────────────
@@ -261,18 +260,16 @@ CHEMISTRY VALIDATION CHECKLIST
 Before returning JSON with chemistry content:
 
 1. ✓ All chemical formulas wrapped in $...$ or $$...$$
-2. ✓ All LaTeX backslashes are DOUBLED (\\\\\\\\)
+2. ✓ All LaTeX backslashes are DOUBLED (\\\\)
 3. ✓ NO plain-text chemical formulas (H2O, CO2, etc.)
 4. ✓ Subscripts use _ and superscripts use ^
-5. ✓ Arrows use \\\\\\\\to, \\\\\\\\rightarrow, or \\\\\\\\rightleftharpoons
+5. ✓ Arrows use \\\\to, \\\\rightarrow, or \\\\rightleftharpoons
 6. ✓ Chemical reactions use display math: $$...$$
 7. ✓ All strings use double quotes, not single quotes
-8. ✓ Newlines use \\\\n, not literal breaks
+8. ✓ Newlines use \\n, not literal breaks
 9. ✓ Valid JSON structure with no trailing commas
 
 If ANY chemistry validation fails → REGENERATE
-
-
 
 ────────────────────────────────────────
 LOGICAL & SYMBOLIC NOTATION RULE (MANDATORY)
@@ -294,7 +291,7 @@ Reasoning, Proofs, and Theoretical concepts.
    when they appear in the explanation field.
 
 2) NEVER write logical symbols as plain text.
-   ❌ Wrong: not p, egp, implies, contradiction
+   ❌ Wrong: not p, negp, implies, contradiction
    ✅ Correct: $\\neg p$, $p \\Rightarrow q$, $\\bot$
 
 3) If a topic involves logic or proofs:
@@ -313,7 +310,7 @@ Reasoning, Proofs, and Theoretical concepts.
 
 5) Examples (WRONG):
 
-   "Assume egp and derive contradiction"
+   "Assume negp and derive contradiction"
    "p implies q"
    "not p leads to bottom"
 
@@ -337,12 +334,8 @@ If logical symbols are required and not written in LaTeX → REGENERATE.
 - Outside tables, use real line breaks.
 - Do NOT collapse table rows into a single line.
 
-
 7) SUB-PARTS:
 - Each sub-part (a),(b),(c) MUST begin on its own line and be clearly numbered.
-
-
-
 
 MARKDOWN RULE:
 - Use markdown formatting for structure: line breaks, sub-parts, and tables.
@@ -350,8 +343,6 @@ MARKDOWN RULE:
 - Do NOT use markdown code blocks (\`\`\`), headings (#), or blockquotes (>).
 - Tables MUST be proper markdown tables with each row on its own line.
 - Mathematical content MUST be in LaTeX ($...$ or $$...$$), not markdown.
-
-
 
 FINAL SELF-VALIDATION (MANDATORY):
 
@@ -385,15 +376,114 @@ CRITICAL:
 `;
 
       // -------------------------------------------------------------------
-      // 3️⃣ FIRST AI CALL (PRIMARY)
+      // 3️⃣ FIRST AI CALL (PRIMARY GENERATION)
       // -------------------------------------------------------------------
-      const primaryRaw = await askOpenAI(prompt, "gpt-5.1", {
-        response_format: { type: "json_object" },
+      const primaryRaw = await step.run("Call OpenAI (Primary)", async () => {
+        return await askOpenAI(prompt, "gpt-5.1", {
+          response_format: { type: "json_object" },
+        });
       });
 
       // -------------------------------------------------------------------
-      // 🔁 4️⃣ SECOND AI CALL (FIX ONLY — SAME PATTERN)
+      // 4️⃣ PARSE PRIMARY RESPONSE & CACHE IMMEDIATELY
       // -------------------------------------------------------------------
+      let primaryQuestions;
+      try {
+        const extracted = extractJSON(primaryRaw);
+        primaryQuestions = JSON.parse(JSON.stringify(extracted));
+
+        // 🚀 IMMEDIATELY CACHE PRIMARY RESPONSE
+        await redis.set(cacheKey, JSON.stringify(primaryQuestions), {
+          ex: 60 * 60 * 24 * 30, 
+        });
+
+    await PredictedQuestionModel.findOneAndUpdate(
+    { className, subject:mainSubject, chapter },
+    {
+      $set: {
+        content: primaryQuestions,
+      },
+    },
+    {
+      upsert: true,
+      new: true,
+    }
+  );
+
+
+        // Store status in separate key
+        await redis.set(`${cacheKey}:status`, JSON.stringify({
+          version: "primary",
+          generatedAt: new Date().toISOString(),
+          isFixed: false
+        }), {
+          ex: 60 * 60 * 24 * 30,
+        });
+
+        await redis.del(pendingKey);
+      } catch (err) {
+        throw new Error("Failed to parse primary AI response: " + err.message);
+      }
+
+      // -------------------------------------------------------------------
+      // 5️⃣ TRIGGER BACKGROUND FIXER (NON-BLOCKING)
+      // -------------------------------------------------------------------
+      let fixerRunId = null;
+      try {
+        const fixerEvent = await step.sendEvent("trigger-fixer", {
+          name: "lmp/fix.predictedQuestions",
+          data: {
+            className,
+            subject: mainSubject,
+            chapter,
+            primaryRaw,
+            cacheKey,
+            fixedCacheKey,
+          },
+        });
+        
+        // Capture the fixer run ID
+        if (fixerEvent && fixerEvent.ids && fixerEvent.ids.length > 0) {
+          fixerRunId = fixerEvent.ids[0];
+        }
+      } catch (err) {
+        console.error("Failed to trigger fixer:", err.message);
+        // Don't throw - we already have primary response cached
+      }
+
+      // -------------------------------------------------------------------
+      // 6️⃣ RETURN IMMEDIATELY WITH PRIMARY RESPONSE
+      // -------------------------------------------------------------------
+      return { 
+        questions: primaryQuestions.questions,
+        source: "generated",
+        status: "primary",
+        fixerRunId: fixerRunId,
+        cacheKey: cacheKey,
+        message: "Primary response cached, fixing in background"
+      };
+
+    } catch (err) {
+      await redis.del(pendingKey);
+      throw new Error(`generatePredictedQuestions error: ${err.message}`);
+    } finally {
+      await redis.del(pendingKey);
+    }
+  }
+);
+
+/* -------------------- BACKGROUND FIXER FUNCTION -------------------- */
+export const predictedQuestionsFixerFn = inngest.createFunction(
+  {
+    name: "Fix Predicted Questions LaTeX",
+    id: "predicted-questions-fixer",
+    retries: 1,
+  },
+  { event: "lmp/fix.predictedQuestions" },
+  async ({ event, step }) => {
+    const { className, subject, chapter, primaryRaw, cacheKey, fixedCacheKey } = event.data;
+
+    try {
       const fixerPrompt = `
 You are a STRICT JSON + LaTeX ESCAPING FIXER for PREDICTED QUESTIONS.
 
@@ -465,54 +555,88 @@ NO markdown.
 NO extra text.
 `.trim();
 
-    const subjectHardness = ["physics","chemistry","mathematics","applied mathematics", "accountancy", "bio technology"];
+      const subjectHardness = [
+        "physics",
+        "chemistry",
+        "mathematics",
+        "applied mathematics",
+        "accountancy",
+        "bio technology"
+      ];
 
       let secondPassModel;
-      if(subjectHardness.includes(mainSubject)){
+      if (subjectHardness.includes(subject.toLowerCase())) {
         secondPassModel = "gpt-4o";
+      } else {
+        secondPassModel = "gpt-4o-mini";
       }
-      else{
-        secondPassModel = "gpt-4o-mini"
+
+      // Call fixer AI
+      const fixedRaw = await step.run("Call OpenAI (Fixer)", async () => {
+        return await askOpenAI(fixerPrompt, secondPassModel, {
+          response_format: { type: "json_object" },
+        });
+      });
+
+      // Parse fixed response
+      let fixedQuestions;
+      try {
+        const extracted = extractJSON(fixedRaw);
+        fixedQuestions = JSON.parse(JSON.stringify(extracted));
+      } catch (err) {
+        // If fixer fails, keep the primary version
+        console.error("Fixer failed, keeping primary version:", err.message);
+        return { status: "fixer_failed", kept: "primary" };
       }
 
-
-
-      const finalRaw = await askOpenAI(fixerPrompt, secondPassModel, {
-        response_format: { type: "json_object" },
+      // Save fixed version to DB
+      await step.run("Save Fixed to DB", async () => {
+        await PredictedQuestionModel.findOneAndUpdate(
+          {
+            className,
+            subject,
+            chapter,
+          },
+          {
+            content: fixedQuestions,
+          },
+          {
+            upsert: true,
+          }
+        );
       });
 
-      // -------------------------------------------------------------------
-      // 5️⃣ PARSE ONLY ONCE (FINAL OUTPUT)
-      // -------------------------------------------------------------------
-      const parsed = extractJSON(finalRaw);
-      const safeParsed = JSON.parse(JSON.stringify(parsed));
-
-      // -------------------------------------------------------------------
-      // 6️⃣ SAVE DB
-      // -------------------------------------------------------------------
-      await PredictedQuestionModel.create({
-        className,
-        subject: mainSubject,
-        chapter,
-        content: safeParsed,
+      // Update Redis cache with fixed version
+      await redis.set(cacheKey, JSON.stringify(fixedQuestions), {
+        ex: 60 * 60 * 24 * 30, // 2 days
       });
 
-      // -------------------------------------------------------------------
-      // 7️⃣ SAVE REDIS
-      // -------------------------------------------------------------------
-      await redis.set(cacheKey, JSON.stringify(safeParsed), {
-        ex: 60 * 60 * 24 * 2,
+      // Update status marker
+      await redis.set(`${cacheKey}:status`, JSON.stringify({
+        version: "fixed",
+        fixedAt: new Date().toISOString(),
+        isFixed: true
+      }), {
+        ex: 60 * 60 * 24 * 30,
       });
 
-      await redis.del(pendingKey);
+      // Also store in fixed cache key for reference
+      await redis.set(fixedCacheKey, JSON.stringify(fixedQuestions), {
+        ex: 60 * 60 * 24 * 30,
+      });
 
-      return { questions: safeParsed.questions, source: "generated" };
+      return { 
+        status: "fixed",
+        message: "LaTeX fixed and cached"
+      };
+
     } catch (err) {
-      await redis.del(pendingKey);
-      throw new Error(`generatePredictedQuestions error: ${err.message}`);
-    }
-    finally{
-      await redis.del(pendingKey);
+      console.error(`Background fixer error: ${err.message}`);
+      return { 
+        status: "error",
+        error: err.message,
+        kept: "primary"
+      };
     }
   }
 );

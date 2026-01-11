@@ -29,27 +29,9 @@ router.post("/summarizer",upload.fields([
     }
 ]),summarizer);
 
-// Last Night Before Exam Routes
-router.post("/last-night-before-exam/summary",LastMinutePanelSummary);
-router.post("/last-night-before-exam/important-topics",LastMinutePanelImportantTopics);
-router.post("/last-night-before-exam/predicted-questions",LastMinutePanelPredictedQuestions);
-router.post("/last-night-before-exam/mcqs",LastMinutePanelMCQs);
-router.post("/last-night-before-exam/memory-booster",LastMinutePanelMemoryBooster);
-router.post("/last-night-before-exam/ai-coach",LastMinutePanelAICoach);
-
 
 // Topper Style Answer API Routes 
 router.post("/topper-style-answer",topperStyleAnswer);
-
-
-// Chapter Wise Study Routes
-router.post("/chapter-wise-study/summary",smartChapterSummary);
-router.post("/chapter-wise-study/short-notes",chapterWiseShortNotes);
-router.post("/chapter-wise-study/important-questions",chapterWiseStudyQuestions);
-router.post("/chapter-wise-study/mind-map",chapterWiseMindMap);
-router.post("/chapter-wise-study/doubt-solver",chapterWiseDoubtSolver);
-
-
 
 router.post("/important-question-generator",importantQuestionGenerator);
 router.post("/ask-any",upload.fields([
@@ -80,6 +62,20 @@ router.use(pdfUploadQuotaCheck);
 
 router.post("/upload-pdf", pdfUpload.single("pdf"), uploadPdfAndProcess);
 router.post("/chat-with-pdf", chatWithPdf);
+
+router.post("/chapter-wise-study/summary",smartChapterSummary);
+router.post("/chapter-wise-study/short-notes",chapterWiseShortNotes);
+router.post("/chapter-wise-study/important-questions",chapterWiseStudyQuestions);
+router.post("/chapter-wise-study/mind-map",chapterWiseMindMap);
+router.post("/chapter-wise-study/doubt-solver",chapterWiseDoubtSolver);
+
+// Last Night Before Exam Routes
+router.post("/last-night-before-exam/summary",LastMinutePanelSummary);
+router.post("/last-night-before-exam/important-topics",LastMinutePanelImportantTopics);
+router.post("/last-night-before-exam/predicted-questions",LastMinutePanelPredictedQuestions);
+router.post("/last-night-before-exam/mcqs",LastMinutePanelMCQs);
+router.post("/last-night-before-exam/memory-booster",LastMinutePanelMemoryBooster);
+router.post("/last-night-before-exam/ai-coach",LastMinutePanelAICoach);
 
 
 

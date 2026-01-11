@@ -7,7 +7,6 @@ import { parseSubject } from "../utils/helper.js";
 import { askOpenAI } from "../utils/OpenAI.js";
 
 
-
 const smartChapterSummary = asyncHandler(async (req, res) => {
   const { className, subject, chapter } = req.body;
 
@@ -22,78 +21,72 @@ const smartChapterSummary = asyncHandler(async (req, res) => {
   const cacheKey = `lmp:smartsummary:${className}:${mainSubject}:${chapter}`;
   const pendingKey = `lmp:smartsummary:pending:${className}:${mainSubject}:${chapter}`;
 
-  // -------------------------------------------------------------------
-  // 1️⃣ CHECK REDIS (FASTEST PATH)
-  // -------------------------------------------------------------------
+  /* -------------------- CACHE CHECK -------------------- */
   try {
     const redisCached = await redis.get(cacheKey);
 
     if (redisCached) {
-      let finalData;
+      const finalData =
+        typeof redisCached === "object"
+          ? redisCached
+          : JSON.parse(redisCached);
 
-      if (typeof redisCached === "object") {
-        finalData = redisCached;
-      } else {
-        try {
-          finalData = JSON.parse(redisCached);
-        } catch (err) {
-          await redis.del(cacheKey); // corrupted → delete
-        }
-      }
-
-      if (finalData) {
-        return res
-          .status(200)
-          .json(new ApiResponse(200, finalData, "Smart Summary Ready (Redis)"));
-      }
+      return res
+        .status(200)
+        .json(new ApiResponse(200, finalData, "Smart Summary Ready (Redis)"));
     }
   } catch (err) {
     console.error("Redis GET error:", err);
   }
 
-  // -------------------------------------------------------------------
-  // 2️⃣ CHECK IF ALREADY PENDING (BEFORE ACQUIRING LOCK)
-  // -------------------------------------------------------------------
-  try {
-    const isPending = await redis.get(pendingKey);
-    
-    if (isPending) {
-      // Job already queued by another request
-      return res
-        .status(202)
-        .json(new ApiResponse(202, null, "Smart Summary generation already in progress"));
-    }
-  } catch (err) {
-    console.error("Redis pending check error:", err);
+  /* -------------------- PENDING CHECK -------------------- */
+  const isPending = await redis.get(pendingKey);
+  if (isPending) {
+    return res
+      .status(202)
+      .json(
+        new ApiResponse(
+          202,
+          null,
+          "Smart Summary generation already in progress"
+        )
+      );
   }
 
-  // -------------------------------------------------------------------
-  // 3️⃣ ACQUIRE LOCK AND TRIGGER JOB
-  // -------------------------------------------------------------------
+  /* -------------------- ACQUIRE LOCK -------------------- */
+  const lockAcquired = await redis.set(pendingKey, "1", {
+    nx: true,
+    ex: 60,
+  });
+
+  if (!lockAcquired) {
+    return res
+      .status(202)
+      .json(
+        new ApiResponse(
+          202,
+          null,
+          "Smart Summary generation already in progress"
+        )
+      );
+  }
+
   try {
-    const lockAcquired = await redis.set(
-      pendingKey,
-      "1",
-      { nx: true, ex: 60 } // 2 min lock (matches your original EX time)
-    );
+    // ✅ DIRECTLY AWAIT INNGEST
+    await inngest.send({
+      name: "lmp/generate.smartChapterSummary",
+      data: { className, subject, chapter },
+    });
 
-    if (lockAcquired) {
-      await inngest.send({
-        name: "lmp/generate.smartChapterSummary",
-        data: { className, subject, chapter },
-      });
-
-      return res
-        .status(202)
-        .json(new ApiResponse(202, null, "Smart Summary generation queued"));
-    } else {
-      // Lock was acquired by another request in the microseconds between check and set
-      return res
-        .status(202)
-        .json(new ApiResponse(202, null, "Smart Summary generation already in progress"));
-    }
+    return res
+      .status(202)
+      .json(new ApiResponse(202, null, "Smart Summary generation queued"));
   } catch (err) {
-    console.error("Redis lock error:", err);
+    console.error("Queue error:", err);
+
+    // 🔁 rollback lock on failure
+    await redis.del(pendingKey);
+
     return res
       .status(500)
       .json(new ApiResponse(500, null, "Failed to queue generation"));
@@ -114,9 +107,7 @@ const chapterWiseShortNotes = asyncHandler(async (req, res) => {
   const cacheKey = `lmp:shortnotes:${className}:${mainSubject}:${chapter}`;
   const pendingKey = `lmp:shortnotes:pending:${className}:${mainSubject}:${chapter}`;
 
-  // -------------------------------------------------------------------
-  // 1️⃣ CHECK REDIS (FASTEST PATH)
-  // -------------------------------------------------------------------
+  /* -------------------- CACHE CHECK -------------------- */
   try {
     const redisCached = await redis.get(cacheKey);
 
@@ -138,54 +129,73 @@ const chapterWiseShortNotes = asyncHandler(async (req, res) => {
     console.error("Redis GET error:", err);
   }
 
-  // -------------------------------------------------------------------
-  // 2️⃣ CHECK IF ALREADY PENDING (BEFORE ACQUIRING LOCK)
-  // -------------------------------------------------------------------
-  try {
-    const isPending = await redis.get(pendingKey);
-    
-    if (isPending) {
-      // Job already queued by another request
-      return res
-        .status(202)
-        .json(new ApiResponse(202, null, "Short Notes generation already in progress"));
-    }
-  } catch (err) {
-    console.error("Redis pending check error:", err);
+  /* -------------------- PENDING CHECK -------------------- */
+  const isPending = await redis.get(pendingKey);
+  if (isPending) {
+    return res
+      .status(202)
+      .json(
+        new ApiResponse(
+          202,
+          null,
+          "Short Notes generation already in progress"
+        )
+      );
   }
 
-  // -------------------------------------------------------------------
-  // 3️⃣ ACQUIRE LOCK AND TRIGGER JOB
-  // -------------------------------------------------------------------
+  /* -------------------- ACQUIRE LOCK -------------------- */
+  const lockAcquired = await redis.set(pendingKey, "1", {
+    nx: true,
+    ex: 150,
+  });
+
+  if (!lockAcquired) {
+    return res
+      .status(202)
+      .json(
+        new ApiResponse(
+          202,
+          null,
+          "Short Notes generation already in progress"
+        )
+      );
+  }
+
   try {
-    const lockAcquired = await redis.set(
-      pendingKey,
-      "1",
-      { nx: true, ex: 150 } // 3 min lock (matches your original EX time)
-    );
+    // ✅ DIRECTLY AWAIT INNGEST
+    await inngest.send({
+      name: "lmp/generate.chapterWiseShortNotes",
+      data: { className, subject, chapter },
+    });
 
-    if (lockAcquired) {
-      await inngest.send({
-        name: "lmp/generate.chapterWiseShortNotes",
-        data: { className, subject, chapter },
-      });
-
-      return res
-        .status(202)
-        .json(new ApiResponse(202, null, "Short Notes generation queued"));
-    } else {
-      // Lock was acquired by another request in the microseconds between check and set
-      return res
-        .status(202)
-        .json(new ApiResponse(202, null, "Short Notes generation already in progress"));
-    }
+    return res
+      .status(202)
+      .json(
+        new ApiResponse(
+          202,
+          null,
+          "Short Notes generation queued"
+        )
+      );
   } catch (err) {
-    console.error("Redis lock error:", err);
+    console.error("Queue error:", err);
+
+    // 🔁 rollback lock on failure
+    await redis.del(pendingKey);
+
     return res
       .status(500)
-      .json(new ApiResponse(500, null, "Failed to queue generation"));
+      .json(
+        new ApiResponse(
+          500,
+          null,
+          "Failed to queue generation"
+        )
+      );
   }
 });
+
+
 
 
 const chapterWiseMindMap = asyncHandler(async (req, res) => {
@@ -202,83 +212,90 @@ const chapterWiseMindMap = asyncHandler(async (req, res) => {
   const cacheKey = `lmp:mindmap:${className}:${mainSubject}:${chapter}`;
   const pendingKey = `lmp:mindmap:pending:${className}:${mainSubject}:${chapter}`;
 
-  // -------------------------------------------------------------------
-  // 1️⃣ CHECK REDIS (FASTEST PATH)
-  // -------------------------------------------------------------------
+  /* -------------------- CACHE CHECK -------------------- */
   try {
     const redisCached = await redis.get(cacheKey);
 
     if (redisCached) {
-      let finalData;
+      const finalData =
+        typeof redisCached === "object"
+          ? redisCached
+          : JSON.parse(redisCached);
 
-      if (typeof redisCached === "object") {
-        finalData = redisCached;
-      } else {
-        try {
-          finalData = JSON.parse(redisCached);
-        } catch (err) {
-          await redis.del(cacheKey); // corrupted → delete
-        }
-      }
-
-      if (finalData) {
-        return res
-          .status(200)
-          .json(new ApiResponse(200, finalData, "MindMap Ready (Redis)"));
-      }
+      return res
+        .status(200)
+        .json(new ApiResponse(200, finalData, "MindMap Ready (Redis)"));
     }
   } catch (err) {
     console.error("Redis GET error:", err);
   }
 
-  // -------------------------------------------------------------------
-  // 2️⃣ CHECK IF ALREADY PENDING (BEFORE ACQUIRING LOCK)
-  // -------------------------------------------------------------------
-  try {
-    const isPending = await redis.get(pendingKey);
-    
-    if (isPending) {
-      // Job already queued by another request
-      return res
-        .status(202)
-        .json(new ApiResponse(202, null, "MindMap generation already in progress"));
-    }
-  } catch (err) {
-    console.error("Redis pending check error:", err);
+  /* -------------------- PENDING CHECK -------------------- */
+  const isPending = await redis.get(pendingKey);
+  if (isPending) {
+    return res
+      .status(202)
+      .json(
+        new ApiResponse(
+          202,
+          null,
+          "MindMap generation already in progress"
+        )
+      );
   }
 
-  // -------------------------------------------------------------------
-  // 3️⃣ ACQUIRE LOCK AND TRIGGER JOB
-  // -------------------------------------------------------------------
+  /* -------------------- ACQUIRE LOCK -------------------- */
+  const lockAcquired = await redis.set(pendingKey, "1", {
+    nx: true,
+    ex: 120,
+  });
+
+  if (!lockAcquired) {
+    return res
+      .status(202)
+      .json(
+        new ApiResponse(
+          202,
+          null,
+          "MindMap generation already in progress"
+        )
+      );
+  }
+
   try {
-    const lockAcquired = await redis.set(
-      pendingKey,
-      "1",
-      { nx: true, ex: 120 } // 3 min lock (matches your original EX time)
-    );
+    // ✅ DIRECTLY AWAIT INNGEST
+    await inngest.send({
+      name: "lmp/generate.chapterWiseMindMap",
+      data: { className, subject, chapter },
+    });
 
-    if (lockAcquired) {
-      await inngest.send({
-        name: "lmp/generate.chapterWiseMindMap",
-        data: { className, subject, chapter },
-      });
-
-      return res
-        .status(202)
-        .json(new ApiResponse(202, null, "MindMap generation queued"));
-    } else {
-      // Lock was acquired by another request in the microseconds between check and set
-      return res
-        .status(202)
-        .json(new ApiResponse(202, null, "MindMap generation already in progress"));
-    }
+    return res
+      .status(202)
+      .json(
+        new ApiResponse(
+          202,
+          null,
+          "MindMap generation queued"
+        )
+      );
   } catch (err) {
-    console.error("Redis lock error:", err);
+    console.error("Queue error:", err);
+
+    // 🔁 rollback lock on failure
+    await redis.del(pendingKey);
+
     return res
       .status(500)
-      .json(new ApiResponse(500, null, "Failed to queue generation"));
+      .json(
+        new ApiResponse(
+          500,
+          null,
+          "Failed to queue generation"
+        )
+      );
   }
 });
+
 
 
 const chapterWiseStudyQuestions = asyncHandler(async (req, res) => {
@@ -295,87 +312,96 @@ const chapterWiseStudyQuestions = asyncHandler(async (req, res) => {
   const cacheKey = `lmp:studyq:${className}:${mainSubject}:${chapter}`;
   const pendingKey = `lmp:studyq:pending:${className}:${mainSubject}:${chapter}`;
 
-  // -------------------------------------------------------------------
-  // 1️⃣ CHECK REDIS (FASTEST PATH)
-  // -------------------------------------------------------------------
+  /* -------------------- CACHE CHECK -------------------- */
   try {
     const redisCached = await redis.get(cacheKey);
 
     if (redisCached) {
-      let finalData;
+      const finalData =
+        typeof redisCached === "object"
+          ? redisCached
+          : JSON.parse(redisCached);
 
-      if (typeof redisCached === "object") {
-        finalData = redisCached;
-      } else {
-        try {
-          finalData = JSON.parse(redisCached);
-        } catch (err) {
-          await redis.del(cacheKey); // corrupted → delete
-        }
-      }
-
-      if (finalData) {
-        return res
-          .status(200)
-          .json(
-            new ApiResponse(200, finalData, "Important Questions Ready (Redis)")
-          );
-      }
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(
+            200,
+            finalData,
+            "Important Questions Ready (Redis)"
+          )
+        );
     }
   } catch (err) {
     console.error("Redis GET error:", err);
   }
 
-  // -------------------------------------------------------------------
-  // 2️⃣ CHECK IF ALREADY PENDING (BEFORE ACQUIRING LOCK)
-  // -------------------------------------------------------------------
-  try {
-    const isPending = await redis.get(pendingKey);
-    
-    if (isPending) {
-      // Job already queued by another request
-      return res
-        .status(202)
-        .json(new ApiResponse(202, null, "Important questions generation already in progress"));
-    }
-  } catch (err) {
-    console.error("Redis pending check error:", err);
+  /* -------------------- PENDING CHECK -------------------- */
+  const isPending = await redis.get(pendingKey);
+  if (isPending) {
+    return res
+      .status(202)
+      .json(
+        new ApiResponse(
+          202,
+          null,
+          "Important questions generation already in progress"
+        )
+      );
   }
 
-  // -------------------------------------------------------------------
-  // 3️⃣ ACQUIRE LOCK AND TRIGGER JOB
-  // -------------------------------------------------------------------
+  /* -------------------- ACQUIRE LOCK -------------------- */
+  const lockAcquired = await redis.set(pendingKey, "1", {
+    nx: true,
+    ex: 150,
+  });
+
+  if (!lockAcquired) {
+    return res
+      .status(202)
+      .json(
+        new ApiResponse(
+          202,
+          null,
+          "Important questions generation already in progress"
+        )
+      );
+  }
+
   try {
-    const lockAcquired = await redis.set(
-      pendingKey,
-      "1",
-      { nx: true, ex: 150 } // 3 min lock (matches your original EX time)
-    );
+    // ✅ DIRECTLY AWAIT INNGEST
+    await inngest.send({
+      name: "lmp/generate.chapterWiseStudyQuestions",
+      data: { className, subject, chapter },
+    });
 
-    if (lockAcquired) {
-      await inngest.send({
-        name: "lmp/generate.chapterWiseStudyQuestions",
-        data: { className, subject, chapter },
-      });
-
-      return res
-        .status(202)
-        .json(
-          new ApiResponse(202, null, "Important questions generation queued")
-        );
-    } else {
-      // Lock was acquired by another request in the microseconds between check and set
-      return res
-        .status(202)
-        .json(new ApiResponse(202, null, "Important questions generation already in progress"));
-    }
+    return res
+      .status(202)
+      .json(
+        new ApiResponse(
+          202,
+          null,
+          "Important questions generation queued"
+        )
+      );
   } catch (err) {
-    console.error("Redis lock error:", err);
+    console.error("Queue error:", err);
+
+    // 🔁 rollback lock on failure
+    await redis.del(pendingKey);
+
     return res
       .status(500)
-      .json(new ApiResponse(500, null, "Failed to queue generation"));
+      .json(
+        new ApiResponse(
+          500,
+          null,
+          "Failed to queue generation"
+        )
+      );
   }
 });
+
 
 const chapterWiseDoubtSolver = asyncHandler(async (req, res) => {
   const { className, subject, chapter, user_doubt} = req.body;

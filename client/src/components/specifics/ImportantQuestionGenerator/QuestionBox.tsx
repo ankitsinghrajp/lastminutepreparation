@@ -17,7 +17,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAsyncMutation } from '@/hooks/hook';
 import { useTopperStyleMutation } from '@/redux/api/api';
 import AIOutput from "../AIOutput";
@@ -36,6 +36,12 @@ const QuestionBox = ({ response, selectedClass, selectedSubject, selectedChapter
     numericals: true,
     long: true,
   });
+
+    useEffect(() => {
+    setAnswers({});
+    setLoading({});
+    setShowAnswers({});
+  }, [response]);
 
   const pollTopperStyleAnswer = async (params, key) => {
     const interval = setInterval(async () => {
@@ -61,7 +67,7 @@ const QuestionBox = ({ response, selectedClass, selectedSubject, selectedChapter
         setLoading(prev => ({ ...prev, [key]: false }));
         toast.error("Error fetching Answer...");
       }
-    }, 1000);
+    }, 3000);
   };
 
   const toggleSection = (section) => {
@@ -120,7 +126,7 @@ const QuestionBox = ({ response, selectedClass, selectedSubject, selectedChapter
             </div>
             <h3 className="text-xl font-bold mb-2 text-foreground">Ready to Start?</h3>
             <p className="text-sm text-muted-foreground">
-              Generate questions to begin your practice journey
+              Fetch questions to begin your practice journey
             </p>
           </div>
         </Card>
@@ -131,6 +137,28 @@ const QuestionBox = ({ response, selectedClass, selectedSubject, selectedChapter
   return (
     <div className="w-full max-w-full mx-auto">
       <div className="space-y-4 sm:space-y-5">
+
+        {response.chapter && (
+           <Card className="overflow-hidden rounded-lg shadow-sm">
+            <div className="bg-gradient-to-r from-blue-500 to-cyan-500 p-4 sm:p-5">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg">
+                  <HelpCircle className="h-5 w-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-base sm:text-lg font-bold text-white">
+                    Before You Start:
+                  </h2>
+                  {response.whyImportant && (
+                    <p className="text-sm text-white/90 mt-1">
+                     These questions are analyzed from 20 years of previous CBSE board papers, so study them seriously and score your dream.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* ==================== CHAPTER HEADER ==================== */}
         {response.chapter && (
@@ -162,28 +190,28 @@ const QuestionBox = ({ response, selectedClass, selectedSubject, selectedChapter
         {[
           { 
             key: 'important', 
-            label: 'Important Questions', 
+            label: 'Top Times (10+ times asked)', 
             icon: <CheckCircle2 className="h-5 w-5 text-white" />, 
             gradient: 'from-emerald-500 to-teal-500',
             list: response.importantQuestions 
           },
           { 
             key: 'veryShort', 
-            label: 'Very Short Questions', 
+            label: 'Most Asked - Very Short', 
             icon: <HelpCircle className="h-5 w-5 text-white" />, 
             gradient: 'from-blue-500 to-cyan-500',
             list: response.veryShortQuestions 
           },
           { 
             key: 'numericals', 
-            label: 'Must Practice Numericals', 
+            label: 'Score Booster', 
             icon: <Zap className="h-5 w-5 text-white" />, 
             gradient: 'from-orange-500 to-red-500',
             list: response.mustPracticeNumericals 
           },
           { 
             key: 'long', 
-            label: 'Long Answer Questions', 
+            label: 'Long Answer (3+ times asked)', 
             icon: <BookOpen className="h-5 w-5 text-white" />, 
             gradient: 'from-purple-500 to-pink-500',
             list: response.longAnswerQuestions 
@@ -228,25 +256,25 @@ const QuestionBox = ({ response, selectedClass, selectedSubject, selectedChapter
                         className="bg-muted/50 rounded-lg sm:rounded-xl px-1 py-3  border border-border mx-1"
                       >
                         {/* Question Text */}
-                        <div className="flex items-start gap-2 sm:gap-3 mb-3">
-                          <span className={`min-w-7 min-h-7 sm:min-w-8 sm:min-h-8 flex items-center justify-center text-xs font-semibold rounded-full bg-gradient-to-r ${section.gradient} text-white shrink-0`}>
-                            {idx + 1}
-                          </span>
+                   <div className="flex items-start gap-2 sm:gap-3 mb-3">
+  <span className={`min-w-7 min-h-7 sm:min-w-8 sm:min-h-8 flex items-center justify-center text-xs font-semibold rounded-full bg-gradient-to-r ${section.gradient} text-white shrink-0`}>
+    {idx + 1}
+  </span>
 
-                          <p className="font-semibold text-sm sm:text-base text-foreground leading-relaxed flex-1">
-                            {<QuestionOutput content={q.question}/>}
-                          </p>
+  <div className="font-semibold text-sm sm:text-base text-foreground leading-relaxed flex-1 min-w-0 overflow-hidden">
+    <QuestionOutput content={q.question}/>
+  </div>
 
-                          {/* Copy Button */}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 flex-shrink-0 hover:bg-muted"
-                            onClick={() => navigator.clipboard.writeText(q.question)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                        </div>
+  {/* Copy Button */}
+  <Button
+    variant="ghost"
+    size="sm"
+    className="h-8 w-8 p-0 flex-shrink-0 hover:bg-muted"
+    onClick={() => navigator.clipboard.writeText(q.question)}
+  >
+    <Copy className="h-4 w-4" />
+  </Button>
+</div>
 
                         {/* Generate / Show Answer */}
                         <div className="mt-4">
@@ -259,12 +287,13 @@ const QuestionBox = ({ response, selectedClass, selectedSubject, selectedChapter
                               {loading[key] ? (
                                 <>
                                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                  <span>Generating...</span>
+                                  <span>Fetching...</span>
+                                  
                                 </>
                               ) : (
                                 <>
                                   <Sparkles className="h-4 w-4" />
-                                  <span>Generate Topper Style Answer</span>
+                                  <span>Get Topper Style Answer</span>
                                 </>
                               )}
                             </button>
@@ -296,12 +325,12 @@ const QuestionBox = ({ response, selectedClass, selectedSubject, selectedChapter
                                   {loading[key] ? (
                                     <>
                                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                      <span>Regenerating...</span>
+                                      <span>fetching...</span>
                                     </>
                                   ) : (
                                     <>
                                       <RefreshCw className="h-4 w-4" />
-                                      <span>Regenerate</span>
+                                      <span>Refetch</span>
                                     </>
                                   )}
                                 </button>
@@ -329,7 +358,7 @@ const QuestionBox = ({ response, selectedClass, selectedSubject, selectedChapter
             </Card>
           )
         ))}
-
+   
       </div>
     </div>
   );
