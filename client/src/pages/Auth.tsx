@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Sparkles, MoreVertical, ExternalLink } from "lucide-react";
+import {  MoreVertical, ExternalLink } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDispatch } from "react-redux";
@@ -14,6 +14,7 @@ import { useForm, SubmitHandler } from 'react-hook-form';
 import LoginForm from '@/components/specifics/LoginForm';
 import logo from "../assets/logo.png";
 import { useState, useEffect } from "react";
+import {server} from "../constants";
 
 export default function Auth() {
 
@@ -53,7 +54,7 @@ export default function Auth() {
   const handleGoogleSuccess = async (credentialResponse) => {
     const token = credentialResponse.credential;
 
-    const res = await fetch("http://localhost:3000/api/auth/google", {
+    const res = await fetch(`${server}/api/auth/google`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials :"include",
