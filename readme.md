@@ -89,6 +89,34 @@ The platform is optimized for **speed, scalability, and real-world usage**, and 
   * Premium features behind paywall using Razorpay
 
 ---
+## Authentication & Authorization
+
+*  **JWT-based Authentication**
+
+  * Access Token for short-lived secure API access
+  * Refresh Token for session persistence
+
+*  **Token Refresh Mechanism**
+
+  * Automatic renewal of expired access tokens
+  * Improves user experience without frequent logins
+
+* **Secure Session Management**
+
+  * Tokens stored securely (HTTP-only cookies / secure storage)
+  * Protection against unauthorized access
+
+*  **Google OAuth Login**
+
+  * One-click login/signup using Google
+  * Simplified onboarding for students
+
+*  **Protected Routes**
+
+  * Role-based access for premium (PRO) features
+  * Middleware-based authentication in backend
+
+---
 
 ##  AI & Backend Architecture
 
@@ -97,23 +125,48 @@ The platform is optimized for **speed, scalability, and real-world usage**, and 
 * Asynchronous job processing using **Inngest (queue system)**
 * Frontend uses **polling mechanism** to fetch responses
 * Integrated **Upstash (Redis) caching** to store frequently requested AI responses and reduce latency
+*  **JWT + OAuth-based authentication system for secure access**
 * Designed for **scalability, low response time, and real-time performance**
 
 ---
 
 ## System Architecture (Workflow)
 
-1. User selects feature (e.g., summarizer / question)
-2. Request sent to backend (Express API)
-3. Backend first checks **Upstash cache**
-4. If cached → response returned instantly 
-5. If not cached:
+1. User logs in (JWT / Google OAuth)
+2. User selects feature (e.g., summarizer / question)
+3. Request sent to backend (Express API) with access token
+4. Backend validates token & checks **Upstash cache**
+5. If cached → response returned instantly 
+6. If not cached:
 
    * Job pushed to **Inngest queue**
    * OpenAI (GPT-5.1 Pro) processes request
-6. Result stored in **Upstash cache**
-7. Frontend polls for response
-8. Final answer displayed in exam-ready format
+7. Result stored in **Upstash cache**
+8. Frontend polls for response
+9. Final answer displayed in exam-ready format
+
+---
+
+## Security
+
+* OpenAI API keys stored securely on backend
+* JWT authentication with access & refresh tokens
+* Secure OAuth login (Google)
+* No exposure of sensitive keys to frontend
+* Protected premium routes and APIs
+* Validation & authorization middleware in backend
+
+---
+
+##  Challenges Solved
+
+* Handling async AI responses efficiently
+* Queue-based architecture using Inngest
+* Implemented caching layer using Upstash for performance boost
+* Designed secure authentication (JWT + OAuth)
+* Optimized polling without performance issues
+* Smooth Razorpay payment integration
+* Scaling backend for real users
 
 ---
 
@@ -199,7 +252,7 @@ The platform is optimized for **speed, scalability, and real-world usage**, and 
 ##  Author
 
 **Ankit Singh Chouhan**
-Full Stack Developer | AI Enthusiast
+Full Stack Developer | AI & Backend Enthusiast
 
 ---
 
