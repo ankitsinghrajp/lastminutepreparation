@@ -1,4 +1,4 @@
-#  LastMinutePreparation (LMP)
+#  LastMinutePreparation CBSE (LMP)
 
 **An AI-powered exam preparation platform for CBSE students**
 Built to help students prepare effectively in the *last moments before exams* using smart summaries, PYQs, and AI-generated answers.
